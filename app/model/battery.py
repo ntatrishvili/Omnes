@@ -1,7 +1,9 @@
 import pandas as pd
 
+from .unit import Unit
 
-class Battery:
+
+class Battery(Unit):
     def __init__(
         self,
         injection: pd.DataFrame,
