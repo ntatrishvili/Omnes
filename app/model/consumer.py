@@ -11,3 +11,9 @@ class Consumer(Unit):
 
     def get_consumption(self) -> pd.DataFrame:
         return self.consumption
+
+    def __str__(self):
+        """
+        String representation of the Consumer unit.
+        """
+        return f"Consumer {self.id} with consumption_sum={self.consumption.sum()}"

@@ -12,3 +12,9 @@ class PV(Unit):
 
     def get_production(self) -> pd.DataFrame:
         return self.production
+
+    def __str__(self):
+        """
+        String representation of the PV unit.
+        """
+        return f"PV '{self.id}' with production_sum={self.production.sum()}"

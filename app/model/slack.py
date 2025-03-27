@@ -24,3 +24,9 @@ class Slack:
         Energy injected into the grid by the household
         #"""
         return create_empty_pulp_var("P_slack_out", time_set)
+
+    def __str__(self):
+        """
+        String representation of the Slack unit.
+        """
+        return f"Slack '{self.id}' with flow_in_sum={self.flow_in.sum()},flow_out_sum={self.flow_out.sum()}"

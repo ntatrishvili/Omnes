@@ -1,6 +1,7 @@
 import random
 from typing import Optional
 
+
 class Unit:
 
     def __init__(self, id: Optional[str] = None):
@@ -14,9 +15,9 @@ class Unit:
         """
         Add a subunit to the current unit.
         """
-        self.subunits.append(unit)
         unit.parent = self
         unit.parent_id = self.id
+        self.subunits.append(unit)
 
     def fill(self):
         """
@@ -29,4 +30,4 @@ class Unit:
         String representation of the unit.
         """
         subunits_str = ", ".join([str(subunit) for subunit in self.subunits])
-        return f"Unit(id={self.id}, subunits=[{subunits_str}])"
+        return f"Unit '{self.id}' containing: [{subunits_str}])"

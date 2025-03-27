@@ -33,3 +33,9 @@ class Battery(Unit):
         Stored electric energy
         """
         return create_empty_pulp_var("bess_soc", time_set)
+
+    def __str__(self):
+        """
+        String representation of the Battery unit.
+        """
+        return f"Battery {self.id} with injection_sum={self.injection.sum()}, withdrawal_sum={self.withdrawal.sum()}"
