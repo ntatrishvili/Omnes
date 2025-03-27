@@ -1,11 +1,13 @@
+from typing import Optional
 import pandas as pd
 import pulp
 
-from app.infra.util import create_empty_pulp_var
+from app.conversion.convert_optimization import create_empty_pulp_var
 
 
 class Slack:
-    def __init__(self):
+    def __init__(self, id: Optional[str] = None):
+        self.id = id if id else "slack"
         self.flow_in = pd.DataFrame()
         self.flow_out = pd.DataFrame()
 

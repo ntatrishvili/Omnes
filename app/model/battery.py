@@ -1,3 +1,4 @@
+from typing import Optional
 import pandas as pd
 import pulp
 
@@ -6,7 +7,8 @@ from ..conversion.convert_optimization import create_empty_pulp_var
 
 
 class Battery(Unit):
-    def __init__(self):
+    def __init__(self, id: Optional[str] = None):
+        super().__init__(id)
         self.injection = pd.DataFrame()
         self.withdrawal = pd.DataFrame()
         self.state_of_charge = pd.DataFrame()

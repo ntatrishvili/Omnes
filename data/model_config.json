@@ -1,0 +1,16 @@
+{
+    "unit1": {
+        "pvs": [
+            "pv1"
+        ],
+        "consumers": [],
+		"batteries": []
+    },
+	"unit2": {
+		"pvs": [],
+        "consumers": [
+			"consumer1"
+		],
+		"batteries": []
+	}
+}
