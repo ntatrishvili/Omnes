@@ -10,6 +10,7 @@ class Unit:
         """
         self.id = id if id is not None else str(random.randint(1, 1000000))
         self.subunits: list[Unit] = []
+        self.parent = None
 
     def add_unit(self, unit) -> None:
         """
@@ -19,15 +20,19 @@ class Unit:
         unit.parent_id = self.id
         self.subunits.append(unit)
 
-    def fill(self):
+    def to_pulp(self, time_set: int):
         """
-        Fill the unit with input data.
+        Convert the unit to a pulp representation.
         """
-        pass  # TODO
+        res = []
+        for subunit in self.subunits:
+            child_objects = subunit.to_pulp(time_set)
+            res.extend(child_objects)
+        return res
 
     def __str__(self):
         """
         String representation of the unit.
         """
         subunits_str = ", ".join([str(subunit) for subunit in self.subunits])
-        return f"Unit '{self.id}' containing: [{subunits_str}])"
+        return f"Unit '{self.id}' containing: [{subunits_str}]"
