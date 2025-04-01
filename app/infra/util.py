@@ -31,17 +31,16 @@ def create_empty_pulp_var(name: str, time_set: int) -> list[pulp.LpVariable]:
     """
     return [pulp.LpVariable(f"P_{name}_{t}", lowBound=0) for t in range(time_set)]
 
+
 def flatten(nested_list):
-    """"
+    """
     Flatten a nested list.
     """
     flattened = []
-    
     for item in nested_list:
         if isinstance(item, list):
             flattened.extend(flatten(item))
         else:
             flattened.append(item)
-    
+
     return flattened
-        

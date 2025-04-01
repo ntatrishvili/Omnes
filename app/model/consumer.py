@@ -26,4 +26,6 @@ class Consumer(Unit):
         """
         if self.consumption.empty:
             return {"p_cons": create_empty_pulp_var("p_cons", time_set)}
-        return [{"p_cons": self.get_consumption()}, ]
+        return [
+            {"p_cons": self.get_consumption()},
+        ]

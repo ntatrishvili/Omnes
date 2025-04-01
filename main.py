@@ -9,4 +9,4 @@ if __name__ == "__main__":
         config = json.load(file)
     model = Model.build(config, "./data/input.csv")
     problem = model.to_pulp()
-    optimize(problem)
+    optimize(**problem)

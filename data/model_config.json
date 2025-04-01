@@ -12,5 +12,16 @@
 			"consumer1"
 		],
 		"batteries": []
+	},
+    "unit3": {
+		"pvs": [],
+        "consumers": [],
+		"batteries": [
+            {
+                "id": "battery1",
+                "nominal_power": 100,
+                "capacity": 1000
+            }
+        ]
 	}
 }

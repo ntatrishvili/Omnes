@@ -42,7 +42,10 @@ class Model:
                 cs.consumption.index = pd.to_datetime(df["timestamp"])
                 unit.add_unit(cs)
             for battery in content["batteries"]:
-                unit.add_unit(Battery(id=battery))
+                b = Battery(battery["id"])
+                b.max_power = battery["nominal_power"]
+                b.capacity = battery["capacity"]
+                unit.add_unit(b)
             model.add_unit(unit)
         model.add_unit(Slack(id="slack"))
         return model
@@ -56,8 +59,7 @@ class Model:
             pulp_vars.extend(unit.to_pulp(self.time_set))
         pulp_vars = flatten(pulp_vars)
         pulp_vars = {k: v for d in pulp_vars for k, v in d.items()}
-        pulp_vars["time_set"] = self.time_set
-        
+        pulp_vars["time_set"] = range(self.time_set)
         return pulp_vars
 
     def __str__(self):

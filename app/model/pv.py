@@ -18,8 +18,12 @@ class PV(Unit):
         Convert the PV unit to a pulp variable.
         """
         if self.production.empty:
-            return [{"p_pv": create_empty_pulp_var("p_pv", time_set)},]
-        return [{"p_pv": self.get_production()},]
+            return [
+                {"p_pv": create_empty_pulp_var("p_pv", time_set)},
+            ]
+        return [
+            {"p_pv": self.get_production()},
+        ]
 
     def __str__(self):
         """
