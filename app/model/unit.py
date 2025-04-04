@@ -1,5 +1,6 @@
 import random
 from typing import Optional
+import secrets
 
 
 class Unit:
@@ -8,7 +9,7 @@ class Unit:
         """
         Initialize the unit with an optional id.
         """
-        self.id = id if id is not None else str(random.randint(1, 1000000))
+        self.id = str(id) if id is not None else secrets.token_hex(16)
         self.subunits: list[Unit] = []
         self.parent = None
 
