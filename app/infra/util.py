@@ -29,9 +29,7 @@ def create_empty_pulp_var(name: str, time_set: int) -> list[pulp.LpVariable]:
     """
     Create a list of empty LpVariable with the specified name and time set
     """
-    return [
-        pulp.LpVariable(f"P_{name}_{t}", lowBound=0) for t in range(time_set)
-    ]
+    return [pulp.LpVariable(f"P_{name}_{t}", lowBound=0) for t in range(time_set)]
 
 
 def flatten(nested_list):

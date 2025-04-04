@@ -59,9 +59,7 @@ def optimize(**kwargs) -> None:
     objective = pulp.value(prob.objective)
 
     print(f"Optimization Status: {prob.status}")
-    print(
-        f"Energy exchanged with the slack for the entire year: {objective:.0}"
-    )
+    print(f"Energy exchanged with the slack for the entire year: {objective:.0}")
 
     # Retain variables
     p_bess_in = np.array([pulp.value(p_bess_in[t]) for t in time_set])

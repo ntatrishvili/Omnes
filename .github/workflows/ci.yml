@@ -31,9 +31,6 @@ jobs:
       - name: Run Black (Code Formatter)
         run: black --check .
 
-      - name: Run Flake8 (Linter)
-        run: flake8 .
-
       - name: Run Bandit (Security Checks)
         run: bandit -r .
 

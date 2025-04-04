@@ -17,9 +17,7 @@ class Consumer(Unit):
         """
         String representation of the Consumer unit.
         """
-        consumption_sum = (
-            self.consumption.sum() if not self.consumption.empty else 0
-        )
+        consumption_sum = self.consumption.sum() if not self.consumption.empty else 0
         return f"Consumer '{self.id}' with consumption_sum={consumption_sum}"
 
     def to_pulp(self, time_set: int):
