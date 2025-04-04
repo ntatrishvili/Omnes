@@ -29,5 +29,7 @@ class PV(Unit):
         """
         String representation of the PV unit.
         """
-        production_sum = self.production.sum() if not self.production.empty else 0
+        production_sum = (
+            self.production.sum() if not self.production.empty else 0
+        )
         return f"PV '{self.id}' with production_sum = {production_sum}"

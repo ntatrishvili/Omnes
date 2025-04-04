@@ -59,7 +59,9 @@ def optimize(**kwargs) -> None:
     objective = pulp.value(prob.objective)
 
     print(f"Optimization Status: {prob.status}")
-    print(f"Energy exchanged with the slack for the entire year: {objective:.0}")
+    print(
+        f"Energy exchanged with the slack for the entire year: {objective:.0}"
+    )
 
     # Retain variables
     p_bess_in = np.array([pulp.value(p_bess_in[t]) for t in time_set])
@@ -87,7 +89,10 @@ def optimize(**kwargs) -> None:
         label="Battery discharging",
     )
     plt.step(
-        e_bess_stor[time_range_to_plot] / 8, "b", alpha=0.7, label="Stored energy/8"
+        e_bess_stor[time_range_to_plot] / 8,
+        "b",
+        alpha=0.7,
+        label="Stored energy/8",
     )
     plt.plot(p_pv[time_range_to_plot], "r", label="PV production")
     plt.plot(p_cons[time_range_to_plot], "g", label="Consumption")
