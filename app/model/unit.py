@@ -5,7 +5,7 @@ import secrets
 
 class Unit:
 
-    def __init__(self, id: Optional[str] = None):
+    def __init__(self, id: Optional[str] = None, **kwargs):
         """
         Initialize the unit with an optional id.
         """

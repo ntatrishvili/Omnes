@@ -10,11 +10,11 @@ from app.model.slack import Slack
 
 
 class Model:
-    def __init__(self, id: Optional[str] = None):
+    def __init__(self, identifier: Optional[str] = None):
         """
         Initialize the model with an optional name
         """
-        self.id: str = id if id else "model"
+        self.identifier: str = identifier if identifier else "model"
         self.time_set: int = 0
         self.units: list[Unit] = []
 
@@ -26,7 +26,7 @@ class Model:
         """
         Build the model from a configuration dictionary
         """
-        model = cls(id="model")
+        model = cls("model")
         df = pd.read_csv(input_path)
         model.time_set = len(df)
         for unit_name, content in config.items():
