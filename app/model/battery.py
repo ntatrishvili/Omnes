@@ -1,33 +1,67 @@
+from typing import Optional
 import pandas as pd
-import pulp
 
 from .unit import Unit
-from ..conversion.convert_optimization import create_empty_pulp_var
+from app.infra.util import create_empty_pulp_var
 
 
 class Battery(Unit):
-    def __init__(self):
+    def __init__(self, id: Optional[str] = None):
+        super().__init__(id)
+        self.max_power = 0
+        self.capacity = 0
         self.injection = pd.DataFrame()
         self.withdrawal = pd.DataFrame()
         self.state_of_charge = pd.DataFrame()
 
     @staticmethod
-    def get_injection_pulp_empty(self, time_set: int) -> pulp.LpVariable:
+    def get_injection_pulp_empty(time_set: int):
         """
         Input electric power of the battery
         """
-        return create_empty_pulp_var("bess_in", time_set)
+        return {"p_bess_in": create_empty_pulp_var("bess_in", time_set)}
 
     @staticmethod
-    def get_withdrawal_pulp_empty(self, time_set: int) -> pulp.LpVariable:
+    def get_withdrawal_pulp_empty(time_set: int):
         """
         Output electric power of the battery
         """
-        return create_empty_pulp_var("bess_out", time_set)
+        return {"p_bess_out": create_empty_pulp_var("bess_out", time_set)}
 
     @staticmethod
-    def get_soc_pulp_empty(self, time_set: int) -> pulp.LpVariable:
+    def get_soc_pulp_empty(time_set: int):
         """
         Stored electric energy
         """
-        return create_empty_pulp_var("bess_soc", time_set)
+        return {"e_bess_stor": create_empty_pulp_var("bess_soc", time_set)}
+
+    def get_max_power(self):
+        """
+        Get the maximum power of the battery.
+        """
+        return {"max_power_bess": self.max_power}
+
+    def get_capacity(self):
+        """
+        Get the capacity of the battery.
+        """
+        return {"max_stored_energy_bess": self.capacity}
+
+    def __str__(self):
+        """
+        String representation of the Battery unit.
+        """
+        return f"Battery '{self.id}' with max_power={self.max_power}, capacity={self.capacity}"
+
+    def to_pulp(self, time_set: int):
+        """
+        Convert the Battery unit to a pulp variable.
+        """
+        pulp_vars = [
+            self.get_withdrawal_pulp_empty(time_set),
+            self.get_injection_pulp_empty(time_set),
+            self.get_soc_pulp_empty(time_set),
+            self.get_max_power(),
+            self.get_capacity(),
+        ]
+        return pulp_vars
