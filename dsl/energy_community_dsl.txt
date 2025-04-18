@@ -1,0 +1,265 @@
+Unit 
+{
+	//Static properties (set once before simulation)
+	Properties
+		ID: string
+}
+
+// General class for devices (producers, consumers, prosumers)
+Component: Unit
+{
+	//Connections to any other modeled unit
+	Relations
+		//Two types of connection: Containment and connection 
+		Meter	: contained in Meter
+}
+
+// Physical quantity represented with a timeseries or a single (scalar) value
+// Type specifies
+Quantity[Type]
+{
+	Properties
+				//enum
+		Type	: [Power,Material,Signal,]
+		Unit	: str
+		Values	: time:Type[]
+}
+
+// TBD: do we need a separate EnergyQuantity? It contains nothing compared to regular quantity
+EnergyQuantity: Quantity[float]
+{
+}
+
+FlowRate: Quantity[float]
+{
+	Properties
+		// What type of material is in the flow?
+		Material	: str
+}
+
+// Represents one, specific phase of the 3-phase electric system
+Phase: Component
+{
+	Properties
+		// ID can only be "a", "b" or "c"
+		ID	: str
+}
+
+// A purely electric component
+Device: Component
+{
+	Phase	: contained in Phase
+	//0-1 is the range of the possible values fo cosphi
+	// TDB: coshpi could be the property of the power associated with the device
+	CosPhi 			: float[0..1]
+}
+
+// Produces arbitrary number of outputs: material, energy, etc. from an arbitrary number of inputs
+Generator: Component
+{
+	Properties
+		Technology		: str
+		Peak_Power (kWp): float
+						//"dynamic curve" type consisting float values
+		Efficiency		: Quantity
+		
+		// TDB: or Controllable?
+		Dispatchable	: Quantity
+		// Quantity*: Array of Quantities
+		Input			: Quantity*
+		// Either set from a file, or to be calculated during simulation
+		Output			: Quantity*
+}
+
+// Produces electricity
+ElectricGenerator: Generator, Device
+{
+	Properties
+						//enum
+		Type 			: [PV,Wind]
+		Peak_Power (kWp): Quantity
+						//"dynamic curve" type consisting float values
+		Efficiency		: Quantity
+}	
+
+Converter: Component
+{
+	Properties
+						//enum
+		Type_Of_Output	: enum* [Heat,Electricity,Material]
+		Type_Of_Input	: enum* [Heat,Electricity,Material]
+		Technology		: [FuelCell,Electric,]
+		Peak_Power (kWp): float
+						//"dynamic curve" type consisting float values
+		Efficiency		: time:float[]
+		Dispatchable	: bool
+		Inputs			: 
+		
+	//To be calculated during simulation
+	Output
+						//time series of float values 
+		ExpectedOut(kWh): float[]
+}
+
+
+// Stores energy
+Energy_Storage_System: Component
+{
+	Properties
+		capacity  (kWh)		: float
+		initial_soc (kWh)	: float
+		soc_min (kWh)		: float
+		soc_max (kWh)		: float
+		charge_efficiency	: float:time[]
+		discharge_efficiency: float:time[]
+		storage_efficiency	: float:time[]
+		max_charge_rate(kWh): float
+		max_discharge_rate(kWh): float
+		lifetime_cycles 	: int
+		calendar_lifetime(y): int
+		
+		Peak_Power (kWp): float
+		//Worth to move up to Component?
+		CosPhi 			: float[0..1]
+		Efficiency		: float<>
+		Dispatchable	: bool
+		
+	Output
+		state_of_charge(kWh): float*
+		charge_power(kWh)	: float*
+		discharge_power(kWh): float*
+
+	Relations
+		ChargingDevice: connection to Load
+}
+
+// Specialization for electrochemical storage
+Battery: Energy_Storage_System
+{}
+
+Thermal_Energy_Storage: Energy_Storage_System
+{
+	Properties
+		material			: [Water, Air]
+		volume (m3)			: float
+		set_temperature (C)	: float
+		input_temperature (C)	: float
+		output_temperature (C)	: float
+		//optional property
+		?heat_loss_rateW (W/h)	: float
+		?heat_loss_rate% (%/h)	: float
+}
+
+Hot_Water_Storage: Thermal_Energy_Storage
+{
+	Properties
+		max_flow_rate (m3/s): float
+}
+
+// Energy consumer
+Load: Device
+{
+	Properties
+		power_type : [I, Z, P]
+		service_type : [heat, cooling, electric, EV, appliance]
+		CosPhi 			: float[0..1] = 1
+		demand_response : bool
+		?priority		: int
+		
+	Relations
+		?ChargedStorage : Energy_Storage_System
+
+	Output
+		Consumption(kWh): float[]
+}
+
+// Connection to national grid
+Grid: Component
+{
+	//	inherited from component
+	//Relations
+	//	contained in Bus
+	
+	Output
+		energy_in	: float[]		
+		energy_out	: float[]		
+}
+
+
+
+// TBD: Some new name
+PowerNetworkComponent: Unit
+{
+}
+
+Bus: PowerNetworkComponent
+{
+	Properties
+		type 		: [PQ, Slack, I, Z]
+		?household	: string
+		voltage (V)	: float
+		phase_count : [1,3]
+		?allowed_voltage_range : <float, float>
+		meter		: Meter[]
+		
+	Output
+		voltage	: float[]
+		P		: float[]
+		Q		: float[]
+}
+
+Meter: PowerNetworkComponent
+{
+	Relations
+		Components: Component[]
+		
+	Constraints
+		constraint c1
+		{
+			foreach(component in Components)
+				if (component.type == "Slack") return false;
+				
+			return true;
+		}
+		
+}
+
+Line: Electric_Component
+{
+	Properties
+		resistance (Ohm): float
+		reactance  (Ohm): float
+		line_length (km): float
+		max_current (A)	: float
+		status			: bool 
+		line_type		: [overhead, cable]
+		
+	Relations	
+		from_bus: connection to Bus
+		to_bus	: connection to Bus
+}
+
+// ------------------------
+// TBD
+Computation_Model
+{
+	Properties
+		time_steps		: int
+		time_resolution	: float
+		time_res_unit	: [s, min, h, day, ...]
+}
+
+Optimization_Model
+{
+	Properties
+		model_type			: [LP, MILP, MINLP]
+		objective_function 	: [Cost min, CO2 min, Self-sufficiency max, Grid interaction min]
+		solver				: ???
+}
+
+Simulation_Model
+{
+	Properties
+		type	: [State estimation, Power flow]
+		api		: [pandapower, TBD]
+}
