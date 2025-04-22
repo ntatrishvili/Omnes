@@ -4,6 +4,7 @@ import pulp
 
 from app.model.timeseries_object import TimeseriesObject
 
+
 def read_ts(filename: str, col: str) -> TimeseriesObject:
     """
     Read a csv file and return a timeseries object
@@ -21,18 +22,22 @@ def read_ts(filename: str, col: str) -> TimeseriesObject:
         raise FileNotFoundError(f"The file '{input_path}' does not exist.")
     except pd.errors.EmptyDataError:
         raise ValueError(f"The file '{input_path}' is empty or invalid.")
-    
+
     if "timestamp" not in input_df.columns:
         raise KeyError(f"The column 'timestamp' is not found in the file '{filename}'.")
 
-    input_df["timestamp"] = pd.to_datetime(input_df["timestamp"], format="%Y.%m.%d %H:%M")
+    input_df["timestamp"] = pd.to_datetime(
+        input_df["timestamp"], format="%Y.%m.%d %H:%M"
+    )
     input_df.set_index("timestamp", inplace=True)
 
     if col not in input_df.columns:
-        raise KeyError(f"The column '{col}' is not found in the file '{filename}'.{input_df}")
-    
+        raise KeyError(
+            f"The column '{col}' is not found in the file '{filename}'.{input_df}"
+        )
+
     result = input_df[col]
-    
+
     return TimeseriesObject(result)
 
 

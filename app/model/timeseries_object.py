@@ -1,8 +1,9 @@
 import datetime
 import pandas as pd
 
-class TimeseriesObject():
-    
+
+class TimeseriesObject:
+
     def __init__(self, data: pd.DataFrame = None):
         """
         Initialize the timeseries object.
@@ -23,7 +24,7 @@ class TimeseriesObject():
         - 'H' -> '1H'
         """
         if freq is not None and freq.isalpha():
-            return '1' + freq
+            return "1" + freq
         return freq
 
     def to_1h(self):
@@ -36,7 +37,7 @@ class TimeseriesObject():
         """
         if self.freq is None:
             raise ValueError("Frequency of the time series is not set.")
-        return self.resample_to('1H')
+        return self.resample_to("1H")
 
     def to_15m(self):
         """
@@ -48,9 +49,9 @@ class TimeseriesObject():
         """
         if self.freq is None:
             raise ValueError("Frequency of the time series is not set.")
-        return self.resample_to('15min')
+        return self.resample_to("15min")
 
-    def resample_to(self, new_freq, method=None, agg='mean'):
+    def resample_to(self, new_freq, method=None, agg="mean"):
         """
         Resample the stored time series to a new frequency.
 
@@ -65,25 +66,28 @@ class TimeseriesObject():
         """
         current_freq = TimeseriesObject.normalize_freq(pd.infer_freq(self.data.index))
         if current_freq is None:
-            raise ValueError("Cannot infer current frequency. Please specify method manually.")
+            raise ValueError(
+                "Cannot infer current frequency. Please specify method manually."
+            )
 
         if method is None:
             if pd.Timedelta(new_freq) < pd.Timedelta(current_freq):
-                method = 'interpolate'  # Upsampling
+                method = "interpolate"  # Upsampling
             else:
-                method = 'agg'  # Downsampling
+                method = "agg"  # Downsampling
 
-        if method == 'interpolate':
-            self.data = self.data.resample(new_freq).interpolate('linear')
-        elif method in ('ffill', 'bfill'):
+        if method == "interpolate":
+            self.data = self.data.resample(new_freq).interpolate("linear")
+        elif method in ("ffill", "bfill"):
             self.data = getattr(self.data.resample(new_freq), method)()
-        elif method == 'agg':
+        elif method == "agg":
             self.data = self.data.resample(new_freq).agg(agg)
         else:
-            raise ValueError("Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'.")
+            raise ValueError(
+                "Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'."
+            )
         return TimeseriesObject(self.data)
 
     def get_data(self):
         """Return the original time series."""
         return self.data
-    

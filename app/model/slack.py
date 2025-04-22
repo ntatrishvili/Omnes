@@ -5,6 +5,7 @@ from app.infra.util import create_empty_pulp_var
 from app.model.unit import Unit
 from app.model.timeseries_object import TimeseriesObject
 
+
 class Slack(Unit):
     def __init__(self, id: Optional[str] = None):
         self.id = id if id else "slack"
@@ -44,7 +45,7 @@ class Slack(Unit):
         Get the flow in of the slack unit.
         """
         return self.flow_out.get_data()
-    
+
     def __str__(self):
         """
         String representation of the Slack unit.

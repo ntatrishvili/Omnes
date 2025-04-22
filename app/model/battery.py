@@ -5,6 +5,7 @@ from .unit import Unit
 from app.infra.util import create_empty_pulp_var
 from app.model.timeseries_object import TimeseriesObject
 
+
 class Battery(Unit):
     def __init__(self, id: Optional[str] = None):
         super().__init__(id)
