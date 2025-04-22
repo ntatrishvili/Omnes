@@ -1,7 +1,7 @@
 import pandas as pd
 from typing import Optional
 
-from app.infra.util import flatten
+from app.infra.util import flatten, read_ts
 from app.model.unit import Unit
 from app.model.battery import Battery
 from app.model.consumer import Consumer
@@ -22,29 +22,26 @@ class Model:
         self.units.append(unit)
 
     @classmethod
-    def build(cls, config: dict, input_path: str):
+    def build(cls, config: dict, time_set: int):
         """
         Build the model from a configuration dictionary
         """
         model = cls("model")
-        df = pd.read_csv(input_path)
-        model.time_set = len(df)
+        model.time_set = time_set
         for unit_name, content in config.items():
             unit = Unit(unit_name)
-            for pv_id in content["pvs"]:
+            for pv_id, info in content["pvs"].items():
                 pv = PV(id=pv_id)
-                pv.production = df[pv_id].copy()
-                pv.production.index = pd.to_datetime(df["timestamp"])
+                pv.production = read_ts(info["filename"], pv_id).to_15m()
                 unit.add_unit(pv)
-            for cs_id in content["consumers"]:
+            for cs_id, info in content["consumers"].items():
                 cs = Consumer(id=cs_id)
-                cs.consumption = df[cs_id].copy()
-                cs.consumption.index = pd.to_datetime(df["timestamp"])
+                cs.consumption = read_ts(info["filename"], cs_id).to_15m()
                 unit.add_unit(cs)
-            for battery in content["batteries"]:
-                b = Battery(battery["id"])
-                b.max_power = battery["nominal_power"]
-                b.capacity = battery["capacity"]
+            for b_id, info in content["batteries"].items():
+                b = Battery(b_id)
+                b.max_power = info["nominal_power"]
+                b.capacity = info["capacity"]
                 unit.add_unit(b)
             model.add_unit(unit)
         model.add_unit(Slack(id="slack"))

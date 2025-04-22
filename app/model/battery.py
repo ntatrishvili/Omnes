@@ -3,16 +3,16 @@ import pandas as pd
 
 from .unit import Unit
 from app.infra.util import create_empty_pulp_var
-
+from app.model.timeseries_object import TimeseriesObject
 
 class Battery(Unit):
     def __init__(self, id: Optional[str] = None):
         super().__init__(id)
         self.max_power = 0
         self.capacity = 0
-        self.injection = pd.DataFrame()
-        self.withdrawal = pd.DataFrame()
-        self.state_of_charge = pd.DataFrame()
+        self.injection = TimeseriesObject()
+        self.withdrawal = TimeseriesObject()
+        self.state_of_charge = TimeseriesObject()
 
     @staticmethod
     def get_injection_pulp_empty(time_set: int):

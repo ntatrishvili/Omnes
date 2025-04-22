@@ -3,21 +3,22 @@ import pandas as pd
 
 from .unit import Unit
 from app.infra.util import create_empty_pulp_var
+from app.model.timeseries_object import TimeseriesObject
 
 
 class PV(Unit):
     def __init__(self, id: Optional[str] = None):
         super().__init__(id)
-        self.production = pd.DataFrame()
+        self.production = TimeseriesObject()
 
     def get_production(self) -> pd.DataFrame:
-        return self.production
+        return self.production.get_data()
 
     def to_pulp(self, time_set: int):
         """
         Convert the PV unit to a pulp variable.
         """
-        if self.production.empty:
+        if self.get_production().empty:
             return [
                 {"p_pv": create_empty_pulp_var("p_pv", time_set)},
             ]

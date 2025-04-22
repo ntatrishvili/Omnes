@@ -3,13 +3,13 @@ import pandas as pd
 
 from app.infra.util import create_empty_pulp_var
 from app.model.unit import Unit
-
+from app.model.timeseries_object import TimeseriesObject
 
 class Slack(Unit):
     def __init__(self, id: Optional[str] = None):
         self.id = id if id else "slack"
-        self.flow_in = pd.DataFrame()
-        self.flow_out = pd.DataFrame()
+        self.flow_in = TimeseriesObject()
+        self.flow_out = TimeseriesObject()
 
     @staticmethod
     def get_flow_in_pulp_empty(time_set: int):
@@ -33,10 +33,22 @@ class Slack(Unit):
         flow_out = self.get_flow_out_pulp_empty(time_set)
         return [flow_in, flow_out]
 
+    def get_flow_in(self):
+        """
+        Get the flow in of the slack unit.
+        """
+        return self.flow_in.get_data()
+
+    def get_flow_out(self):
+        """
+        Get the flow in of the slack unit.
+        """
+        return self.flow_out.get_data()
+    
     def __str__(self):
         """
         String representation of the Slack unit.
         """
-        flow_in_sum = self.flow_in.sum() if not self.flow_in.empty else 0
-        flow_out_sum = self.flow_out.sum() if not self.flow_out.empty else 0
+        flow_in_sum = self.get_flow_in().sum() if not self.get_flow_in().empty else 0
+        flow_out_sum = self.get_flow_out().sum() if not self.get_flow_out().empty else 0
         return f"Slack '{self.id}' with flow_in_sum = {flow_in_sum},flow_out_sum = {flow_out_sum}"
