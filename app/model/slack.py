@@ -52,4 +52,7 @@ class Slack(Unit):
         """
         flow_in_sum = self.get_flow_in().sum() if not self.get_flow_in().empty else 0
         flow_out_sum = self.get_flow_out().sum() if not self.get_flow_out().empty else 0
-        return f"Slack '{self.id}' with flow_in_sum = {flow_in_sum},flow_out_sum = {flow_out_sum}"
+        return (
+            f"Slack '{self.id}' with flow_in_sum = {flow_in_sum},flow_out_sum ="
+            f" {flow_out_sum}"
+        )

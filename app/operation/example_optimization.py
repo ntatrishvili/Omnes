@@ -39,11 +39,11 @@ def optimize(**kwargs) -> None:
         # maximum input and output power and mutual exclusivity
         prob += p_bess_in[t] <= min(
             max_power_bess,
-            p_pv.iloc[t] - p_cons.iloc[t] if p_pv.iloc[t] > p_cons.iloc[t] else 0,
+            (p_pv.iloc[t] - p_cons.iloc[t] if p_pv.iloc[t] > p_cons.iloc[t] else 0),
         )
         prob += p_bess_out[t] <= min(
             max_power_bess,
-            p_cons.iloc[t] - p_pv.iloc[t] if p_cons.iloc[t] > p_pv.iloc[t] else 0,
+            (p_cons.iloc[t] - p_pv.iloc[t] if p_cons.iloc[t] > p_pv.iloc[t] else 0),
         )
 
         # maximum storable energy (minimum is defined by variable lower bound)
@@ -99,10 +99,16 @@ def optimize(**kwargs) -> None:
     )
 
     plt.plot(
-        time_range_to_plot, p_pv.iloc[time_range_to_plot], "r", label="PV production"
+        time_range_to_plot,
+        p_pv.iloc[time_range_to_plot],
+        "r",
+        label="PV production",
     )
     plt.plot(
-        time_range_to_plot, p_cons.iloc[time_range_to_plot], "g", label="Consumption"
+        time_range_to_plot,
+        p_cons.iloc[time_range_to_plot],
+        "g",
+        label="Consumption",
     )
     plt.ylabel("Energy (kWh)")
     plt.xlabel("Time (quarter hours)")

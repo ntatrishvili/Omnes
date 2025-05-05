@@ -52,7 +52,10 @@ class Battery(Unit):
         """
         String representation of the Battery unit.
         """
-        return f"Battery '{self.id}' with max_power={self.max_power}, capacity={self.capacity}"
+        return (
+            f"Battery '{self.id}' with max_power={self.max_power},"
+            f" capacity={self.capacity}"
+        )
 
     def to_pulp(self, time_set: int):
         """
