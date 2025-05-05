@@ -1,7 +1,8 @@
-import random
+from collections import defaultdict
 from typing import Optional
 import secrets
 
+from app.model.timeseries_object import TimeseriesObject
 
 class Unit:
 
@@ -10,6 +11,7 @@ class Unit:
         Initialize the unit with an optional id.
         """
         self.id = str(id) if id is not None else secrets.token_hex(16)
+        self.timeseries = defaultdict(TimeseriesObject)
         self.subunits: list[Unit] = []
         self.parent = None
 

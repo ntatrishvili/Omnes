@@ -9,10 +9,10 @@ from app.model.timeseries_object import TimeseriesObject
 class PV(Unit):
     def __init__(self, id: Optional[str] = None):
         super().__init__(id)
-        self.production = TimeseriesObject()
+        self.timeseries = { "production": TimeseriesObject() }
 
     def get_production(self) -> pd.DataFrame:
-        return self.production.get_data()
+        return self.timeseries["production"].to_df()
 
     def to_pulp(self, time_set: int):
         """
@@ -23,7 +23,7 @@ class PV(Unit):
                 {"p_pv": create_empty_pulp_var("p_pv", time_set)},
             ]
         return [
-            {"p_pv": self.get_production()},
+            {"p_pv": self.timeseries["production"].to_pulp(time_set)},
         ]
 
     def __str__(self):

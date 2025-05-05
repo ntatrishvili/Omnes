@@ -33,11 +33,11 @@ class Model:
             unit = Unit(unit_name)
             for pv_id, info in content["pvs"].items():
                 pv = PV(id=pv_id)
-                pv.production = TimeseriesObject.read(info["filename"], pv_id).to_15m()
+                pv.timeseries["production"] = TimeseriesObject.read(info["filename"], pv_id).to_15m()
                 unit.add_unit(pv)
             for cs_id, info in content["consumers"].items():
                 cs = Consumer(id=cs_id)
-                cs.consumption = TimeseriesObject.read(info["filename"], cs_id).to_15m()
+                cs.timeseries["consumption"] = TimeseriesObject.read(info["filename"], cs_id).to_15m()
                 unit.add_unit(cs)
             for b_id, info in content["batteries"].items():
                 b = Battery(b_id)

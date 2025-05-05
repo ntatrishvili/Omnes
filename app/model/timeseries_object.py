@@ -141,9 +141,23 @@ class TimeseriesObject:
             )
         return TimeseriesObject(self.data)
 
-    def get_data(self) -> pd.DataFrame:
+    def to_df(self) -> pd.DataFrame:
         """
         return: pd.DataFrame
             The original time series data.
         """
         return self.data
+    
+    def to_pulp(self, time_set: int) -> dict:
+        """
+        Convert the time series data to a dictionary format suitable for pulp.
+        
+        :param time_set: int
+            The number of time steps in the time series.
+        :return: dict
+            A dictionary with the time series data.
+        """
+        if time_set != len(self.data):
+            freq = time_set // len(self.data)
+            return self.resample_to(freq)
+        return self.to_df()

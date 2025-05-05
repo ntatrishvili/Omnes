@@ -11,9 +11,11 @@ class Battery(Unit):
         super().__init__(id)
         self.max_power = 0
         self.capacity = 0
-        self.injection = TimeseriesObject()
-        self.withdrawal = TimeseriesObject()
-        self.state_of_charge = TimeseriesObject()
+        self.timeseries = {
+            "injection": TimeseriesObject(),
+            "withdrawal": TimeseriesObject(),
+            "state_of_charge": TimeseriesObject(),
+        }
 
     @staticmethod
     def get_injection_pulp_empty(time_set: int):

@@ -9,8 +9,10 @@ from app.model.timeseries_object import TimeseriesObject
 class Slack(Unit):
     def __init__(self, id: Optional[str] = None):
         self.id = id if id else "slack"
-        self.flow_in = TimeseriesObject()
-        self.flow_out = TimeseriesObject()
+        self.timeseries = {
+            "flow_in": TimeseriesObject(),
+            "flow_out": TimeseriesObject(),
+        }
 
     @staticmethod
     def get_flow_in_pulp_empty(time_set: int):
@@ -38,13 +40,13 @@ class Slack(Unit):
         """
         Get the flow in of the slack unit.
         """
-        return self.flow_in.get_data()
+        return self.timeseries["flow_in"].to_df()
 
     def get_flow_out(self):
         """
         Get the flow in of the slack unit.
         """
-        return self.flow_out.get_data()
+        return self.timeseries["flow_out"].to_df()
 
     def __str__(self):
         """
