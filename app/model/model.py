@@ -1,7 +1,8 @@
 import pandas as pd
 from typing import Optional
 
-from app.infra.util import flatten, read_ts
+from app.infra.util import flatten
+from app.model.timeseries_object import TimeseriesObject
 from app.model.unit import Unit
 from app.model.battery import Battery
 from app.model.consumer import Consumer
@@ -32,11 +33,11 @@ class Model:
             unit = Unit(unit_name)
             for pv_id, info in content["pvs"].items():
                 pv = PV(id=pv_id)
-                pv.production = read_ts(info["filename"], pv_id).to_15m()
+                pv.production = TimeseriesObject.read(info["filename"], pv_id).to_15m()
                 unit.add_unit(pv)
             for cs_id, info in content["consumers"].items():
                 cs = Consumer(id=cs_id)
-                cs.consumption = read_ts(info["filename"], cs_id).to_15m()
+                cs.consumption = TimeseriesObject.read(info["filename"], cs_id).to_15m()
                 unit.add_unit(cs)
             for b_id, info in content["batteries"].items():
                 b = Battery(b_id)
