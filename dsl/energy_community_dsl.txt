@@ -1,41 +1,38 @@
-Unit 
+// TBD: The structure of Relation should be specified
+
+Unit
 {
 	//Static properties (set once before simulation)
 	Properties
 		ID: string
+					// The parent unit that contains this unit
+		Parent		: Unit | NULL
+					// Other Units can be contained inside, creating a tree-like structure
+		Children	: Unit[]
+		Quantities	: Quantity[]
+					// Relationships with other units in the model
+		Relations	: Relation[]
 }
 
 // General class for devices (producers, consumers, prosumers)
 Component: Unit
 {
 	//Connections to any other modeled unit
-	Relations
-		//Two types of connection: Containment and connection 
+	Relations:
+				//Two types of connection: Containment and connection 
 		Meter	: contained in Meter
 }
 
 // Physical quantity represented with a timeseries or a single (scalar) value
-// Type specifies
-Quantity[Type]
+// Type specifies the data type the quantity stores its values as, e.g., float, int, boolean
+Quantity<Type>
 {
 	Properties
-				//enum
-		Type	: [Power,Material,Signal,]
-		Unit	: str
-				//"dynamic curve" type consisting float values
-		Values	: time:Type[]
-}
-
-// TBD: do we need a separate EnergyQuantity? It contains nothing compared to regular quantity
-EnergyQuantity: Quantity[float]
-{
-}
-
-FlowRate: Quantity[float]
-{
-	Properties
-		// TBD: Is this a string or an Enum?
-		Material	: str
+		Parent		: Unit
+					//"dynamic curve" type consisting float values
+		Values		: time:Type[]
+					// Relationship to other Quantities
+		Relations	: Relation[]
 }
 
 // A purely electric component
@@ -43,7 +40,7 @@ Device: Component
 {
 	Properties
 		//0-1 is the range of the possible values fo cosphi
-		// TDB: coshpi could be the property of the power associated with the device
+							// TDB: coshpi could be the property of the power associated with the device
 		Cos_Phi 			: float[0..1]
 		Peak_Power 			: float
 		Dispatchable		: bool
@@ -89,7 +86,6 @@ Converter: Component
 		// Either set from a file, or to be calculated during simulation
 		Output			: Quantity<float>*
 }
-
 
 // Stores energy
 Energy_Storage_System: Component
@@ -165,9 +161,16 @@ Grid: Component
 		energy_out	: float[]		
 }
 
+// TBD: 
+MaterialFlow: Unit
+{
+	Properties
+		// TBD: Is this a string or an Enum?
+		Material	: str
+}
 
 
-// TBD: Some new name
+// TBD: Maybe name this something else?
 PowerNetworkComponent: Unit
 {
 }
