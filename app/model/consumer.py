@@ -9,10 +9,10 @@ from app.model.timeseries_object import TimeseriesObject
 class Consumer(Unit):
     def __init__(self, id: Optional[str] = None):
         super().__init__(id)
-        self.timeseries = { "consumption": TimeseriesObject()}
-    
+        self.timeseries = {"p_cons": TimeseriesObject()}
+
     def get_consumption(self) -> pd.DataFrame:
-        return self.timeseries["consumption"].to_df()
+        return self.timeseries["p_cons"].to_df()
 
     def __str__(self):
         """
@@ -22,13 +22,3 @@ class Consumer(Unit):
             self.get_consumption().sum() if not self.get_consumption().empty else 0
         )
         return f"Consumer '{self.id}' with consumption_sum={consumption_sum}"
-
-    def to_pulp(self, time_set: int):
-        """
-        Convert the Consumer unit to a pulp variable.
-        """
-        if self.get_consumption().empty:
-            return {"p_cons": create_empty_pulp_var("p_cons", time_set)}
-        return [
-            {"p_cons": self.timeseries["consumption"].to_pulp(time_set)},
-        ]

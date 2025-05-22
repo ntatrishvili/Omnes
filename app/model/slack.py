@@ -10,43 +10,21 @@ class Slack(Unit):
     def __init__(self, id: Optional[str] = None):
         self.id = id if id else "slack"
         self.timeseries = {
-            "flow_in": TimeseriesObject(),
-            "flow_out": TimeseriesObject(),
+            "p_slack_in": TimeseriesObject(),
+            "p_slack_out": TimeseriesObject(),
         }
-
-    @staticmethod
-    def get_flow_in_pulp_empty(time_set: int):
-        """
-        Energy injected into the household by the slack
-        """
-        return {"p_slack_in": create_empty_pulp_var("p_slack_in", time_set)}
-
-    @staticmethod
-    def get_flow_out_pulp_empty(time_set: int):
-        """
-        Energy injected into the grid by the household
-        #"""
-        return {"p_slack_out": create_empty_pulp_var("p_slack_out", time_set)}
-
-    def to_pulp(self, time_set: int):
-        """
-        Convert the Slack unit to pulp variables.
-        """
-        flow_in = self.get_flow_in_pulp_empty(time_set)
-        flow_out = self.get_flow_out_pulp_empty(time_set)
-        return [flow_in, flow_out]
 
     def get_flow_in(self):
         """
         Get the flow in of the slack unit.
         """
-        return self.timeseries["flow_in"].to_df()
+        return self.timeseries["p_slack_in"].to_df()
 
     def get_flow_out(self):
         """
         Get the flow in of the slack unit.
         """
-        return self.timeseries["flow_out"].to_df()
+        return self.timeseries["p_slack_out"].to_df()
 
     def __str__(self):
         """

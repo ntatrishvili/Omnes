@@ -1,7 +1,6 @@
 import datetime
+import pulp
 import pandas as pd
-
-from app.infra.util import get_input_path
 
 
 class TimeseriesObject:
@@ -11,36 +10,52 @@ class TimeseriesObject:
     resampling, and normalizing frequencies.
     """
 
-    def __init__(self, data: pd.DataFrame = None):
+    def __init__(self, **kwargs):
         """
-        Initialize the timeseries object.
-        :param data: pd.DataFrame, optional
-            The data to initialize the TimeseriesObject. Defaults to None.
+        Initialize the TimeseriesObject with either:
+        - a pandas DataFrame (using the ``data`` keyword), or
+        - a CSV file and column name (using the ``input_path`` and ``col`` keywords).
+
+        If neither is provided, an empty DataFrame is used.
+
+        :keyword data: The pandas DataFrame to initialize the object with.
+        :type data: pandas.DataFrame, optional
+        :keyword input_path: The path to the CSV file to read data from.
+        :type input_path: str, optional
+        :keyword col: The column name to extract from the CSV file.
+        :type col: str, optional
         """
-        if data is None:
+        data = kwargs.get("data", None)
+        input_path = kwargs.get("input_path", None)
+        col = kwargs.get("col", None)
+
+        if isinstance(data, pd.DataFrame):
+            self.data = pd.DataFrame(data)
+        elif input_path is not None and col is not None:
+            self.data = TimeseriesObject.read(input_path, col).data
+        else:
             self.data = pd.DataFrame()
+
+        if not self.data.empty:
+            self.data.index = pd.to_datetime(self.data.index)
+            inferred = pd.infer_freq(self.data.index)
+            self.freq: datetime.timedelta = self.normalize_freq(inferred)
+        else:
             self.freq: datetime.timedelta = None
-            return
-        self.data = pd.DataFrame(data)
-        self.data.index = pd.to_datetime(self.data.index)
-        inferred = pd.infer_freq(self.data.index)
-        self.freq: datetime.timedelta = self.normalize_freq(inferred)
 
     @staticmethod
-    def read(filename: str, col: str) -> "TimeseriesObject":
+    def read(input_path: str, col: str) -> "TimeseriesObject":
         """
         Read a CSV file and return a TimeseriesObject with
         the specified column and timestamp parameters.
 
-        :param filename: str Name of the input CSV file from data folder.
+        :param input_path: path to the CSV file.
         :param col: str Name of the column to extract from the CSV file.
         :raises FileNotFoundError: If the specified file does not exist.
         :raises ValueError: If the file is empty or invalid.
         :raises KeyError: If the specified column is not found in the file.
         :return: TimeseriesObject A TimeseriesObject containing the specified column and timestamp as the index.
         """
-
-        input_path = get_input_path(filename)
         try:
             input_df = pd.read_csv(
                 input_path,
@@ -48,6 +63,7 @@ class TimeseriesObject:
                 header=0,
                 index_col="timestamp",
                 parse_dates=["timestamp"],
+                date_format="%Y.%m.%d %H:%M",
             )
         except FileNotFoundError:
             raise FileNotFoundError(f"The file '{input_path}' does not exist.")
@@ -61,7 +77,7 @@ class TimeseriesObject:
 
         result = input_df[[col]]
 
-        return TimeseriesObject(result)
+        return TimeseriesObject(data=result)
 
     @classmethod
     def normalize_freq(cls, freq: str) -> str:
@@ -117,29 +133,44 @@ class TimeseriesObject:
         :return: TimeseriesObject
             A TimeseriesObject resampled to the specified frequency.
         """
-        current_freq = TimeseriesObject.normalize_freq(pd.infer_freq(self.data.index))
+        if self.data.empty or self.freq == new_freq:
+            return self
+
+        try:
+            print(f"Resampling from {self.freq} to {new_freq}")
+            current_freq = TimeseriesObject.normalize_freq(
+                pd.infer_freq(self.data.index)
+            )
+        except Exception as e:
+            raise ValueError(f"Error inferring frequency: {e}")
+
         if current_freq is None:
             raise ValueError(
                 "Cannot infer current frequency. Please specify method manually."
             )
 
-        if method is None:
-            if pd.Timedelta(new_freq) < pd.Timedelta(current_freq):
-                method = "interpolate"  # Upsampling
-            else:
-                method = "agg"  # Downsampling
+        try:
+            if method is None:
+                if pd.Timedelta(new_freq) < pd.Timedelta(current_freq):
+                    method = "interpolate"  # Upsampling
+                else:
+                    method = "agg"  # Downsampling
 
-        if method == "interpolate":
-            self.data = self.data.resample(new_freq).interpolate("linear")
-        elif method in ("ffill", "bfill"):
-            self.data = getattr(self.data.resample(new_freq), method)()
-        elif method == "agg":
-            self.data = self.data.resample(new_freq).agg(agg)
-        else:
-            raise ValueError(
-                "Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'."
-            )
-        return TimeseriesObject(self.data)
+            if method == "interpolate":
+                resampled = self.data.resample(new_freq).interpolate("linear")
+            elif method in ("ffill", "bfill"):
+                resampled = getattr(self.data.resample(new_freq), method)()
+            elif method == "agg":
+                resampled = self.data.resample(new_freq).agg(agg)
+            else:
+                raise ValueError(
+                    "Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'."
+                )
+        except Exception as e:
+            raise ValueError(f"Error during resampling: {e}")
+
+        self.data = resampled
+        return TimeseriesObject(data=resampled)
 
     def to_df(self) -> pd.DataFrame:
         """
@@ -147,17 +178,24 @@ class TimeseriesObject:
             The original time series data.
         """
         return self.data
-    
-    def to_pulp(self, time_set: int) -> dict:
+
+    def to_pulp(self, name: str, freq: str, time_set: int):
         """
-        Convert the time series data to a dictionary format suitable for pulp.
-        
-        :param time_set: int
-            The number of time steps in the time series.
-        :return: dict
-            A dictionary with the time series data.
+        Convert the time series data to a format suitable for pulp optimization.
+
+        If the data is empty, returns empty pulp variable with given name.
+        If the data length does not match `time_set`, the data is resampled to the given frequency.
+        Otherwise, returns the time series data as stored.
+
+        :param name: int: The base name for pulp variables if data is empty.
+        :param freq: int: The frequency to resample to if needed (e.g., '15min', '1H').
+        :param time_set: int: The number of time steps in the time series.
+        :return: Either a list of empty pulp variables or the DataFrame.
         """
+        if self.data.empty:
+            return [
+                pulp.LpVariable(f"P_{name}_{t}", lowBound=0) for t in range(time_set)
+            ]
         if time_set != len(self.data):
-            freq = time_set // len(self.data)
-            return self.resample_to(freq)
+            return self.resample_to(freq).to_df()
         return self.to_df()

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, override
 import pandas as pd
 
 from .unit import Unit
@@ -12,9 +12,9 @@ class Battery(Unit):
         self.max_power = 0
         self.capacity = 0
         self.timeseries = {
-            "injection": TimeseriesObject(),
-            "withdrawal": TimeseriesObject(),
-            "state_of_charge": TimeseriesObject(),
+            "p_bess_in": TimeseriesObject(),
+            "p_bess_out": TimeseriesObject(),
+            "e_bess_stor": TimeseriesObject(),
         }
 
     @staticmethod
@@ -59,7 +59,8 @@ class Battery(Unit):
             f" capacity={self.capacity}"
         )
 
-    def to_pulp(self, time_set: int):
+    @override
+    def to_pulp(self, time_set: int, frequency: str):
         """
         Convert the Battery unit to a pulp variable.
         """
