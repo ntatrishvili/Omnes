@@ -87,7 +87,8 @@ Contributions are welcome! Please open an issue or pull request to discuss impro
 
 ## 📜 License
 
-MIT License — see `LICENSE` file.
+MIT License — see `LICENSE` file.  
+SPDX-License-Identifier: MIT
 
 ---
 
