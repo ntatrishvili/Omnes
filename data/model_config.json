@@ -1,27 +1,30 @@
 {
     "unit1": {
-        "pvs": [
-            "pv1"
-        ],
-        "consumers": [],
-		"batteries": []
-    },
-	"unit2": {
-		"pvs": [],
-        "consumers": [
-			"consumer1"
-		],
-		"batteries": []
-	},
-    "unit3": {
-		"pvs": [],
-        "consumers": [],
-		"batteries": [
-            {
-                "id": "battery1",
-                "nominal_power": 100,
-                "capacity": 1000
+        "pvs": {
+            "pv1": {
+                "filename": "input.csv"
             }
-        ]
-	}
+        },
+        "consumers": {},
+        "batteries": {}
+    },
+    "unit2": {
+        "pvs": {},
+        "consumers": {
+            "consumer1": {
+                "filename": "input2.csv"
+            }
+        },
+        "batteries": {}
+    },
+    "unit3": {
+        "pvs": {},
+        "consumers": {},
+        "batteries": {
+            "battery1": {
+                "nominal_power": 1,
+                "capacity": 10
+            }
+        }
+    }
 }

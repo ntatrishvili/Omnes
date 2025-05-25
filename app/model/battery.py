@@ -1,8 +1,9 @@
-from typing import Optional
+from typing import Optional, override
 import pandas as pd
 
 from .unit import Unit
 from app.infra.util import create_empty_pulp_var
+from app.model.timeseries_object import TimeseriesObject
 
 
 class Battery(Unit):
@@ -10,9 +11,11 @@ class Battery(Unit):
         super().__init__(id)
         self.max_power = 0
         self.capacity = 0
-        self.injection = pd.DataFrame()
-        self.withdrawal = pd.DataFrame()
-        self.state_of_charge = pd.DataFrame()
+        self.timeseries = {
+            "p_bess_in": TimeseriesObject(),
+            "p_bess_out": TimeseriesObject(),
+            "e_bess_stor": TimeseriesObject(),
+        }
 
     @staticmethod
     def get_injection_pulp_empty(time_set: int):
@@ -51,9 +54,13 @@ class Battery(Unit):
         """
         String representation of the Battery unit.
         """
-        return f"Battery '{self.id}' with max_power={self.max_power}, capacity={self.capacity}"
+        return (
+            f"Battery '{self.id}' with max_power={self.max_power},"
+            f" capacity={self.capacity}"
+        )
 
-    def to_pulp(self, time_set: int):
+    @override
+    def to_pulp(self, time_set: int, frequency: str):
         """
         Convert the Battery unit to a pulp variable.
         """
