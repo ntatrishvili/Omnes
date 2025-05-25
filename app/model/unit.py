@@ -13,6 +13,7 @@ class Unit:
         """
         self.id = str(id) if id is not None else secrets.token_hex(16)
         self.timeseries = defaultdict(TimeseriesObject)
+        self.parameters = defaultdict(float)
         self.subunits: list[Unit] = []
         self.parent = None
 
@@ -30,12 +31,14 @@ class Unit:
         """
         res = []
         if not hasattr(self, "subunits") or not self.subunits:
-            return {
-                key: ts.resample_to(new_freq).to_pulp(
-                    name=key, freq=new_freq, time_set=time_set
-                )
+            return [
+                {
+                    key: ts.resample_to(new_freq).to_pulp(
+                        name=key, freq=new_freq, time_set=time_set
+                    )
+                }
                 for key, ts in self.timeseries.items()
-            }
+            ]
         for subunit in self.subunits:
             child_objects = subunit.to_pulp(time_set, new_freq)
             res.extend(child_objects)

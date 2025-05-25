@@ -42,13 +42,13 @@ class Model:
                 pv = PV(id=pv_id)
                 pv.timeseries["p_pv"] = TimeseriesObject.read(
                     get_input_path(info["filename"]), pv_id
-                ).to_15m()
+                ).resample_to(model.frequency)
                 unit.add_unit(pv)
             for cs_id, info in content["consumers"].items():
                 cs = Consumer(id=cs_id)
                 cs.timeseries["p_cons"] = TimeseriesObject.read(
                     get_input_path(info["filename"]), cs_id
-                ).to_15m()
+                ).resample_to(model.frequency)
                 unit.add_unit(cs)
             for b_id, info in content["batteries"].items():
                 b = Battery(b_id)
@@ -67,7 +67,6 @@ class Model:
         for unit in self.units:
             pulp_vars.extend(unit.to_pulp(self.time_set, self.frequency))
         pulp_vars = flatten(pulp_vars)
-        print(type(pulp_vars[0]))
         pulp_vars = {k: v for d in pulp_vars for k, v in d.items()}
         pulp_vars["time_set"] = range(self.time_set)
         return pulp_vars

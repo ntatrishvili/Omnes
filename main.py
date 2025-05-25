@@ -3,6 +3,7 @@ import configparser
 
 from app.operation.example_optimization import optimize
 from app.model.model import Model
+from app.conversion.convert_optimization import convert
 
 if __name__ == "__main__":
     config = configparser.ConfigParser()
@@ -13,5 +14,6 @@ if __name__ == "__main__":
     with open("data/model_config.json", "r") as file:
         config = json.load(file)
     model = Model.build(config, time_set, freq)
-    problem = model.to_pulp()
+    pulp_vars = []
+    problem = convert(model)
     optimize(**problem)
