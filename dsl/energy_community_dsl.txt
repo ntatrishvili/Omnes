@@ -1,0 +1,299 @@
+// TBD: The structure of Relation should be specified
+
+Entity
+{
+	//Static properties (set once before simulation)
+	Properties
+		ID: string
+					// The parent Entity that contains this Entity
+		Parent		: Entity | NULL
+					// Other Entitys can be contained inside, creating a tree-like structure
+		Children	: Entity[]
+		Quantities	: Quantity[]
+					// Relationships with other Entitys in the model
+		Relations	: Relation[]
+					// There are default tags, if you specify some tag explicitly, that means that you want override the default tag or add a custom, new tag
+					// TODO: discuss Tags: 
+		Tags		: EnergyBalance(user1,in)
+		Tags		: vector=elecricity,direction=out,contributes_to=energy_balance,phase=a,
+}
+
+TagStructure
+{
+	// Set of key: [value1,value2,]
+}
+
+EnergyBalance: TagStructure
+{	
+	// TODO: think about how to represent constraints
+	// A set of attributes that define constraints between entities, and influence the optimization
+	contributes_to: [energy_balance,economic,...]
+	// Relative to the entity
+	direction: [in,out]
+}
+
+
+NoNightCharging: TagStructure
+{
+	works_on: Battery
+	
+	// A set of attributes that define constraints between entities, and influence the optimization
+	contributes_to: [energy_balance,economic,...]
+	// Relative to the entity
+	direction: [in,out]
+}
+
+// General class for devices (producers, consumers, prosumers)
+Component: Entity
+{
+	//Connections to any other modeled Entity
+	Relations:
+				//Two types of connection: Containment and connection 
+		Meter	: contained in Meter
+}
+
+// Physical quantity represented with a timeseries or a single (scalar) value
+// Type specifies the data type the quantity stores its values as, e.g., float, int, boolean
+Quantity<Type>
+{
+	Properties
+		Parent		: Entity
+					//"dynamic curve" type consisting float values
+		Quantities		: time:Type[]
+					// Relationship to other Quantities
+		Relations	: Relation[]
+		// TODO: discuss this with DSL guys
+		Tags		: EnergyBalance(user1,in,electricity)
+}
+
+// A purely electric component
+Device: Component
+{
+	Properties
+		//0-1 is the range of the possible values fo cosphi
+							// TDB: coshpi could be the property of the power associated with the device
+		Cos_Phi 			: float[0..1]
+		Peak_Power 			: float
+		Dispatchable		: bool
+	
+	Relations
+		// The device is always connected to one or more phases, here the name of the phases is listed
+		Phases				: connection to one or more Phase
+}
+
+// Produces arbitrary number of outputs: material, energy, etc. from an arbitrary number of inputs
+Generator: Component
+{
+	Properties
+		Technology		: str
+		Peak_Power (kWp): Quantity<float>
+						//"dynamic curve" type consisting float values
+		Efficiency		: Quantity<float>
+		
+		// TDB: or Controllable?
+		Dispatchable	: Quantity<bool>
+		// Quantity<Type>*: Array of Quantities
+		Input			: Quantity<float>*
+		// Either set from a file, or to be calculated during simulation
+		Output			: Quantity<float>*
+}
+
+Battery2: Battery
+{
+Quantities:
+		Capacity  			: Quantity<int>
+		Final_soc 			: Quantity<float>
+}
+
+
+// Produces electricity
+ElectricGenerator: Generator, Device
+{
+	Properties
+								//enum
+		Technology		 		: [PV,Wind]
+		Conversion_Efficiency 	: Quantity<float>*
+}	
+
+// TDB: Converter needs a more detailed description
+Converter: Component
+{
+	Properties
+						// enum
+		Technology		: [FuelCell,Electric,]
+		Input			: Quantity<float>*
+		// Either set from a file, or to be calculated during simulation
+		Output			: Quantity<float>*
+}
+
+// Stores energy
+Energy_Storage_System: Component
+{
+	Properties
+		Capacity  			: Quantity<float>
+		Initial_soc 		: Quantity<float>
+		Soc_min 			: Quantity<float>
+		Soc_max 			: Quantity<float>
+		Charge_efficiency	: Quantity<float>
+		Discharge_efficiency: Quantity<float>
+		Storage_efficiency	: Quantity<float>
+		Max_charge_rate		: Quantity<float>
+		Max_discharge_rate	: Quantity<float>
+		Lifetime_cycles 	: float
+		
+	Output
+		State_of_charge		: Quantity<float>
+		Charge_power		: Quantity<float>
+		Discharge_power		: Quantity<float>
+
+	Relations
+		ChargingDevice: connection to Load
+}
+
+// Specialization for electrochemical storage
+Battery: Energy_Storage_System
+{}
+
+Thermal_Energy_Storage: Energy_Storage_System
+{
+	Properties
+		Material					: [Water, Air]
+		Volume (m3)					: float
+		Set_temperature (C)			: float
+		Input_temperature (C)		: float
+		Output_temperature (C)		: float
+		//optional property
+		?Heat_loss_rateW (W/h)		: float
+		?Heat_loss_rate% (%/h)		: float
+}
+
+Hot_Water_Storage: Thermal_Energy_Storage
+{
+	Properties
+		Max_flow_rate (m3/s): float
+}
+
+// Energy consumer
+Load: Device
+{
+	Properties
+		Power_type : [I, Z, P]
+		Service_type : [heat, cooling, electric, EV, appliance]
+		?priority		: int
+		
+	Relations
+		?ChargedStorage : Energy_Storage_System
+
+	Output
+		Consumption(kWh): float[]
+}
+
+// Connection to national grid
+Grid: Component
+{
+	//	inherited from component
+	//Relations
+	//	contained in Bus
+	
+	Output
+		energy_in	: float[]		
+		energy_out	: float[]		
+}
+
+// TBD: 
+MaterialFlow: Entity
+{
+	Properties
+		// TBD: Is this a string or an Enum?
+		Material	: str
+}
+
+
+// TBD: Maybe name this something else?
+PowerNetworkComponent: Entity
+{
+}
+
+Bus: PowerNetworkComponent
+{
+	Properties
+		type 		: [PQ, Slack, I, Z]
+		?household	: string
+		Voltage (V)	: Quantity<float>*  // Can be three-phase
+		phase_count : [1,3]
+		?allowed_voltage_range : <float, float>
+		
+	Output
+		voltage	: float[]
+		P		: float[]
+		Q		: float[]
+		
+	Relations
+		Meters		: contains 0 or more meters
+		Households	: contains 0 or more households
+}
+
+Meter: PowerNetworkComponent
+{
+	Relations
+		Components: Component[]
+		
+	Constraints
+		constraint c1
+		{
+			foreach(component in Components)
+				if (component.type == "Slack") return false;
+				
+			return true;
+		}
+		
+}
+
+// Represents one, specific phase of the 3-phase electric system
+Phase: PowerNetworkComponent
+{
+	Properties
+		// ID can only be "a", "b" or "c"
+		ID	: str
+}
+
+Line: PowerNetworkComponent
+{
+	Properties
+		Resistance (Ohm): float
+		Reactance  (Ohm): float
+		Line_length (km): float
+		Max_current (A)	: float
+		Status			: bool 
+		Line_type		: [overhead, cable]
+		
+	Relations	
+		From_bus: connection to Bus
+		To_bus	: connection to Bus
+}
+
+
+// ------------------------
+// For later...
+Computation_Model
+{
+	Properties
+		time_steps		: int
+		time_resolution	: float
+		time_res_Entity	: [s, min, h, day, ...]
+}
+
+Optimization_Model
+{
+	Properties
+		model_type			: [LP, MILP, MINLP]
+		objective_function 	: [Cost min, CO2 min, Self-sufficiency max, Grid interaction min]
+		solver				: ???
+}
+
+Simulation_Model
+{
+	Properties
+		type	: [State estimation, Power flow]
+		api		: [pandapower, TBD]
+}
