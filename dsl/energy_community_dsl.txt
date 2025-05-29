@@ -1,23 +1,52 @@
 // TBD: The structure of Relation should be specified
 
-Unit
+Entity
 {
 	//Static properties (set once before simulation)
 	Properties
 		ID: string
-					// The parent unit that contains this unit
-		Parent		: Unit | NULL
-					// Other Units can be contained inside, creating a tree-like structure
-		Children	: Unit[]
+					// The parent Entity that contains this Entity
+		Parent		: Entity | NULL
+					// Other Entitys can be contained inside, creating a tree-like structure
+		Children	: Entity[]
 		Quantities	: Quantity[]
-					// Relationships with other units in the model
+					// Relationships with other Entitys in the model
 		Relations	: Relation[]
+					// There are default tags, if you specify some tag explicitly, that means that you want override the default tag or add a custom, new tag
+					// TODO: discuss Tags: 
+		Tags		: EnergyBalance(user1,in)
+		Tags		: vector=elecricity,direction=out,contributes_to=energy_balance,phase=a,
+}
+
+TagStructure
+{
+	// Set of key: [value1,value2,]
+}
+
+EnergyBalance: TagStructure
+{	
+	// TODO: think about how to represent constraints
+	// A set of attributes that define constraints between entities, and influence the optimization
+	contributes_to: [energy_balance,economic,...]
+	// Relative to the entity
+	direction: [in,out]
+}
+
+
+NoNightCharging: TagStructure
+{
+	works_on: Battery
+	
+	// A set of attributes that define constraints between entities, and influence the optimization
+	contributes_to: [energy_balance,economic,...]
+	// Relative to the entity
+	direction: [in,out]
 }
 
 // General class for devices (producers, consumers, prosumers)
-Component: Unit
+Component: Entity
 {
-	//Connections to any other modeled unit
+	//Connections to any other modeled Entity
 	Relations:
 				//Two types of connection: Containment and connection 
 		Meter	: contained in Meter
@@ -28,11 +57,13 @@ Component: Unit
 Quantity<Type>
 {
 	Properties
-		Parent		: Unit
+		Parent		: Entity
 					//"dynamic curve" type consisting float values
-		Values		: time:Type[]
+		Quantities		: time:Type[]
 					// Relationship to other Quantities
 		Relations	: Relation[]
+		// TODO: discuss this with DSL guys
+		Tags		: EnergyBalance(user1,in,electricity)
 }
 
 // A purely electric component
@@ -66,6 +97,14 @@ Generator: Component
 		// Either set from a file, or to be calculated during simulation
 		Output			: Quantity<float>*
 }
+
+Battery2: Battery
+{
+Quantities:
+		Capacity  			: Quantity<int>
+		Final_soc 			: Quantity<float>
+}
+
 
 // Produces electricity
 ElectricGenerator: Generator, Device
@@ -162,7 +201,7 @@ Grid: Component
 }
 
 // TBD: 
-MaterialFlow: Unit
+MaterialFlow: Entity
 {
 	Properties
 		// TBD: Is this a string or an Enum?
@@ -171,7 +210,7 @@ MaterialFlow: Unit
 
 
 // TBD: Maybe name this something else?
-PowerNetworkComponent: Unit
+PowerNetworkComponent: Entity
 {
 }
 
@@ -233,6 +272,7 @@ Line: PowerNetworkComponent
 		To_bus	: connection to Bus
 }
 
+
 // ------------------------
 // For later...
 Computation_Model
@@ -240,7 +280,7 @@ Computation_Model
 	Properties
 		time_steps		: int
 		time_resolution	: float
-		time_res_unit	: [s, min, h, day, ...]
+		time_res_Entity	: [s, min, h, day, ...]
 }
 
 Optimization_Model
