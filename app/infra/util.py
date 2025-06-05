@@ -1,28 +1,30 @@
-import pandas as pd
 import os
 import pulp
 
 
-def fill_df(col: str) -> pd.DataFrame:
-    """
-    Read a csv file and return a DataFrame with the specified column and timpestamp
-    parameters:
-    col: str: column name
-    return: pd.DataFrame: DataFrame with the specified column and timestamp
-    """
-    input_path = get_input_path()
-    input_df = pd.read_csv(input_path, index_col=0, header=0)
-    return input_df[col]
-
-
 def get_input_path(filename: str = "input.csv") -> str:
     """
-    Return the path to the input csv file.
-    Returns data/input.csv by default #TODO add custom path
-    """
-    data_folder = os.path.join(os.path.dirname(__file__), "..", ".. ", "data")
+    Return the absolute path to the input CSV file.
 
-    return os.path.join(data_folder, filename)
+    By default, returns the path to 'data/input.csv' relative to this file.
+
+    :param filename: str: Name of the CSV file to locate.
+    :raises FileNotFoundError: If the data folder or file does not exist.
+    :return: Absolute path to the requested CSV file.
+    """
+    data_folder = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+    if not os.path.isdir(data_folder):
+        raise FileNotFoundError(
+            f"The data folder '{data_folder}' does not exist. Please check the path."
+        )
+
+    filepath = os.path.join(data_folder, filename)
+    if not os.path.isfile(filepath):
+        raise FileNotFoundError(
+            f"The file '{filename}' does not exist in the data folder '{data_folder}'."
+        )
+
+    return filepath
 
 
 def create_empty_pulp_var(name: str, time_set: int) -> list[pulp.LpVariable]:
