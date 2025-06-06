@@ -4,8 +4,6 @@ import numpy as np
 import pulp
 from pulp import LpStatusOptimal
 
-from app.conversion.convert_optimization import convert
-
 
 def optimize(**kwargs) -> None:
     time_set = kwargs["time_set"]
@@ -70,7 +68,7 @@ def optimize(**kwargs) -> None:
 
     charge_hours = np.sum(p_bess_in > 0) // 4
     discharge_hours = np.sum(p_bess_out > 0) // 4
-    print(f"Charged hours: {charge_hours}")
+    print(f"Charge hours: {charge_hours}")
     print(f"Discharge hours: {discharge_hours}")
 
     import matplotlib.pyplot as plt

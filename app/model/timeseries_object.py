@@ -1,6 +1,6 @@
-import datetime
-import pulp
 import pandas as pd
+
+from app.infra.util import create_empty_pulp_var
 
 
 class TimeseriesObject:
@@ -24,10 +24,12 @@ class TimeseriesObject:
         :type input_path: str, optional
         :keyword col: The column name to extract from the CSV file.
         :type col: str, optional
+        :keyword freq: str, optional
         """
         data = kwargs.get("data", None)
         input_path = kwargs.get("input_path", None)
         col = kwargs.get("col", None)
+        freq = kwargs.get("freq", None)
 
         if isinstance(data, pd.DataFrame):
             self.data = pd.DataFrame(data)
@@ -38,10 +40,13 @@ class TimeseriesObject:
 
         if not self.data.empty:
             self.data.index = pd.to_datetime(self.data.index)
-            inferred = pd.infer_freq(self.data.index)
-            self.freq: datetime.timedelta = self.normalize_freq(inferred)
+
+            if freq is not None:
+                self.resample_to(freq)
+            else:
+                self.freq = self.normalize_freq(pd.infer_freq(self.data.index))
         else:
-            self.freq: datetime.timedelta = None
+            self.freq = None
 
     @staticmethod
     def read(input_path: str, col: str) -> "TimeseriesObject":
@@ -57,23 +62,15 @@ class TimeseriesObject:
         :return: TimeseriesObject A TimeseriesObject containing the specified column and timestamp as the index.
         """
         try:
-            input_df = pd.read_csv(
-                input_path,
-                sep=";",
-                header=0,
-                index_col="timestamp",
-                parse_dates=["timestamp"],
-                date_format="%Y.%m.%d %H:%M",
-            )
+            input_df = pd.read_csv(input_path, sep=";", header=0, index_col="timestamp", parse_dates=["timestamp"],
+                date_format="%Y.%m.%d %H:%M", )
         except FileNotFoundError:
             raise FileNotFoundError(f"The file '{input_path}' does not exist.")
         except pd.errors.EmptyDataError:
             raise ValueError(f"The file '{input_path}' is empty or invalid.")
 
         if col not in input_df.columns:
-            raise KeyError(
-                f"The column '{col}' is not found in the file {input_path}'. {input_df}"
-            )
+            raise KeyError(f"The column '{col}' is not found in the file {input_path}'. {input_df}")
 
         result = input_df[[col]]
 
@@ -89,8 +86,8 @@ class TimeseriesObject:
             The normalized frequency string (e.g., '1H').
         """
         if freq is not None and freq.isalpha():
-            return "1" + freq
-        return freq
+            return f"1{freq}"
+        return f"{freq}"
 
     def to_1h(self) -> "TimeseriesObject":
         """
@@ -138,16 +135,12 @@ class TimeseriesObject:
 
         try:
             print(f"Resampling from {self.freq} to {new_freq}")
-            current_freq = TimeseriesObject.normalize_freq(
-                pd.infer_freq(self.data.index)
-            )
+            current_freq = TimeseriesObject.normalize_freq(pd.infer_freq(self.data.index))
         except Exception as e:
             raise ValueError(f"Error inferring frequency: {e}")
 
         if current_freq is None:
-            raise ValueError(
-                "Cannot infer current frequency. Please specify method manually."
-            )
+            raise ValueError("Cannot infer current frequency. Please specify method manually.")
 
         try:
             if method is None:
@@ -163,9 +156,7 @@ class TimeseriesObject:
             elif method == "agg":
                 resampled = self.data.resample(new_freq).agg(agg)
             else:
-                raise ValueError(
-                    "Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'."
-                )
+                raise ValueError("Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'.")
         except Exception as e:
             raise ValueError(f"Error during resampling: {e}")
 
@@ -193,9 +184,17 @@ class TimeseriesObject:
         :return: Either a list of empty pulp variables or the DataFrame.
         """
         if self.data.empty:
-            return [
-                pulp.LpVariable(f"P_{name}_{t}", lowBound=0) for t in range(time_set)
-            ]
+            return create_empty_pulp_var(self.id, time_set)
         if time_set != len(self.data):
             return self.resample_to(freq).to_df()
         return self.to_df()
+
+    def __getattr__(self, name):
+        """
+        Delegate attribute access to the underlying pandas DataFrame.
+        Called only when attribute is not found in TimeseriesObject directly.
+        """
+        data_attr = getattr(self.data, name, None)
+        if data_attr is not None:
+            return data_attr
+        raise AttributeError(f"'TimeseriesObject' object has no attribute '{name}'")

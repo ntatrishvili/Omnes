@@ -1,0 +1,86 @@
+energy_community:
+  name: "EnergyCommunity"
+  grid_connection: true
+  max_import_capacity: 100 kW
+  grid_tariff_structure: "time-of-use"
+
+components:
+  generators:
+    - id: pv1
+      type: PV
+      bus: "bus2"
+      peak_power: 10 kW
+      efficiency: 0.9
+      timeseries_input: input\\pv\\pv1.csv
+    - id: wind1
+      type: Wind
+      peak_power: 20 kW
+      timeseries_input: input\\wind\\wind.csv
+  
+  storages:
+    - id: battery1
+      type: Battery
+      bus: "bus2"
+      capacity: 200 kWh
+      max_charge_rate: 50 kW
+      max_discharge_rate: 50 kW
+      charge_efficiency: 0.95
+      discharge_efficiency: 0.95
+      storage_efficiency: 0.995
+      efficiency_model:
+        type: "piecewise"
+        breakpoints:
+        - time: 0  # Initial time
+          capacity_max: 10  # kWh
+          efficiency: 90     # %
+          soc_max: 10        # kWh
+          soc_current: 10     # kWh
+        - time: 1  # After 1 year
+          capacity_max: 9.5  # kWh (after degradation)
+          efficiency: 89.8   # %
+          soc_max: 9.5       # kWh
+          soc_current: 9.5    # kWh
+        - time: 2  # After 2 years
+          capacity_max: 9  # kWh (after degradation)
+          efficiency: 89    # %
+          soc_max: 9        # kWh
+          soc_current: 9     # kWh
+
+  loads:
+    - id: load1
+      type: Residential
+      bus: "bus2"
+      timeseries_input: 80 kW
+
+  grids:
+    - id: slack
+      bus: "bus1"
+
+optimization:
+  objective_function: "Grid interaction min"
+  constraints:
+    - max_withdrawal: 1000 kWh
+  solver: "gurobi"
+
+
+simulation:
+  type: "Power flow"
+  solver: "pandapower"
+
+buses:
+  - id: "bus1"
+    type: "Slack"
+    voltage: 230 V
+  
+  - id: "bus2"
+    type: "PQ"
+    voltage: 230 V
+
+lines:
+  - id: "line1"
+    from: "bus1"
+    to: "bus2"
+    resistance: 0.05 Ohm
+    reactance: 0.1 Ohm
+    max_current: 100 A
+
