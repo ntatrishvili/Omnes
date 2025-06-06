@@ -11,14 +11,14 @@ from app.model.slack import Slack
 
 
 class Model:
-    def __init__(self, id: Optional[str] = None, time_set: int = 0, frequency: str = "15min", ):
+    def __init__(self, id: Optional[str] = None, time_set: int = 0, frequency: str = "15min", **kwargs):
         """
         Initialize the model with an optional name
         """
         self.id: str = id if id else "model"
         self.time_set: int = time_set
         self.frequency: str = frequency
-        self.entities: list[Entity] = []
+        self.entities: list[Entity] = kwargs.get("entities", [])
 
     def add_entity(self, entity: Entity):
         self.entities.append(entity)
