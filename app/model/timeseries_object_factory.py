@@ -5,8 +5,7 @@ from app.model.timeseries_object import TimeseriesObject
 
 class TimeseriesFactory(ABC):
     @abstractmethod
-    def create(self, quantity_name: str, **kwargs) -> TimeseriesObject:
-        ...
+    def create(self, quantity_name: str, **kwargs) -> TimeseriesObject: ...
 
 
 class DefaultTimeseriesFactory(TimeseriesFactory):

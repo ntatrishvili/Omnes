@@ -5,11 +5,16 @@ from typing import Optional, Dict
 from app.conversion.converter import Converter
 from app.conversion.pulp_converter import PulpConverter
 from app.model.timeseries_object import TimeseriesObject
-from app.model.timeseries_object_factory import TimeseriesFactory, DefaultTimeseriesFactory
+from app.model.timeseries_object_factory import (
+    TimeseriesFactory,
+    DefaultTimeseriesFactory,
+)
 
 
 class Entity:
-    def __init__(self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs):
+    def __init__(
+        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
+    ):
         """
         Initialize the entity with an optional id.
         """
@@ -28,7 +33,9 @@ class Entity:
         entity.parent_id = self.id
         self.sub_entities.append(entity)
 
-    def to_pulp(self, time_set: int, new_freq: str, converter: Optional[Converter] = None):
+    def to_pulp(
+        self, time_set: int, new_freq: str, converter: Optional[Converter] = None
+    ):
         """
         Delegate to a visitor for pulp conversion.
         """
@@ -39,7 +46,9 @@ class Entity:
         """
         String representation of the entity.
         """
-        sub_entities_str = ", ".join([str(sub_entity) for sub_entity in self.sub_entities])
+        sub_entities_str = ", ".join(
+            [str(sub_entity) for sub_entity in self.sub_entities]
+        )
         return f"Unit '{self.id}' containing: [{sub_entities_str}]"
 
     def __getitem__(self, item):

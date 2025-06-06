@@ -25,15 +25,24 @@ def optimize(**kwargs) -> None:
         k = (t + 1) % len(time_set)
 
         # Energy balance between the slack and the household
-        prob += (p_pv[t] + p_slack_out[t] + p_bess_out[t] == p_slack_in[t] + p_bess_in[t] + p_cons[t])
+        prob += (
+            p_pv[t] + p_slack_out[t] + p_bess_out[t]
+            == p_slack_in[t] + p_bess_in[t] + p_cons[t]
+        )
 
         # Battery energy storage system
         # energy balance between time steps
         prob += e_bess_stor[k] - e_bess_stor[t] == p_bess_in[t] - p_bess_out[t]
 
         # maximum input and output power and mutual exclusivity
-        prob += p_bess_in[t] <= min(max_power_bess, (p_pv[t] - p_cons[t] if p_pv[t] > p_cons[t] else 0), )
-        prob += p_bess_out[t] <= min(max_power_bess, (p_cons[t] - p_pv[t] if p_cons[t] > p_pv[t] else 0), )
+        prob += p_bess_in[t] <= min(
+            max_power_bess,
+            (p_pv[t] - p_cons[t] if p_pv[t] > p_cons[t] else 0),
+        )
+        prob += p_bess_out[t] <= min(
+            max_power_bess,
+            (p_cons[t] - p_pv[t] if p_cons[t] > p_pv[t] else 0),
+        )
 
         # maximum storable energy (minimum is defined by variable lower bound)
         prob += e_bess_stor[t] <= max_stored_energy_bess
@@ -65,14 +74,40 @@ def optimize(**kwargs) -> None:
     import matplotlib.pyplot as plt
 
     time_range_to_plot = range(11040, 11136)
-    plt.bar(time_range_to_plot, p_bess_in[time_range_to_plot], color="grey", label="Battery charging", )
+    plt.bar(
+        time_range_to_plot,
+        p_bess_in[time_range_to_plot],
+        color="grey",
+        label="Battery charging",
+    )
 
-    plt.bar(time_range_to_plot, -p_bess_out[time_range_to_plot], color="darkgrey", label="Battery discharging", )
+    plt.bar(
+        time_range_to_plot,
+        -p_bess_out[time_range_to_plot],
+        color="darkgrey",
+        label="Battery discharging",
+    )
 
-    plt.step(time_range_to_plot, e_bess_stor[time_range_to_plot] / 8, "b", alpha=0.7, label="Stored energy/8", )
+    plt.step(
+        time_range_to_plot,
+        e_bess_stor[time_range_to_plot] / 8,
+        "b",
+        alpha=0.7,
+        label="Stored energy/8",
+    )
 
-    plt.plot(time_range_to_plot, p_pv[time_range_to_plot], "r", label="PV production", )
-    plt.plot(time_range_to_plot, p_cons[time_range_to_plot], "g", label="Consumption", )
+    plt.plot(
+        time_range_to_plot,
+        p_pv[time_range_to_plot],
+        "r",
+        label="PV production",
+    )
+    plt.plot(
+        time_range_to_plot,
+        p_cons[time_range_to_plot],
+        "g",
+        label="Consumption",
+    )
     plt.ylabel("Energy (kWh)")
     plt.xlabel("Time (quarter hours)")
     plt.legend()

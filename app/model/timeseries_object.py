@@ -63,15 +63,23 @@ class TimeseriesObject:
         :return: TimeseriesObject A TimeseriesObject containing the specified column and timestamp as the index.
         """
         try:
-            input_df = pd.read_csv(input_path, sep=";", header=0, index_col="timestamp", parse_dates=["timestamp"],
-                date_format="%Y.%m.%d %H:%M", )
+            input_df = pd.read_csv(
+                input_path,
+                sep=";",
+                header=0,
+                index_col="timestamp",
+                parse_dates=["timestamp"],
+                date_format="%Y.%m.%d %H:%M",
+            )
         except FileNotFoundError:
             raise FileNotFoundError(f"The file '{input_path}' does not exist.")
         except pd.errors.EmptyDataError:
             raise ValueError(f"The file '{input_path}' is empty or invalid.")
 
         if col not in input_df.columns:
-            raise KeyError(f"The column '{col}' is not found in the file {input_path}'. {input_df}")
+            raise KeyError(
+                f"The column '{col}' is not found in the file {input_path}'. {input_df}"
+            )
 
         result = input_df[[col]]
 
@@ -136,12 +144,16 @@ class TimeseriesObject:
 
         try:
             print(f"Resampling from {self.freq} to {new_freq}")
-            current_freq = TimeseriesObject.normalize_freq(pd.infer_freq(self.data.index))
+            current_freq = TimeseriesObject.normalize_freq(
+                pd.infer_freq(self.data.index)
+            )
         except Exception as e:
             raise ValueError(f"Error inferring frequency: {e}")
 
         if current_freq is None:
-            raise ValueError("Cannot infer current frequency. Please specify method manually.")
+            raise ValueError(
+                "Cannot infer current frequency. Please specify method manually."
+            )
 
         try:
             if method is None:
@@ -157,7 +169,9 @@ class TimeseriesObject:
             elif method == "agg":
                 resampled = self.data.resample(new_freq).agg(agg)
             else:
-                raise ValueError("Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'.")
+                raise ValueError(
+                    "Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'."
+                )
         except Exception as e:
             raise ValueError(f"Error during resampling: {e}")
 

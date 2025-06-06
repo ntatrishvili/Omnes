@@ -11,7 +11,13 @@ from app.model.slack import Slack
 
 
 class Model:
-    def __init__(self, id: Optional[str] = None, time_set: int = 0, frequency: str = "15min", **kwargs):
+    def __init__(
+        self,
+        id: Optional[str] = None,
+        time_set: int = 0,
+        frequency: str = "15min",
+        **kwargs
+    ):
         """
         Initialize the model with an optional name
         """
@@ -34,14 +40,25 @@ class Model:
         for entity_name, content in config.items():
             entity = Entity(entity_name)
             for pv_id, info in content["pvs"].items():
-                pv = PV(id=pv_id, input_path=get_input_path(info["filename"]), col=pv_id, frequency=model.frequency)
+                pv = PV(
+                    id=pv_id,
+                    input_path=get_input_path(info["filename"]),
+                    col=pv_id,
+                    frequency=model.frequency,
+                )
                 entity.add_sub_entity(pv)
             for cs_id, info in content["consumers"].items():
-                cs = Consumer(id=cs_id, input_path=get_input_path(info["filename"]), col=cs_id,
-                              frequency=model.frequency)
+                cs = Consumer(
+                    id=cs_id,
+                    input_path=get_input_path(info["filename"]),
+                    col=cs_id,
+                    frequency=model.frequency,
+                )
                 entity.add_sub_entity(cs)
             for b_id, info in content["batteries"].items():
-                b = Battery(b_id, max_power=info["nominal_power"], capacity=info["capacity"])
+                b = Battery(
+                    b_id, max_power=info["nominal_power"], capacity=info["capacity"]
+                )
                 entity.add_sub_entity(b)
             model.add_entity(entity)
         model.add_entity(Slack(id="slack"))
