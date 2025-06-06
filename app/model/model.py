@@ -1,6 +1,8 @@
 from typing import Optional
 
-from app.infra.util import flatten, get_input_path
+from app.conversion.converter import Converter
+from app.conversion.pulp_converter import PulpConverter
+from app.infra.util import get_input_path
 from app.model.battery import Battery
 from app.model.consumer import Consumer
 from app.model.entity import Entity
@@ -45,16 +47,17 @@ class Model:
         model.add_entity(Slack(id="slack"))
         return model
 
-    def to_pulp(self):
+    def to_pulp(self, converter: Optional[Converter] = None, **kwargs):
         """
         Convert the model to pulp variables
         """
-        pulp_vars = []
+        time_set = kwargs.get("time_set", self.time_set)
+        frequency = kwargs.get("frequency", self.frequency)
+        converter = converter or PulpConverter()
+        pulp_vars = {}
         for entity in self.entities:
-            pulp_vars.extend(entity.to_pulp(self.time_set, self.frequency))
-        pulp_vars = flatten(pulp_vars)
-        pulp_vars = {k: v for d in pulp_vars for k, v in d.items()}
-        pulp_vars["time_set"] = range(self.time_set)
+            pulp_vars.update(entity.to_pulp(time_set, frequency, converter))
+        pulp_vars["time_set"] = range(time_set)
         return pulp_vars
 
     def __str__(self):

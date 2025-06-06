@@ -13,12 +13,9 @@ class PV(Entity):
             "p_pv": self.ts_factory.create("p_pv", **kwargs)
         }
 
-    def get_production(self) -> pd.DataFrame:
-        return self.quantities["p_pv"].to_df()
-
     def __str__(self):
         """
         String representation of the PV entity.
         """
-        production_sum = (self.get_production().sum() if not self.get_production().empty else 0)
+        production_sum = (self["p_pv"].sum() if not self["p_pv"].empty else 0)
         return f"PV '{self.id}' with production sum = {production_sum}"

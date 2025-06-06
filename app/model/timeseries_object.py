@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from app.infra.util import create_empty_pulp_var
@@ -170,6 +171,13 @@ class TimeseriesObject:
         """
         return self.data
 
+    def to_nd(self) -> np.ndarray:
+        """
+        return: pd.DataFrame
+            The original time series data.
+        """
+        return self.data.values.flatten()
+
     def to_pulp(self, name: str, freq: str, time_set: int):
         """
         Convert the time series data to a format suitable for pulp optimization.
@@ -184,10 +192,10 @@ class TimeseriesObject:
         :return: Either a list of empty pulp variables or the DataFrame.
         """
         if self.data.empty:
-            return create_empty_pulp_var(self.id, time_set)
+            return create_empty_pulp_var(name, time_set)
         if time_set != len(self.data):
-            return self.resample_to(freq).to_df()
-        return self.to_df()
+            return self.resample_to(freq).to_nd()
+        return self.to_nd()
 
     def __getattr__(self, name):
         """
