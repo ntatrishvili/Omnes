@@ -1,6 +1,7 @@
-import datetime
-import pulp
+import numpy as np
 import pandas as pd
+
+from app.infra.util import create_empty_pulp_var
 
 
 class TimeseriesObject:
@@ -24,10 +25,12 @@ class TimeseriesObject:
         :type input_path: str, optional
         :keyword col: The column name to extract from the CSV file.
         :type col: str, optional
+        :keyword freq: str, optional
         """
         data = kwargs.get("data", None)
         input_path = kwargs.get("input_path", None)
         col = kwargs.get("col", None)
+        freq = kwargs.get("freq", None)
 
         if isinstance(data, pd.DataFrame):
             self.data = pd.DataFrame(data)
@@ -38,10 +41,13 @@ class TimeseriesObject:
 
         if not self.data.empty:
             self.data.index = pd.to_datetime(self.data.index)
-            inferred = pd.infer_freq(self.data.index)
-            self.freq: datetime.timedelta = self.normalize_freq(inferred)
+
+            if freq is not None:
+                self.resample_to(freq)
+            else:
+                self.freq = self.normalize_freq(pd.infer_freq(self.data.index))
         else:
-            self.freq: datetime.timedelta = None
+            self.freq = None
 
     @staticmethod
     def read(input_path: str, col: str) -> "TimeseriesObject":
@@ -89,13 +95,14 @@ class TimeseriesObject:
             The normalized frequency string (e.g., '1H').
         """
         if freq is not None and freq.isalpha():
-            return "1" + freq
-        return freq
+            return f"1{freq}"
+        return f"{freq}"
 
-    def to_1h(self) -> "TimeseriesObject":
+    def to_1h(self, closed="left") -> "TimeseriesObject":
         """
         Convert the time series to 1-hour frequency.
-
+        :param closed:
+            Which side of bin interval is closed. Default is 'left'.
         :raises ValueError:
             If the frequency is not set.
         :return: TimeseriesObject
@@ -103,12 +110,13 @@ class TimeseriesObject:
         """
         if self.freq is None:
             raise ValueError("Frequency of the time series is not set.")
-        return self.resample_to("1H")
+        return self.resample_to("1H", closed=closed)
 
-    def to_15m(self) -> "TimeseriesObject":
+    def to_15m(self, closed="left") -> "TimeseriesObject":
         """
         Convert the time series to 15-minute frequency.
-
+        :param closed:
+            Which side of bin interval is closed. Default is 'left'.
         :raises ValueError:
             If the frequency is not set.
         :return: TimeseriesObject
@@ -116,9 +124,11 @@ class TimeseriesObject:
         """
         if self.freq is None:
             raise ValueError("Frequency of the time series is not set.")
-        return self.resample_to("15min")
+        return self.resample_to("15min", closed=closed)
 
-    def resample_to(self, new_freq, method=None, agg="mean") -> "TimeseriesObject":
+    def resample_to(
+        self, new_freq, method=None, agg="mean", closed="right", in_place=False
+    ) -> "TimeseriesObject":
         """
         Resample the stored time series to a new frequency.
 
@@ -128,6 +138,10 @@ class TimeseriesObject:
             The resampling method to use ('interpolate', 'ffill', 'bfill', or 'agg'). Defaults to None.
         :param agg: str, optional
             The aggregation function to use if method='agg' (e.g., 'mean', 'sum', 'last'). Defaults to 'mean'.
+        :param closed: str, optional
+            Which side of bin interval is closed. ('right', 'left'). Defaults to 'right'.
+        :param in_place: bool, optional
+            Signals whether the object itself is modified at the end of the operation
         :raises ValueError:
             If the frequency cannot be inferred or if an unsupported method is used.
         :return: TimeseriesObject
@@ -157,11 +171,15 @@ class TimeseriesObject:
                     method = "agg"  # Downsampling
 
             if method == "interpolate":
-                resampled = self.data.resample(new_freq).interpolate("linear")
+                resampled = self.data.resample(new_freq, closed=closed).interpolate(
+                    "linear"
+                )
             elif method in ("ffill", "bfill"):
-                resampled = getattr(self.data.resample(new_freq), method)()
+                resampled = getattr(
+                    self.data.resample(new_freq, closed=closed), method
+                )()
             elif method == "agg":
-                resampled = self.data.resample(new_freq).agg(agg)
+                resampled = self.data.resample(new_freq, closed=closed).agg(agg)
             else:
                 raise ValueError(
                     "Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'."
@@ -169,7 +187,8 @@ class TimeseriesObject:
         except Exception as e:
             raise ValueError(f"Error during resampling: {e}")
 
-        self.data = resampled
+        if in_place:
+            self.data = resampled
         return TimeseriesObject(data=resampled)
 
     def to_df(self) -> pd.DataFrame:
@@ -178,6 +197,13 @@ class TimeseriesObject:
             The original time series data.
         """
         return self.data
+
+    def to_nd(self) -> np.ndarray:
+        """
+        return: pd.DataFrame
+            The original time series data.
+        """
+        return self.data.values.flatten()
 
     def to_pulp(self, name: str, freq: str, time_set: int):
         """
@@ -193,9 +219,19 @@ class TimeseriesObject:
         :return: Either a list of empty pulp variables or the DataFrame.
         """
         if self.data.empty:
-            return [
-                pulp.LpVariable(f"P_{name}_{t}", lowBound=0) for t in range(time_set)
-            ]
+            return create_empty_pulp_var(name, time_set)
+        if freq != self.freq:
+            return self.resample_to(freq).to_nd()
         if time_set != len(self.data):
-            return self.resample_to(freq).to_df()
-        return self.to_df()
+            return self.resample_to(freq).to_nd()[:time_set]
+        return self.to_nd()
+
+    def __getattr__(self, name):
+        """
+        Delegate attribute access to the underlying pandas DataFrame.
+        Called only when attribute is not found in TimeseriesObject directly.
+        """
+        data_attr = getattr(self.data, name, None)
+        if data_attr is not None:
+            return data_attr
+        raise AttributeError(f"'TimeseriesObject' object has no attribute '{name}'")

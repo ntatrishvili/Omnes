@@ -1,11 +1,11 @@
-import pandas as pd
 from typing import Optional
 
-from app.infra.util import flatten, get_input_path
-from app.model.timeseries_object import TimeseriesObject
-from app.model.unit import Unit
+from app.conversion.converter import Converter
+from app.conversion.pulp_converter import PulpConverter
+from app.infra.util import get_input_path
 from app.model.battery import Battery
 from app.model.consumer import Consumer
+from app.model.entity import Entity
 from app.model.pv import PV
 from app.model.slack import Slack
 
@@ -13,20 +13,21 @@ from app.model.slack import Slack
 class Model:
     def __init__(
         self,
-        identifier: Optional[str] = None,
+        id: Optional[str] = None,
         time_set: int = 0,
         frequency: str = "15min",
+        **kwargs
     ):
         """
         Initialize the model with an optional name
         """
-        self.identifier: str = identifier if identifier else "model"
+        self.id: str = id if id else "model"
         self.time_set: int = time_set
         self.frequency: str = frequency
-        self.units: list[Unit] = []
+        self.entities: list[Entity] = kwargs.get("entities", [])
 
-    def add_unit(self, unit: Unit):
-        self.units.append(unit)
+    def add_entity(self, entity: Entity):
+        self.entities.append(entity)
 
     @classmethod
     def build(cls, config: dict, time_set: int, frequency: str):
@@ -36,43 +37,48 @@ class Model:
         model = cls("model")
         model.time_set = time_set
         model.frequency = frequency
-        for unit_name, content in config.items():
-            unit = Unit(unit_name)
+        for entity_name, content in config.items():
+            entity = Entity(entity_name)
             for pv_id, info in content["pvs"].items():
-                pv = PV(id=pv_id)
-                pv.timeseries["p_pv"] = TimeseriesObject.read(
-                    get_input_path(info["filename"]), pv_id
-                ).resample_to(model.frequency)
-                unit.add_unit(pv)
+                pv = PV(
+                    id=pv_id,
+                    input_path=get_input_path(info["filename"]),
+                    col=pv_id,
+                    frequency=model.frequency,
+                )
+                entity.add_sub_entity(pv)
             for cs_id, info in content["consumers"].items():
-                cs = Consumer(id=cs_id)
-                cs.timeseries["p_cons"] = TimeseriesObject.read(
-                    get_input_path(info["filename"]), cs_id
-                ).resample_to(model.frequency)
-                unit.add_unit(cs)
+                cs = Consumer(
+                    id=cs_id,
+                    input_path=get_input_path(info["filename"]),
+                    col=cs_id,
+                    frequency=model.frequency,
+                )
+                entity.add_sub_entity(cs)
             for b_id, info in content["batteries"].items():
-                b = Battery(b_id)
-                b.max_power = info["nominal_power"]
-                b.capacity = info["capacity"]
-                unit.add_unit(b)
-            model.add_unit(unit)
-        model.add_unit(Slack(id="slack"))
+                b = Battery(
+                    b_id, max_power=info["nominal_power"], capacity=info["capacity"]
+                )
+                entity.add_sub_entity(b)
+            model.add_entity(entity)
+        model.add_entity(Slack(id="slack"))
         return model
 
-    def to_pulp(self):
+    def to_pulp(self, converter: Optional[Converter] = None, **kwargs):
         """
         Convert the model to pulp variables
         """
-        pulp_vars = []
-        for unit in self.units:
-            pulp_vars.extend(unit.to_pulp(self.time_set, self.frequency))
-        pulp_vars = flatten(pulp_vars)
-        pulp_vars = {k: v for d in pulp_vars for k, v in d.items()}
-        pulp_vars["time_set"] = range(self.time_set)
+        time_set = kwargs.get("time_set", self.time_set)
+        frequency = kwargs.get("frequency", self.frequency)
+        converter = converter or PulpConverter()
+        pulp_vars = {}
+        for entity in self.entities:
+            pulp_vars.update(entity.to_pulp(time_set, frequency, converter))
+        pulp_vars["time_set"] = range(time_set)
         return pulp_vars
 
     def __str__(self):
         """
         String representation of the model
         """
-        return "\n".join([str(unit) for unit in self.units])
+        return "\n".join([str(entity) for entity in self.entities])

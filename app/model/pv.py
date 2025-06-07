@@ -1,24 +1,21 @@
 from typing import Optional
+
 import pandas as pd
 
-from .unit import Unit
-from app.infra.util import create_empty_pulp_var
-from app.model.timeseries_object import TimeseriesObject
+from .entity import Entity
+from .timeseries_object_factory import TimeseriesFactory
 
 
-class PV(Unit):
-    def __init__(self, id: Optional[str] = None):
-        super().__init__(id)
-        self.timeseries = {"p_pv": TimeseriesObject()}
-
-    def get_production(self) -> pd.DataFrame:
-        return self.timeseries["p_pv"].to_df()
+class PV(Entity):
+    def __init__(
+        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
+    ):
+        super().__init__(id=id, ts_factory=ts_factory, **kwargs)
+        self.quantities = {"p_pv": self.ts_factory.create("p_pv", **kwargs)}
 
     def __str__(self):
         """
-        String representation of the PV unit.
+        String representation of the PV entity.
         """
-        production_sum = (
-            self.get_production().sum() if not self.get_production().empty else 0
-        )
-        return f"PV '{self.id}' with production_sum = {production_sum}"
+        production_sum = self["p_pv"].sum() if not self["p_pv"].empty else 0
+        return f"PV '{self.id}' with production sum = {production_sum}"

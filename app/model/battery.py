@@ -1,74 +1,30 @@
-from typing import Optional, override
-import pandas as pd
+from typing import Optional
 
-from .unit import Unit
-from app.infra.util import create_empty_pulp_var
-from app.model.timeseries_object import TimeseriesObject
+from .entity import Entity
+from .timeseries_object_factory import TimeseriesFactory
 
 
-class Battery(Unit):
-    def __init__(self, id: Optional[str] = None):
-        super().__init__(id)
-        self.max_power = 0
-        self.capacity = 0
-        self.timeseries = {
-            "p_bess_in": TimeseriesObject(),
-            "p_bess_out": TimeseriesObject(),
-            "e_bess_stor": TimeseriesObject(),
+class Battery(Entity):
+    def __init__(
+        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
+    ):
+        super().__init__(id=id, ts_factory=ts_factory, **kwargs)
+        self.parameters = {
+            "max_power": kwargs.get("max_power", 0),
+            "capacity": kwargs.get("capacity", 0),
         }
-
-    @staticmethod
-    def get_injection_pulp_empty(time_set: int):
-        """
-        Input electric power of the battery
-        """
-        return {"p_bess_in": create_empty_pulp_var("bess_in", time_set)}
-
-    @staticmethod
-    def get_withdrawal_pulp_empty(time_set: int):
-        """
-        Output electric power of the battery
-        """
-        return {"p_bess_out": create_empty_pulp_var("bess_out", time_set)}
-
-    @staticmethod
-    def get_soc_pulp_empty(time_set: int):
-        """
-        Stored electric energy
-        """
-        return {"e_bess_stor": create_empty_pulp_var("bess_soc", time_set)}
-
-    def get_max_power(self):
-        """
-        Get the maximum power of the battery.
-        """
-        return {"max_power_bess": self.max_power}
-
-    def get_capacity(self):
-        """
-        Get the capacity of the battery.
-        """
-        return {"max_stored_energy_bess": self.capacity}
+        self.quantities = {
+            "p_bess_in": self.ts_factory.create("p_bess_in", **kwargs),
+            "p_bess_out": self.ts_factory.create("p_bess_out", **kwargs),
+            "e_bess_stor": self.ts_factory.create("e_bess_stor", **kwargs),
+        }
 
     def __str__(self):
         """
-        String representation of the Battery unit.
+        String representation of the Battery entity.
         """
         return (
-            f"Battery '{self.id}' with max_power={self.max_power},"
-            f" capacity={self.capacity}"
+            f"Battery '{self.id}' with max_power={self.parameters['max_power']} "
+            ","
+            f" capacity={self.parameters['capacity']}"
         )
-
-    @override
-    def to_pulp(self, time_set: int, frequency: str):
-        """
-        Convert the Battery unit to a pulp variable.
-        """
-        pulp_vars = [
-            self.get_withdrawal_pulp_empty(time_set),
-            self.get_injection_pulp_empty(time_set),
-            self.get_soc_pulp_empty(time_set),
-            self.get_max_power(),
-            self.get_capacity(),
-        ]
-        return pulp_vars
