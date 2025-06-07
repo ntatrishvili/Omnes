@@ -1,3 +1,5 @@
+# nosec B101
+
 import numpy as np
 from pandas import DataFrame, date_range
 
@@ -8,7 +10,6 @@ from app.model.pv import PV
 from app.model.timeseries_object import TimeseriesObject
 
 
-# nosec B101
 def test_entity_with_quantity():
     p_cons = TimeseriesObject(
         data=DataFrame(

@@ -1,3 +1,4 @@
+# nosec B101
 import numpy as np
 import pandas as pd
 import pytest
@@ -6,7 +7,6 @@ from pandas import date_range
 from app.model.timeseries_object import TimeseriesObject
 
 
-# nosec B101
 @pytest.fixture
 def sample_df():
     index = date_range("2022-01-01", periods=96, freq="15min")
