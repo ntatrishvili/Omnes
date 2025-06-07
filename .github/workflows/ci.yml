@@ -32,7 +32,7 @@ jobs:
         run: black --check .
 
       - name: Run Bandit (Security Checks)
-        run: bandit -r . --exclude 'tests/|test_.*\.py'
+        run: bandit -r . --exclude 'test/|test_.*\.py'
 
       - name: Run Safety (Check for Vulnerabilities)
         run: safety check --full-report
