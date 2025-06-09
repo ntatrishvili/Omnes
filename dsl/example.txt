@@ -1,0 +1,62 @@
+//ID generated
+_ : Bus -> {
+	type = Slack
+	voltage = 400
+	phase_count = 3
+	allowed_voltage_range = <390, 410>
+	Meters = {m0}
+}
+
+m0: Meter {
+	Components = {g0, g1}
+}
+
+g0: Generator {
+	Type = PV
+	Peak_Power = 10
+	CosPhi = "g0.csv"
+	Efficiency	= "g0_eff.csv"
+	Dispatchable = "g0.csv"
+}
+
+advanced_generator0: Generator {
+	Type = PV
+	//? value given at runtime - future plan
+	Peak_Power = ?
+	CosPhi = "g0.csv"
+	Efficiency	= "g0_eff.csv"
+	Dispatchable = "g0.csv"
+}
+
+b1: Battery {
+	// TODO: check, its only for other storages
+	ChargingDevice: {l1}
+}
+
+l1: Load {
+	//Check it, optional
+	ChargedStorage: {b1}
+}
+
+
+/* 	g0.csv:
+
+	CosPhi,0.9;
+	Dispatchable,true;
+	Is this generator advanced?,true;
+	Some other properties,false;
+
+	g0_eff.csv:
+	
+	0 s, 100.0;
+	5 min, 90.0;
+	3 day, 84.0;
+	
+	g1_eff.csv:
+	
+	one_property, other_property
+	10, 100.0;
+	30, 90.0;
+	40, 84.0;
+*/
+ 

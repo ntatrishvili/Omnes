@@ -94,15 +94,17 @@ SPDX-License-Identifier: MIT
 
 ## 👩‍💻 Maintainer
 
-Built and maintained by 
-[Nia Tatrishvili](https://github.com/ntatrishvili) 
-[Lilla Barancsuk](https://github.com/Lilol)
-[Gianmarco Lorenti](https://github.com/gianmarco-lorenti)
+Built and maintained by
+
+-[Nia Tatrishvili](https://github.com/ntatrishvili)
+-[Lilla Barancsuk](https://github.com/Lilol)
+-[Gianmarco Lorenti](https://github.com/gianmarco-lorenti)
+
 ---
 
 ## 🎓 Acknowledgments
 
 This project was developed as part of a **Bachelor's Thesis** at the  
-**Budapest University of Technology and Economics (BME)**,  
-in collaboration with the **University of Torino** and the  
-**Hungarian Center for Energy Research**.
+**[Budapest University of Technology and Economics (BME)](https://www.bme.hu/)**,  
+in collaboration with the **[Politecnico di Torino](https://www.polito.it/)** and the  
+**[HUN-REN Centre for Energy Research](https://www.ek.hun-ren.hu/en/home/)**.

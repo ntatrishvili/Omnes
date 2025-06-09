@@ -4,8 +4,6 @@ import numpy as np
 import pulp
 from pulp import LpStatusOptimal
 
-from app.conversion.convert_optimization import convert
-
 
 def optimize(**kwargs) -> None:
     time_set = kwargs["time_set"]
@@ -16,8 +14,8 @@ def optimize(**kwargs) -> None:
     p_bess_in = kwargs["p_bess_in"]
     p_bess_out = kwargs["p_bess_out"]
     e_bess_stor = kwargs["e_bess_stor"]
-    max_power_bess = kwargs["max_power_bess"]
-    max_stored_energy_bess = kwargs["max_stored_energy_bess"]
+    max_power_bess = kwargs["max_power"]
+    max_stored_energy_bess = kwargs["capacity"]
 
     prob = pulp.LpProblem("CSCopt", pulp.LpMinimize)
 
@@ -28,8 +26,8 @@ def optimize(**kwargs) -> None:
 
         # Energy balance between the slack and the household
         prob += (
-            p_pv.iloc[t] + p_slack_out[t] + p_bess_out[t]
-            == p_slack_in[t] + p_bess_in[t] + p_cons.iloc[t]
+            p_pv[t] + p_slack_out[t] + p_bess_out[t]
+            == p_slack_in[t] + p_bess_in[t] + p_cons[t]
         )
 
         # Battery energy storage system
@@ -39,11 +37,11 @@ def optimize(**kwargs) -> None:
         # maximum input and output power and mutual exclusivity
         prob += p_bess_in[t] <= min(
             max_power_bess,
-            (p_pv.iloc[t] - p_cons.iloc[t] if p_pv.iloc[t] > p_cons.iloc[t] else 0),
+            (p_pv[t] - p_cons[t] if p_pv[t] > p_cons[t] else 0),
         )
         prob += p_bess_out[t] <= min(
             max_power_bess,
-            (p_cons.iloc[t] - p_pv.iloc[t] if p_cons.iloc[t] > p_pv.iloc[t] else 0),
+            (p_cons[t] - p_pv[t] if p_cons[t] > p_pv[t] else 0),
         )
 
         # maximum storable energy (minimum is defined by variable lower bound)
@@ -70,7 +68,7 @@ def optimize(**kwargs) -> None:
 
     charge_hours = np.sum(p_bess_in > 0) // 4
     discharge_hours = np.sum(p_bess_out > 0) // 4
-    print(f"Charged hours: {charge_hours}")
+    print(f"Charge hours: {charge_hours}")
     print(f"Discharge hours: {discharge_hours}")
 
     import matplotlib.pyplot as plt
@@ -100,13 +98,13 @@ def optimize(**kwargs) -> None:
 
     plt.plot(
         time_range_to_plot,
-        p_pv.iloc[time_range_to_plot],
+        p_pv[time_range_to_plot],
         "r",
         label="PV production",
     )
     plt.plot(
         time_range_to_plot,
-        p_cons.iloc[time_range_to_plot],
+        p_cons[time_range_to_plot],
         "g",
         label="Consumption",
     )
