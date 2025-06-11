@@ -9,8 +9,7 @@ class PulpConverter(Converter):
 
         This method recursively traverses the entity hierarchy, resamples all time series
         data to the specified frequency, and converts each TimeseriesObject into pulp-compatible
-        variables using its `to_pulp` method. It also includes any scalar parameters defined
-        on the entity.
+        variables using its `to_pulp` method.
 
         Parameters:
         ----------
@@ -30,7 +29,6 @@ class PulpConverter(Converter):
             key: ts.to_pulp(name=key, freq=new_freq, time_set=time_set)
             for key, ts in entity.quantities.items()
         }
-        variables.update(entity.parameters)
         for sub_entity in entity.sub_entities:
             variables.update(self.convert(sub_entity, time_set, new_freq))
         return variables

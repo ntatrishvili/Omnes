@@ -2,9 +2,10 @@ import numpy as np
 import pandas as pd
 
 from app.infra.util import create_empty_pulp_var
+from app.model.quantity import Quantity
 
 
-class TimeseriesObject:
+class TimeseriesObject(Quantity):
     """
     A class representing a time series object.
     This class is used to handle time series data, including reading from CSV files,
@@ -27,6 +28,7 @@ class TimeseriesObject:
         :type col: str, optional
         :keyword freq: str, optional
         """
+        super().__init__(**kwargs)
         data = kwargs.get("data", None)
         input_path = kwargs.get("input_path", None)
         col = kwargs.get("col", None)
