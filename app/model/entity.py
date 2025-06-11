@@ -1,10 +1,10 @@
 import secrets
-from collections import defaultdict
 from typing import Optional, Dict
 
 from app.conversion.converter import Converter
 from app.conversion.pulp_converter import PulpConverter
-from app.model.timeseries_object import TimeseriesObject
+from app.model.quantity import Quantity
+from app.model.relation import Relation
 from app.model.timeseries_object_factory import (
     TimeseriesFactory,
     DefaultTimeseriesFactory,
@@ -19,9 +19,9 @@ class Entity:
         Initialize the entity with an optional id.
         """
         self.id = str(id) if id is not None else secrets.token_hex(16)
-        self.quantities: Dict[str, TimeseriesObject] = {}
-        self.parameters = defaultdict(float)
+        self.quantities: Dict[str, Quantity] = {}
         self.sub_entities: list[Entity] = []
+        self.relations: list[Relation] = []
         self.parent = None
         self.ts_factory = ts_factory or DefaultTimeseriesFactory()
 
@@ -52,9 +52,7 @@ class Entity:
         return f"Unit '{self.id}' containing: [{sub_entities_str}]"
 
     def __getitem__(self, item):
-        if item in self.parameters:
-            return self.parameters[item]
-        elif item in self.quantities:
+        if item in self.quantities:
             return self.quantities[item]
         else:
             raise KeyError(f"'{item}' not found in parameters or quantities")
