@@ -1,0 +1,182 @@
+# TODO: ahol enum választások vannak, ott a választási lehetőségeket töltsük ki
+
+model:
+  name: Energy_Community
+  start: 2025-01-01 00:00
+  end: 2025-01-02 00:00
+  resolution: 1h
+
+buses:
+  - default:
+    voltage: 230
+
+  - bus_MV
+    name: id
+    type: Slack
+    # Overload default voltage
+    voltage: 400
+    # If phase_count: 3, do not specify phase name
+    phase_count: 3
+
+  - bus_LV1
+    type: PQ
+    phase: B phase_count: 1, default phase: A
+
+  - bus_LV2
+    type: PQ
+    phase: C
+
+  - bus_LV3
+    phase_count: 3
+
+lines:
+  - default:
+    # km
+    line_length: 0.1
+    # Ohm/km
+    resistance: 0.05
+    # Ohm/km
+    reactance: 0.1
+
+  - line1 from bus_MV to bus_LV1
+  - line2 from bus_LV1 to bus_LV2
+  - line3 bus_LV1 to bus_LV3
+
+components:
+generators:
+  - default:
+    efficiency: 0.9
+
+  - pv1 on bus_LV1
+    type: PV
+    peak_power: 4
+    power: input/pv1.csv
+    tags:
+      # Validate this: can only be electricity
+      #Default vector: electricity
+      #Default contributes_to: electric_power_balance
+      household: HH1
+    relations:
+      battery1.max_charge_rate < 2 * pv1.power
+      battery1.max_discharge_rate < 2 * pv1.peak_power
+
+  - pv2 on bus_LV2
+    type: PV
+    peak_power: 3
+    power: input/pv2.csv
+    tags:
+      # Validate this: can only be electricity
+      #Default vector: electricity
+      #Default contributes_to: electric_power_balance
+      household: HH2
+
+  - id: wind1 on bus_LV3
+    type: Wind
+    peak_power: 5
+    efficiency: 0.95
+    power: input/wind.csv
+    tags:
+      #Default vector: electricity
+      #Default contributes_to: electric_power_balance
+      # No household here, does not belong to any specific household
+
+storages:
+  - battery1 on bus_LV3
+    type: Battery
+    capacity: 5
+    max_charge_rate: 2
+    # default: max_charge_rate
+    max_discharge_rate: 2
+    # default: 1
+    charge_efficiency: 0.95
+    # default: 1
+    discharge_efficiency: 0.95
+    # default: 1
+    storage_efficiency: 0.995
+    tags:
+        #Default vector: electricity
+        #Default contributes_to: electric_power_balance
+  - relations:
+      if battery1.capacity < 6 then battery1.max_discharge_rate < 3
+
+  - hot_water1 on bus_LV1
+    type: HotWater
+    # l
+    volume: 120
+    # Is this redundant? (Since type is HotWater)
+    material: Water
+    set_temperature: 60
+    heat: input/hot_water1.csv
+    tags:
+      #Default vector: heat
+      #Default contributes_to: heat_balance
+      household: HH1
+
+  - hot_water2 on bus_LV2
+    type: HotWater
+    # l
+    volume: 200
+    max_charge_rate: 2
+    max_discharge_rate: 2
+    material: Water
+    set_temperature: 55
+    heat: input/hot_water2.csv
+    tags:
+      # Default vector: heat
+      # Default contributes_to: heat_balance
+      household: HH2
+
+loads:
+  - load1 on bus_LV1
+    type: Load
+    power: input/load1.csv
+    tags:
+      # This removes the tag 'vector' from load1
+      -vector
+      #Default contributes_to: electric_power_balance
+      household: HH1
+
+  - load2 on bus_LV2
+    type: Load
+    electricity: input/load2.csv
+    tags:
+      #Default vector: electricity
+      #Default contributes_to: electric_power_balance
+      household: HH2
+
+  - heater1 on bus_LV1 charges hot_water1
+    type: Converter
+    # input and output are only valid options for a converter
+    input: electricity
+    output: heat
+    tags:
+      is same as the input
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
+      is_controlled: true
+      household: HH1
+
+    relations:
+      power enabled from 10:00 to 16:00
+      min_on_duration = 2h
+
+  - heater2 on bus_LV2 charges hot_water2
+    type: WaterHeater
+    input: electricity
+    output: heat
+    tags:
+      is same as the input
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
+      is_controlled: true
+      household: HH2
+
+    relations:
+      power enabled from 10:00 to 16:00
+      min_on_duration = 2h
+
+grid:
+  - slack on bus_MV
+    tags:
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
