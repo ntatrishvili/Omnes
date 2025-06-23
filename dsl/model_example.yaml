@@ -1,0 +1,210 @@
+model:
+  name: Energy_Community
+  time_set: 24
+  start: 2025-01-01 00:00
+  end: 2025-01-02 00:00
+  resolution: 1h
+
+buses:
+  - voltage: 230
+  
+  - id: bus_MV
+    # Default name: id
+    type: Slack
+    # Overload default voltage
+    voltage: 400
+    phase_count: 3
+
+  - id: bus_LV1
+    # Default type: PQ
+    phase: B # Default phase_count: 1, default phase: A
+
+  - id: bus_LV2
+    # Default type: PQ
+    phase: C
+
+  - id: bus_LV3
+    type: PQ
+    phase_count: 3
+
+lines:
+  - id: line1
+    from_bus: bus_MV
+    to_bus: bus_LV1
+    # Ohm/km
+    resistance: 0.05
+    # Ohm/km
+    reactance: 0.1
+    # km
+    line_length: 0.1
+
+  - id: line2
+    from_bus: bus_LV1
+    to_bus: bus_LV2
+    resistance: 0.05
+    reactance: 0.1
+    line_length: 0.1
+
+  - id: line3
+    from_bus: bus_LV1
+    to_bus: bus_LV3
+    resistance: 0.05
+    reactance: 0.1
+    line_length: 0.1
+
+components:
+generators:
+  - id: pv1
+    type: PV
+    bus: bus_LV1
+    peak_power: 4
+    efficiency: 0.9
+    power: input/pv1.csv
+    tags:
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
+      household: HH1
+    relations:
+      battery1.max_discharge_rate = 2 * pv1.peak_power
+
+  - id: pv2
+    type: PV
+    bus: bus_LV2
+    peak_power: 3
+    efficiency: 0.9
+    power: input/pv2.csv
+    tags:
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
+      household: HH2
+
+  - id: wind1
+    type: Wind
+    bus: bus_LV3
+    peak_power: 5
+    efficiency: 0.95
+    power_out: input/wind.csv
+    tags:
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
+      # No household here, does not belong to any specific household
+
+storages:
+  - id: battery1
+    type: Battery
+    bus: bus_LV3
+    capacity: 5
+    max_charge_rate: 2
+    # default: max_charge_rate
+    max_discharge_rate: 2
+    # default: 1
+    charge_efficiency: 0.95
+    # default: 1
+    discharge_efficiency: 0.95
+    # default: 1
+    storage_efficiency: 0.995
+    # tags:
+    # Default vector: electricity
+    # Default contributes_to: electric_power_balance
+    # Tags are all default here
+  - relations:
+      if battery1.capacity < 6 then battery1.max_discharge_rate < 3
+
+  - id: hot_water1
+    type: HotWater
+    bus: bus_LV1
+    # l
+    volume: 120
+    material: Water
+    set_temperature: 60
+    heat: input/hot_water1.csv
+    tags:
+      # Default vector: heat
+      # Default contributes_to: heat_balance
+      household: HH1
+
+  - id: hot_water2
+    type: HotWater
+    bus: bus_LV2
+    # l
+    volume: 200
+    max_charge_rate: 2
+    max_discharge_rate: 2
+    material: Water
+    set_temperature: 55
+    heat: input/hot_water2.csv
+    tags:
+      # Default vector: heat
+      # Default contributes_to: heat_balance
+      household: HH2
+
+loads:
+  - id: load1
+    type: Load
+    bus: bus_LV1
+    power: input/load1.csv
+    tags:
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
+      household: HH1
+
+  - id: load2
+    type: Load
+    bus: bus_LV2
+    electricity: input/load2.csv
+    tags:
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
+      household: HH2
+
+  - id: heater1
+    type: Converter
+    bus: bus_LV1
+    # input and output are only valid options for a converter
+    input: electricity
+    output: heat
+    charges: hot_water1
+    tags:
+      # Default is same as the input
+      # vector: electricity
+      # contributes_to: electric_power_balance
+      # Default is_controlled: false
+      is_controlled: true
+      household: HH1
+
+    relations:
+      heater1.heat_on[10:17] = true
+      min_on_duration = 2
+
+  - id: heater2
+    type: WaterHeater
+    bus: bus_LV2
+    input: electricity
+    output: heat
+    charges: hot_water2
+    tags:
+      # Default is same as the input
+      # vector: electricity
+      # contributes_to: electric_power_balance
+      is_controlled: true
+      household: HH2
+
+    relations:
+      heater1.heat_on[10:17] = true
+      min_on_duration = 2
+
+grid:
+  - id: slack
+    bus: bus_MV
+    tags:
+      vector: electricity
+      contributes_to: electric_power_balance
+
+
+optimization:
+  objective_function: grid_interaction_min
+  solver: gurobi
+
+simulation:
+  type: power_flow
+  solver: pandapower

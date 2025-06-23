@@ -1,7 +1,5 @@
 from typing import Optional
 
-import pandas as pd
-
 from .entity import Entity
 from .timeseries_object_factory import TimeseriesFactory
 
