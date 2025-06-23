@@ -11,6 +11,20 @@ from app.model.slack import Slack
 
 
 class Model:
+    """
+    Represents the entire simulation or optimization model.
+
+    The Model serves as the container for all top-level entities, configuration parameters,
+    time settings, and solver-specific logic. It provides an interface to convert the entire
+    system into an optimization problem.
+
+    Attributes:
+        - id (Optional[str]): Identifies of the model.
+        - entities (list[Entity]): Top-level entities (e.g., buses, generators, loads).
+        - time_set (int): Number of time steps in the simulation.
+        - frequency (str): Time resolution (e.g., '1h', '15min').
+    """
+
     def __init__(
         self,
         id: Optional[str] = None,

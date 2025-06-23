@@ -12,6 +12,21 @@ from app.model.timeseries_object_factory import (
 
 
 class Entity:
+    """
+    Represents any modelled object (e.g., component, device, node) in the system.
+
+    Entities form the core building blocks of the energy system model. Each Entity
+    can have quantities (data or decision variables), hierarchical sub-entities,
+    and semantic or optimization-relevant relations.
+
+    Attributes:
+        - id (str): Unique identifier.
+        - quantities (Dict[str, Quantity]): Named quantities belonging to this entity.
+        - sub_entities (list[Entity]): Optional nested child entities.
+        - relations (list[Relation]): Constraints or rules related to this entity.
+        - ts_factory (TimeseriesFactory): Used to generate time series objects in an advanced manner.
+    """
+
     def __init__(
         self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
     ):
@@ -52,6 +67,9 @@ class Entity:
         return f"Unit '{self.id}' containing: [{sub_entities_str}]"
 
     def __getitem__(self, item):
+        """
+        Allows direct access to quantities via `entity["name"]`
+        """
         if item in self.quantities:
             return self.quantities[item]
         else:

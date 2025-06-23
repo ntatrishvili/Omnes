@@ -53,6 +53,7 @@ def test_model():
     battery = Battery("battery")
     pv = PV("pv")
     model = Model(time_set=4, entities=[battery, pv])
+
     assert len(model.entities) == 2
 
     pulp_variables = model.to_pulp()

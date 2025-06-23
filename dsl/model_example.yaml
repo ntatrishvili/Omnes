@@ -7,7 +7,7 @@ model:
 
 buses:
   - voltage: 230
-  
+
   - id: bus_MV
     # Default name: id
     type: Slack
