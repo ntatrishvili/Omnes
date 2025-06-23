@@ -1,4 +1,13 @@
 # TODO: ahol enum választások vannak, ott a választási lehetőségeket töltsük ki
+# Megbeszélni, hogy milyen típusú relációkat akarunk reprezentálni
+# - találjunk ki egy csomó példarelációt (1-2 elég egyébként)
+# - plusz néhány példaoptimalizálót is
+
+# TODO: ezeknek a kódbeli reprezentációját is elkészíteni -> példányosítani ezeket az objektumokat
+# TODO: pulp konverziót is megcsinálni
+# +Pulp modellbe beeégetni egy-két relációt
+
+# TODO: Utána reprezentációt készíteni a relációknak, és esetleg azt is Pupl-ra konvertálni
 
 model:
   name: Energy_Community
@@ -7,20 +16,19 @@ model:
   resolution: 1h
 
 buses:
-  - default:
     voltage: 230
 
   - bus_MV
     name: id
     type: Slack
-    # Overload default voltage
+    # This overloads default voltage
     voltage: 400
     # If phase_count: 3, do not specify phase name
     phase_count: 3
 
   - bus_LV1
     type: PQ
-    phase: B phase_count: 1, default phase: A
+    phase: B # phase_count: 1 default phase: A
 
   - bus_LV2
     type: PQ
@@ -30,7 +38,6 @@ buses:
     phase_count: 3
 
 lines:
-  - default:
     # km
     line_length: 0.1
     # Ohm/km
@@ -44,7 +51,6 @@ lines:
 
 components:
 generators:
-  - default:
     efficiency: 0.9
 
   - pv1 on bus_LV1
