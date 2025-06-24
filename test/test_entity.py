@@ -4,7 +4,7 @@ import numpy as np
 from pandas import DataFrame, date_range
 
 from app.model.battery import Battery
-from app.model.consumer import Consumer
+from app.model.load import Load
 from app.model.model import Model
 from app.model.pv import PV
 from app.model.timeseries_object import TimeseriesObject
@@ -22,7 +22,7 @@ def test_entity_with_quantity():
             data=np.ones(192),
         )
     )
-    c = Consumer(id="consumer", p_cons=p_cons)
+    c = Load(id="consumer", p_cons=p_cons)
     print(c)
     assert c["p_cons"].sum().sum() == 192
 

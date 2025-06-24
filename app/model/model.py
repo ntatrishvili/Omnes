@@ -4,7 +4,7 @@ from app.conversion.converter import Converter
 from app.conversion.pulp_converter import PulpConverter
 from app.infra.util import get_input_path
 from app.model.battery import Battery
-from app.model.consumer import Consumer
+from app.model.load import Load
 from app.model.entity import Entity
 from app.model.pv import PV
 from app.model.slack import Slack
@@ -62,7 +62,7 @@ class Model:
                 )
                 entity.add_sub_entity(pv)
             for cs_id, info in content["consumers"].items():
-                cs = Consumer(
+                cs = Load(
                     id=cs_id,
                     input_path=get_input_path(info["filename"]),
                     col=cs_id,

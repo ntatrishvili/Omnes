@@ -1,12 +1,10 @@
 from typing import Optional
 
-import pandas as pd
-
 from .entity import Entity
 from .timeseries_object_factory import TimeseriesFactory
 
 
-class Consumer(Entity):
+class Load(Entity):
     def __init__(
         self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
     ):
@@ -15,7 +13,7 @@ class Consumer(Entity):
 
     def __str__(self):
         """
-        String representation of the Consumer entity.
+        String representation of the Load entity.
         """
         consumption_sum = self["p_cons"].sum() if not self["p_cons"].empty else 0
-        return f"Consumer '{self.id}' with consumption_sum={consumption_sum}"
+        return f"Load '{self.id}' with consumption_sum={consumption_sum}"

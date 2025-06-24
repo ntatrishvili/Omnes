@@ -16,7 +16,7 @@ model:
   resolution: 1h
 
 buses:
-    voltage: 230
+    nominal_voltage: 230
 
   - bus_MV
     name: id
