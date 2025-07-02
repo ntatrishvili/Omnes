@@ -16,19 +16,18 @@ model:
   resolution: 1h
 
 buses:
-    nominal_voltage: 230
+  nominal_voltage: 400
 
   # 3-phase bus
-  # If phase_count: 3, do not specify phase name
+  # If phase_counts 3, do not specify phase name
   - bus_MV -> 3
     type: Slack
-    # This overloads default voltage
-    nominal_voltage: 400
+    # This overloads default voltage, which is 400
+    nominal_voltage: 10000
 
-  # on phase A, which is the default phase
+  # bus_LV1 is on phase A, which is the default phase, thus do not need to be specified separately
   - bus_LV1
     # type: PQ is the default, no need to specify
-    # type: PQ
 
   # on phase C
   - bus_LV2 -> C
@@ -48,12 +47,12 @@ lines:
   - line2 from bus_LV1 to bus_LV2
   - line3 bus_LV1 to bus_LV3
 
-components:
+devices:
 generators:
     efficiency: 0.9
 
+  PV:
   - pv1 on bus_LV1
-    type: PV
     peak_power: 4
     # pv power input is in data/input.csv in column "pv1"
     power: data/input.csv
@@ -67,7 +66,6 @@ generators:
       battery1.max_discharge_rate < 2 * pv1.peak_power
 
   - pv2 on bus_LV2
-    type: PV
     peak_power: 3
     # pv power input is in data/input.csv in column "pv2"
     power: input/pv2.csv
@@ -77,8 +75,8 @@ generators:
       #Default contributes_to: electric_power_balance
       household: HH2
 
+  Wind:
   - id: wind1 on bus_LV3
-    type: Wind
     peak_power: 5
     efficiency: 0.95
     # wind power input is in data/input.csv in column "wind"
@@ -109,10 +107,8 @@ storages:
   - hot_water1 on bus_LV1
     # l
     volume: 120
-    # Is this redundant? (Since type is HotWater)
-    material: Water
     set_temperature: 60
-    heat: input/hot_water1.csv
+    heat: input/input.csv -> hot_water1
     tags:
       #Default vector: heat
       #Default contributes_to: heat_balance
@@ -132,34 +128,29 @@ storages:
       # Default contributes_to: heat_balance
       household: HH2
 
-loads:
+Loads:
   - load1 on bus_LV1
     type: Load
     power: input/load1.csv
     tags:
-      # This removes the tag 'vector' from load1
-      -vector
-      #Default contributes_to: electric_power_balance
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
       household: HH1
 
   - load2 on bus_LV2
     type: Load
     electricity: input/load2.csv
     tags:
-      #Default vector: electricity
-      #Default contributes_to: electric_power_balance
       household: HH2
 
+  Charger:
   - heater1 on bus_LV1 charges hot_water1
-    type: Converter
     # input and output are only valid options for a converter
-    input: electricity
-    output: heat
+    controllable
     tags:
       is same as the input
       # Default vector: electricity
       # Default contributes_to: electric_power_balance
-      is_controlled: true
       household: HH1
 
     relations:
@@ -167,22 +158,19 @@ loads:
       min_on_duration = 2h
 
   - heater2 on bus_LV2 charges hot_water2
-    type: WaterHeater
-    input: electricity
-    output: heat
+    # this is not controllable, so 'controllable' is not specified
     tags:
       is same as the input
       # Default vector: electricity
       # Default contributes_to: electric_power_balance
-      is_controlled: true
       household: HH2
 
     relations:
       power enabled from 10:00 to 16:00
       min_on_duration = 2h
 
-grid:
+Slacks:
   - slack on bus_MV
-    tags:
+    # tags:
       # Default vector: electricity
       # Default contributes_to: electric_power_balance

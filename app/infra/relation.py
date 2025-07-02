@@ -18,4 +18,3 @@ class Relation:
         left_val = eval(left, {}, context)
         right_val = eval(right, {}, context)
         return left_val <= right_val
-

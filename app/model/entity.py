@@ -5,7 +5,10 @@ from app.conversion.converter import Converter
 from app.conversion.pulp_converter import PulpConverter
 from app.infra.quantity import Quantity
 from app.infra.relation import Relation
-from app.infra.timeseries_object_factory import TimeseriesFactory, DefaultTimeseriesFactory
+from app.infra.timeseries_object_factory import (
+    TimeseriesFactory,
+    DefaultTimeseriesFactory,
+)
 
 
 class Entity:

@@ -1,15 +1,16 @@
 from typing import Optional
 
 from app.infra.timeseries_object_factory import TimeseriesFactory
-from app.model.entity import Entity
-from app.model.generator.generator import Vector
+from app.model.generator.generator import Generator
 
 
-class PV(Entity):
-    default_vector = Vector.ELECTRICITY
-    default_contributes_to = "electric_power_balance"
-
-    def __init__(self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs: object):
+class PV(Generator):
+    def __init__(
+        self,
+        id: Optional[str] = None,
+        ts_factory: TimeseriesFactory = None,
+        **kwargs: object,
+    ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
         self.quantities.update({"p_pv": self.ts_factory.create("p_pv", **kwargs)})
 

@@ -1,28 +1,27 @@
-from enum import Enum, auto
 from typing import Optional
 
 from app.infra.quantity import Parameter
 from app.infra.timeseries_object_factory import TimeseriesFactory
-from app.model.entity import Entity
+from app.model.device import Device, Vector
 
 
-class Vector(Enum):
-    ELECTRICITY = auto()
-    HEAT = auto()
-    MATERIAL = auto()
-    INVALID = auto()
-
-
-class Generator(Entity):
-    default_vector = Vector.INVALID
-    default_contributes_to = ""
+class Generator(Device):
+    default_vector = Vector.ELECTRICITY
+    default_contributes_to = "electric_power_balance"
     default_peak_power = 0
     default_efficiency = 0
 
-    def __init__(self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs):
+    def __init__(
+        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
+    ):
         super().__init__(id, ts_factory, **kwargs)
-        self.bus = kwargs.pop("bus")
-        self.quantities.update({"peak_power": Parameter(value=kwargs.pop("peak_power", self.default_peak_power)),
-                                "efficiency": Parameter(value=kwargs.pop("efficiency", self.default_efficiency))})
-        self.tags = {"vector": kwargs.pop("vector", self.default_vector),
-                     "contributes_to": kwargs.pop("contributes_to", self.default_contributes_to)}
+        self.quantities.update(
+            {
+                "peak_power": Parameter(
+                    value=kwargs.pop("peak_power", self.default_peak_power)
+                ),
+                "efficiency": Parameter(
+                    value=kwargs.pop("efficiency", self.default_efficiency)
+                ),
+            }
+        )

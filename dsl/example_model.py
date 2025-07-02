@@ -1,24 +1,25 @@
 from pulp import LpProblem, LpMinimize
 
 from app.infra.relation import Relation
-from app.infra.timeseries_object_factory import DefaultTimeseriesFactory
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
 from app.model.grid_component.bus import Bus, BusType
 from app.model.grid_component.line import Line
-from app.model.load import Load
+from app.model.load.load import Load
+from app.model.model import Model
 from app.model.slack import Slack
 from app.model.storage.battery import Battery
+from app.model.storage.hot_water_storage import HotWaterStorage
 
-ts_factory = DefaultTimeseriesFactory()
-
-nominal_voltage = 230
+nominal_voltage = 400
 Bus.default_nominal_voltage = nominal_voltage
 
-bus_mv = Bus(id="bus_MV", type=BusType.SLACK, phase_count=3)
-slack = Slack(id="slack", ts_factory=ts_factory, bus="bus_MV")
+bus_mv = Bus(id="bus_MV", nominal_voltage=10000, type=BusType.SLACK, phase_count=3)
+slack = Slack(id="slack", bus="bus_MV")
 
-bus_lv1 = Bus(id="bus_LV1",)
+bus_lv1 = Bus(
+    id="bus_LV1",
+)
 bus_lv2 = Bus(id="bus_LV2", phase="C")
 bus_lv3 = Bus(id="bus_LV3", phase_count=3)
 
@@ -33,41 +34,88 @@ line1 = Line(id="line1", from_bus="bus_MV", to_bus="bus_LV1")
 line2 = Line(id="line2", from_bus="bus_LV1", to_bus="bus_LV2")
 line3 = Line(id="line3", from_bus="bus_LV1", to_bus="bus_LV3")
 
+# Instantiate devices
 efficiency = 0.9
+PV.default_efficiency = efficiency
 # Instantiate PVs
 # If 'col' not specified, default 'col' will be the ID of the element
-pv1 = PV(id="pv1", ts_factory=ts_factory, peak_power=4, efficiency=efficiency, input_path="data/input.csv", bus="bus_LV1", housedold="HH1")
-pv2 = PV(id="pv2", ts_factory=ts_factory, peak_power=3, efficiency=efficiency, input_path="data/input2.csv", bus="bus_LV2", household="HH2")
-wind1 = Wind(id="wind1", ts_factory=ts_factory, peak_power=5, efficiency=0.95, input_path="data/input.csv", col="wind", bus="bus_LV3")
-
-# Instantiate Loads
-load1 = Load(id="load1", ts_factory=ts_factory, input_path="data/input.csv")
-load2 = Load(id="load2", ts_factory=ts_factory, input_path="data/input2.csv")
+pv1 = PV(
+    id="pv1", bus="bus_LV1", peak_power=4, input_path="data/input.csv", housedold="HH1"
+)
+pv2 = PV(
+    id="pv2", bus="bus_LV2", peak_power=3, input_path="data/input2.csv", household="HH2"
+)
+wind1 = Wind(
+    id="wind1",
+    bus="bus_LV3",
+    peak_power=5,
+    efficiency=0.95,
+    input_path="data/input.csv",
+    col="wind",
+)
 
 # Instantiate Battery
+# Used as both max_charge_rate and max_discharge_rate
 battery1 = Battery(
     id="battery1",
+    bus="bus_LV3",
     capacity=5,
-    max_power=2,  # Used as both max_charge_rate and max_discharge_rate
+    max_charge_rate=2,
+    max_discharge_rate=2,
+    charge_efficiency=0.95,
+    discharge_efficiency=0.95,
+    storage_efficiency=0.995,
 )
 
+hot_water_storage1 = HotWaterStorage(
+    id="hot_water1",
+    bus="bus_LV1",
+    volume=120,
+    set_temperature=60,
+    input_path="data/input.csv",
+    col="hot_water1",
+    household="HH1",
+)
 
-hot_water_storage = Hot()
+hot_water_storage2 = HotWaterStorage(
+    id="hot_water2",
+    bus="bus_LV2",
+    volume=200,
+    set_temperature=55,
+    input_path="data/input.csv",
+    col="hot_water2",
+    household="HH2",
+)
 
-# Example pulp problem
-prob = LpProblem("EnergyCommunityModel", LpMinimize)
+# Instantiate Loads
+load1 = Load(id="load1", input_path="data/input.csv")
+load2 = Load(id="load2", input_path="data/input2.csv")
 
 time_resolution = "1h"
-number_of_time_steps = 24
+model = Model(
+    id="Energy_Community",
+    time_start="2025-01-01 00:00",
+    time_end="2025-01-02 00:00",
+    time_resolution=time_resolution,
+)
 
-slack_in = slack["p_slack_in"].to_pulp("slack_in", time_resolution, number_of_time_steps)
-slack_out = slack["p_slack_out"].to_pulp("slack_out", time_resolution, number_of_time_steps)
+number_of_time_steps = model.number_of_time_steps
+
+# Example pulp problem
+prob = LpProblem("Energy_Community", LpMinimize)
+
+slack_in = slack["p_slack_in"].to_pulp(
+    "slack_in", time_resolution, number_of_time_steps
+)
+slack_out = slack["p_slack_out"].to_pulp(
+    "slack_out", time_resolution, number_of_time_steps
+)
 
 # Assume you have pulp-compatible variables or values
-battery1_max_discharge = battery1.quantities["max_power"].to_pulp(
+battery1_max_discharge = battery1["max_power"].to_pulp(
     "battery1_max_discharge", time_resolution, number_of_time_steps
 )
-pv1_peak_power = pv1.quantities["p_pv"].to_pulp("pv1_power", time_resolution, number_of_time_steps)
+pv1_peak_power = pv1["p_pv"].to_pulp("pv1_power", time_resolution, number_of_time_steps)
 
 # Example constraint from DSL:
 # battery1.max_discharge_rate < 2 * pv1.peak_power
@@ -75,7 +123,7 @@ prob += battery1_max_discharge <= 2 * pv1_peak_power, "BatteryDischargeLimit"
 
 # Example conditional (must be translated as logic):
 # if battery1.capacity < 6 then battery1.max_discharge_rate < 3
-if battery1.quantities["capacity"].value < 6:
+if battery1["capacity"] < 6:
     prob += battery1_max_discharge <= 3, "ConditionalBatteryLimit"
 
 context = {
@@ -87,10 +135,13 @@ relation1 = Relation("battery1.max_discharge_rate < 2 * pv1.peak_power")
 relation2 = Relation("if battery1.capacity < 6 then battery1.max_discharge_rate < 3")
 
 prob += relation1.to_pulp(context, time_set=number_of_time_steps), "R1_battery_limit"
-prob += relation2.to_pulp(context, time_set=number_of_time_steps), "R2_conditional_discharge"
+prob += (
+    relation2.to_pulp(context, time_set=number_of_time_steps),
+    "R2_conditional_discharge",
+)
 
 # === (Optional) Example manual constraints ===
-if battery1.quantities["capacity"].value < 6:
+if battery1["capacity"].value < 6:
     prob += context["battery1.max_discharge_rate"] <= 3, "Manual_Conditional_Limit"
 
 relation = Relation("battery1.max_discharge_rate < 2 * pv1.peak_power")

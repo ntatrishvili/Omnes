@@ -1,5 +1,7 @@
 from typing import Optional
 
+from pandas import date_range
+
 from app.conversion.converter import Converter
 from app.conversion.pulp_converter import PulpConverter
 from app.infra.util import get_input_path
@@ -8,6 +10,36 @@ from app.model.entity import Entity
 from app.model.load.load import Load
 from app.model.slack import Slack
 from app.model.storage.battery import Battery
+
+
+class TimesetBuilder:
+    @classmethod
+    def create(cls, **kwargs):
+        time_start = kwargs.get("time_start", None)
+        time_end = kwargs.get("time_end", None)
+        # Huge hack, how to handle?
+        if time_start is None and time_end is None:
+            time_start = "2019-01-01"
+        number_of_time_steps = kwargs.get("number_of_time_steps", None)
+        resolution = kwargs.get("resolution", None)
+        dates = date_range(
+            start=time_start,
+            end=time_end,
+            freq=resolution,
+            periods=number_of_time_steps,
+        )
+        number_of_time_steps = dates.shape[0]
+        resolution = dates.freq
+        return TimeSet(time_start, time_end, resolution, number_of_time_steps, dates)
+
+
+class TimeSet:
+    def __init__(self, start, end, resolution, number_of_time_steps, time_points):
+        self.start = start
+        self.end = end
+        self.resolution = resolution
+        self.number_of_time_steps = number_of_time_steps
+        self.time_points = time_points
 
 
 class Model:
@@ -26,29 +58,32 @@ class Model:
     """
 
     def __init__(
-        self,
-        id: Optional[str] = None,
-        time_set: int = 0,
-        frequency: str = "15min",
-        **kwargs
+        self, id: Optional[str] = None, timeset_builder=TimesetBuilder(), **kwargs
     ):
         """
         Initialize the model with an optional name
         """
         self.id: str = id if id else "model"
-        self.time_set: int = time_set
-        self.frequency: str = frequency
+        self.time_set: TimeSet = timeset_builder.create(**kwargs)
         self.entities: list[Entity] = kwargs.get("entities", [])
 
     def add_entity(self, entity: Entity):
         self.entities.append(entity)
 
+    @property
+    def number_of_time_steps(self):
+        return self.time_set.number_of_time_steps
+
+    @property
+    def frequency(self):
+        return self.time_set.resolution
+
     @classmethod
-    def build(cls, config: dict, time_set: int, frequency: str):
+    def build(cls, id, config: dict, time_set: int, frequency: str):
         """
         Build the model from a configuration dictionary
         """
-        model = cls("model")
+        model = cls(id, number_of_time_steps=time_set, resolution=frequency)
         model.time_set = time_set
         model.frequency = frequency
         for entity_name, content in config.items():
@@ -82,13 +117,13 @@ class Model:
         """
         Convert the model to pulp variables
         """
-        time_set = kwargs.get("time_set", self.time_set)
+        number_of_time_steps = kwargs.get("time_set", self.number_of_time_steps)
         frequency = kwargs.get("frequency", self.frequency)
         converter = converter or PulpConverter()
         pulp_vars = {}
         for entity in self.entities:
-            pulp_vars.update(entity.to_pulp(time_set, frequency, converter))
-        pulp_vars["time_set"] = range(time_set)
+            pulp_vars.update(entity.to_pulp(number_of_time_steps, frequency, converter))
+        pulp_vars["time_set"] = range(number_of_time_steps)
         return pulp_vars
 
     def __str__(self):

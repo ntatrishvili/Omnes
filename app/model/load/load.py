@@ -1,12 +1,18 @@
 from typing import Optional
 
-from app.model.entity import Entity
+from app.model.device import Device, Vector
 from app.infra.timeseries_object_factory import TimeseriesFactory
 
 
-class Load(Entity):
+class Load(Device):
+    default_vector = Vector.ELECTRICITY
+    default_contributes_to = "electric_power_balance"
+
     def __init__(
-        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs: object
+        self,
+        id: Optional[str] = None,
+        ts_factory: TimeseriesFactory = None,
+        **kwargs: object,
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
         self.quantities.update({"p_cons": self.ts_factory.create("p_cons", **kwargs)})

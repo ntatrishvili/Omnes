@@ -17,13 +17,23 @@ class Line(GridComponent):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
         self.from_bus = kwargs.pop("from_bus")
         self.to_bus = kwargs.pop("to_bus")
-        self.quantities.update({
-            "current": self.ts_factory.create("current", **kwargs),
-            "max_current": Parameter(value=kwargs.get("max_current", self.default_max_current)),
-            "line_length": Parameter(value=kwargs.get("line_length", self.default_line_length)),
-            "reactance": Parameter(value=kwargs.get("reactance", self.default_reactance)),
-            "resistance": Parameter(values=kwargs.get("resistance", self.default_resistance)),
-        })
+        self.quantities.update(
+            {
+                "current": self.ts_factory.create("current", **kwargs),
+                "max_current": Parameter(
+                    value=kwargs.get("max_current", self.default_max_current)
+                ),
+                "line_length": Parameter(
+                    value=kwargs.get("line_length", self.default_line_length)
+                ),
+                "reactance": Parameter(
+                    value=kwargs.get("reactance", self.default_reactance)
+                ),
+                "resistance": Parameter(
+                    values=kwargs.get("resistance", self.default_resistance)
+                ),
+            }
+        )
 
     def __str__(self):
         """
