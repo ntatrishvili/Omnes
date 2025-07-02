@@ -1,15 +1,15 @@
 from typing import Optional
 
-from .entity import Entity
-from .timeseries_object_factory import TimeseriesFactory
+from app.model.entity import Entity
+from app.infra.timeseries_object_factory import TimeseriesFactory
 
 
 class Load(Entity):
     def __init__(
-        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
+        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs: object
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
-        self.quantities = {"p_cons": self.ts_factory.create("p_cons", **kwargs)}
+        self.quantities.update({"p_cons": self.ts_factory.create("p_cons", **kwargs)})
 
     def __str__(self):
         """

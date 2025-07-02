@@ -3,11 +3,11 @@
 import numpy as np
 from pandas import DataFrame, date_range
 
-from app.model.battery import Battery
-from app.model.load import Load
+from app.infra.timeseries_object import TimeseriesObject
+from app.model.generator.pv import PV
+from app.model.load.load import Load
 from app.model.model import Model
-from app.model.pv import PV
-from app.model.timeseries_object import TimeseriesObject
+from app.model.storage.battery import Battery
 
 
 def test_entity_with_quantity():
@@ -28,10 +28,10 @@ def test_entity_with_quantity():
 
 
 def test_two_entities():
-    battery = Battery("battery", capacity=1, max_power=1.2)
+    battery = Battery("battery", capacity=1, max_discharge_rate=1.2)
     print(battery)
     assert battery["capacity"] == 1
-    assert battery["max_power"] == 1.2
+    assert battery["max_discharge_rate"] == 1.2
 
     p_pv = TimeseriesObject(
         data=DataFrame(
@@ -57,8 +57,8 @@ def test_model():
     assert len(model.entities) == 2
 
     pulp_variables = model.to_pulp()
-    assert len(pulp_variables) == 7
+    assert len(pulp_variables) == 11
     assert "capacity" in pulp_variables
-    assert "max_power" in pulp_variables
+    assert "max_charge_rate" in pulp_variables
     assert "p_pv" in pulp_variables
     assert "p_bess_in" in pulp_variables

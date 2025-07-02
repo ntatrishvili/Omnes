@@ -37,7 +37,7 @@ class Parameter(Quantity):
         - value (float or int): The scalar value of the parameter.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: object) -> object:
         super().__init__(**kwargs)
         self.value = kwargs.get("value", None)
 
@@ -54,3 +54,17 @@ class Parameter(Quantity):
             return float(self.value) == float(other)
         except (TypeError, ValueError):
             return False
+
+
+class Constant(Parameter):
+    """
+    Represents a scalar quantity used as a parameter in the model, this quantity remains constant throughout the lifetime of the Entity.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.__value = kwargs.get("value", None)
+
+    @property
+    def value(self):
+        return self.__value

@@ -18,24 +18,23 @@ model:
 buses:
     nominal_voltage: 230
 
-  - bus_MV
-    name: id
+  # 3-phase bus
+  # If phase_count: 3, do not specify phase name
+  - bus_MV -> 3
     type: Slack
     # This overloads default voltage
-    voltage: 400
-    # If phase_count: 3, do not specify phase name
-    phase_count: 3
+    nominal_voltage: 400
 
+  # on phase A, which is the default phase
   - bus_LV1
-    type: PQ
-    phase: B # phase_count: 1 default phase: A
+    # type: PQ is the default, no need to specify
+    # type: PQ
 
-  - bus_LV2
-    type: PQ
-    phase: C
+  # on phase C
+  - bus_LV2 -> C
 
-  - bus_LV3
-    phase_count: 3
+  # 3-phase bus
+  - bus_LV3 -> 3
 
 lines:
     # km
@@ -56,9 +55,10 @@ generators:
   - pv1 on bus_LV1
     type: PV
     peak_power: 4
-    power: input/pv1.csv
+    # pv power input is in data/input.csv in column "pv1"
+    power: data/input.csv
     tags:
-      # Validate this: can only be electricity
+      # Validate this: vector can only be electricity
       #Default vector: electricity
       #Default contributes_to: electric_power_balance
       household: HH1
@@ -69,6 +69,7 @@ generators:
   - pv2 on bus_LV2
     type: PV
     peak_power: 3
+    # pv power input is in data/input.csv in column "pv2"
     power: input/pv2.csv
     tags:
       # Validate this: can only be electricity
@@ -80,7 +81,8 @@ generators:
     type: Wind
     peak_power: 5
     efficiency: 0.95
-    power: input/wind.csv
+    # wind power input is in data/input.csv in column "wind"
+    power: data/input.csv -> wind
     tags:
       #Default vector: electricity
       #Default contributes_to: electric_power_balance
@@ -88,7 +90,6 @@ generators:
 
 storages:
   - battery1 on bus_LV3
-    type: Battery
     capacity: 5
     max_charge_rate: 2
     # default: max_charge_rate
@@ -106,7 +107,6 @@ storages:
       if battery1.capacity < 6 then battery1.max_discharge_rate < 3
 
   - hot_water1 on bus_LV1
-    type: HotWater
     # l
     volume: 120
     # Is this redundant? (Since type is HotWater)

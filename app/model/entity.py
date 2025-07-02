@@ -3,12 +3,9 @@ from typing import Optional, Dict
 
 from app.conversion.converter import Converter
 from app.conversion.pulp_converter import PulpConverter
-from app.model.quantity import Quantity
-from app.model.relation import Relation
-from app.model.timeseries_object_factory import (
-    TimeseriesFactory,
-    DefaultTimeseriesFactory,
-)
+from app.infra.quantity import Quantity
+from app.infra.relation import Relation
+from app.infra.timeseries_object_factory import TimeseriesFactory, DefaultTimeseriesFactory
 
 
 class Entity:
@@ -39,6 +36,9 @@ class Entity:
         self.relations: list[Relation] = []
         self.parent = None
         self.ts_factory = ts_factory or DefaultTimeseriesFactory()
+        self.relations = {Relation(expr=rel) for rel in kwargs.pop("relations", [])}
+        if "input_path" in kwargs and "col" not in kwargs:
+            kwargs["col"] = self.id
 
     def add_sub_entity(self, entity) -> None:
         """
@@ -64,7 +64,7 @@ class Entity:
         sub_entities_str = ", ".join(
             [str(sub_entity) for sub_entity in self.sub_entities]
         )
-        return f"Unit '{self.id}' containing: [{sub_entities_str}]"
+        return f"Entity '{self.id}' containing: [{sub_entities_str}]"
 
     def __getitem__(self, item):
         """

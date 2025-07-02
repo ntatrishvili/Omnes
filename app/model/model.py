@@ -3,11 +3,11 @@ from typing import Optional
 from app.conversion.converter import Converter
 from app.conversion.pulp_converter import PulpConverter
 from app.infra.util import get_input_path
-from app.model.battery import Battery
-from app.model.load import Load
+from app.model.generator.pv import PV
 from app.model.entity import Entity
-from app.model.pv import PV
+from app.model.load.load import Load
 from app.model.slack import Slack
+from app.model.storage.battery import Battery
 
 
 class Model:

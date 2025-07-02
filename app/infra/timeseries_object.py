@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from app.infra.quantity import Quantity
 from app.infra.util import create_empty_pulp_var
-from app.model.quantity import Quantity
 
 
 class TimeseriesObject(Quantity):

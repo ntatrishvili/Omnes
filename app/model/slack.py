@@ -1,7 +1,7 @@
 from typing import Optional
 
+from app.infra.timeseries_object_factory import TimeseriesFactory
 from app.model.entity import Entity
-from app.model.timeseries_object_factory import TimeseriesFactory
 
 
 class Slack(Entity):
@@ -10,10 +10,10 @@ class Slack(Entity):
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
         self.id = id if id else "slack"
-        self.quantities = {
+        self.quantities.update({
             "p_slack_in": self.ts_factory.create("p_slack_in", **kwargs),
             "p_slack_out": self.ts_factory.create("p_slack_out", **kwargs),
-        }
+        })
 
     def __str__(self):
         """
