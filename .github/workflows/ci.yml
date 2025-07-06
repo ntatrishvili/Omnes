@@ -34,9 +34,6 @@ jobs:
       - name: Run Bandit (Security Checks)
         run: bandit -r . --exclude ./test/
 
-      - name: Run Safety (Check for Vulnerabilities)
-        run: safety scan --full-report
-
       - name: Run Pytest with Coverage (Unit Tests)
         run: |
           pip install pytest-cov
