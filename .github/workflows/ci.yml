@@ -50,6 +50,6 @@ jobs:
           path: coverage.xml
 
       - name: Pytest Coverage Comment
-        uses: MishaKav/pytest-coverage-comment@v3
+        uses: MishaKav/pytest-coverage-comment@main
         with:
           pytest-coverage-path: coverage.xml
