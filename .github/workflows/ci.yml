@@ -37,6 +37,19 @@ jobs:
       - name: Run Safety (Check for Vulnerabilities)
         run: safety check --full-report
 
-      - name: Run Pytest (Unit Tests)
-        run: pytest --maxfail=3 --disable-warnings -v
+      - name: Run Pytest with Coverage (Unit Tests)
+        run: |
+          pip install pytest-cov
+          pytest --cov=app/model --cov=app/infra --cov-report=term-missing --cov-report=xml --maxfail=3 --disable-warnings -v
         continue-on-error: true
+
+      - name: Upload Coverage to GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+      - name: Pytest Coverage Comment
+        uses: MishaKav/pytest-coverage-comment@v3
+        with:
+          pytest-coverage-path: coverage.xml
