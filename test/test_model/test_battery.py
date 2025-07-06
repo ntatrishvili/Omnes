@@ -20,7 +20,7 @@ class TestBattery(unittest.TestCase):
         self.assertIn("p_bess_in", b.quantities)
         self.assertIn("p_bess_out", b.quantities)
         self.assertIn("e_bess_stor", b.quantities)
-        self.assertEqual(str(b), "Battery 'bat1' with max_power=10, capacity=100")
+        self.assertEqual(str(b), "Battery 'bat1' with max_power=10 , capacity=100")
 
 
 if __name__ == "__main__":
