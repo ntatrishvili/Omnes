@@ -3,9 +3,11 @@ import pandas as pd
 from app.model.consumer import Consumer
 from app.model.timeseries_object_factory import TimeseriesFactory
 
+
 class DummyTimeseriesFactory(TimeseriesFactory):
     def create(self, name, **kwargs):
         return pd.Series([1, 2, 3])
+
 
 class TestConsumer(unittest.TestCase):
     def setUp(self):
@@ -17,6 +19,7 @@ class TestConsumer(unittest.TestCase):
         self.assertIn("p_cons", c.quantities)
         self.assertIsInstance(c.quantities["p_cons"], pd.Series)
         self.assertIsInstance(str(c), str)
+
 
 if __name__ == "__main__":
     unittest.main()

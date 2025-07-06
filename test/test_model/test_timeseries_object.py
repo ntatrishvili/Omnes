@@ -4,6 +4,7 @@ import tempfile
 import os
 from app.model.timeseries_object import TimeseriesObject
 
+
 class TestTimeseriesObject(unittest.TestCase):
     def test_init_empty(self):
         ts = TimeseriesObject()
@@ -11,7 +12,9 @@ class TestTimeseriesObject(unittest.TestCase):
         self.assertIsNone(ts.freq)
 
     def test_init_with_dataframe(self):
-        df = pd.DataFrame({"val": [1, 2, 3]}, index=pd.date_range("2020-01-01", periods=3, freq="H"))
+        df = pd.DataFrame(
+            {"val": [1, 2, 3]}, index=pd.date_range("2020-01-01", periods=3, freq="H")
+        )
         ts = TimeseriesObject(data=df)
         self.assertFalse(ts.data.empty)
         self.assertIsInstance(ts.data, pd.DataFrame)
@@ -21,10 +24,12 @@ class TestTimeseriesObject(unittest.TestCase):
         self.assertEqual(TimeseriesObject.normalize_freq("15min"), "15min")
 
     def test_to_df(self):
-        df = pd.DataFrame({"val": [1, 2, 3]}, index=pd.date_range("2020-01-01", periods=3, freq="H"))
+        df = pd.DataFrame(
+            {"val": [1, 2, 3]}, index=pd.date_range("2020-01-01", periods=3, freq="H")
+        )
         ts = TimeseriesObject(data=df)
         pd.testing.assert_frame_equal(ts.to_df(), df)
-        
+
     def test_read_file_not_found(self):
         with self.assertRaises(FileNotFoundError):
             TimeseriesObject.read("not_a_file.csv", "val")
@@ -47,6 +52,7 @@ class TestTimeseriesObject(unittest.TestCase):
                     TimeseriesObject.read(tmp.name, "bar")
             finally:
                 os.remove(tmp.name)
+
 
 if __name__ == "__main__":
     unittest.main()

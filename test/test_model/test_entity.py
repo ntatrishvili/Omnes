@@ -2,9 +2,11 @@ import unittest
 from app.model.entity import Entity
 from app.model.timeseries_object_factory import TimeseriesFactory
 
+
 class DummyTimeseriesFactory(TimeseriesFactory):
     def create(self, name, **kwargs):
         return f"ts_{name}"
+
 
 class TestEntity(unittest.TestCase):
     def setUp(self):
@@ -34,6 +36,7 @@ class TestEntity(unittest.TestCase):
         self.assertEqual(e["bar"], "baz")
         with self.assertRaises(KeyError):
             _ = e["notfound"]
+
 
 if __name__ == "__main__":
     unittest.main()

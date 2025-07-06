@@ -2,6 +2,7 @@ import unittest
 from app.infra import util
 import pulp
 
+
 class TestUtil(unittest.TestCase):
     def test_get_input_path_file_not_found(self):
         with self.assertRaises(FileNotFoundError):
@@ -18,6 +19,7 @@ class TestUtil(unittest.TestCase):
         nested = [[1, 2], [3, [4, 5]], 6]
         flat = util.flatten(nested)
         self.assertEqual(flat, [1, 2, 3, 4, 5, 6])
+
 
 if __name__ == "__main__":
     unittest.main()

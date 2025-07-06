@@ -3,9 +3,11 @@ import pandas as pd
 from app.model.slack import Slack
 from app.model.timeseries_object_factory import TimeseriesFactory
 
+
 class DummyTimeseriesFactory(TimeseriesFactory):
     def create(self, name, **kwargs):
         return pd.Series([1, 2, 3])
+
 
 class TestSlack(unittest.TestCase):
     def setUp(self):
@@ -19,6 +21,7 @@ class TestSlack(unittest.TestCase):
         self.assertIsInstance(s.quantities["p_slack_in"], pd.Series)
         self.assertIsInstance(s.quantities["p_slack_out"], pd.Series)
         self.assertIsInstance(str(s), str)
+
 
 if __name__ == "__main__":
     unittest.main()

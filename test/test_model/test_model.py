@@ -3,13 +3,18 @@ from unittest.mock import patch
 from app.model.model import Model
 from app.model.timeseries_object_factory import TimeseriesFactory
 
+
 class DummyTimeseriesFactory(TimeseriesFactory):
     def create(self, name, **kwargs):
         # Return a minimal object with .empty and .sum()
         class DummyTS:
             empty = True
-            def sum(self): return 0
+
+            def sum(self):
+                return 0
+
         return DummyTS()
+
 
 class TestModel(unittest.TestCase):
     def setUp(self):
@@ -26,7 +31,15 @@ class TestModel(unittest.TestCase):
     @patch("app.model.battery.Battery.__init__", return_value=None)
     @patch("app.model.entity.Entity.add_sub_entity", return_value=None)
     @patch("app.model.model.Slack.__init__", return_value=None)
-    def test_build_minimal(self, mock_slack_init, mock_add_sub_entity, mock_battery_init, mock_consumer_init, mock_pv_init, mock_get_input_path):
+    def test_build_minimal(
+        self,
+        mock_slack_init,
+        mock_add_sub_entity,
+        mock_battery_init,
+        mock_consumer_init,
+        mock_pv_init,
+        mock_get_input_path,
+    ):
         config = {
             "entity1": {
                 "pvs": {"pv1": {"filename": "dummy.csv"}},
@@ -46,6 +59,7 @@ class TestModel(unittest.TestCase):
         mock_battery_init.assert_called()
         mock_add_sub_entity.assert_called()
         mock_slack_init.assert_called()
+
 
 if __name__ == "__main__":
     unittest.main()
