@@ -35,7 +35,7 @@ jobs:
         run: bandit -r . --exclude ./test/
 
       - name: Run Safety (Check for Vulnerabilities)
-        run: safety check --full-report
+        run: safety scan --full-report
 
       - name: Run Pytest with Coverage (Unit Tests)
         run: |
