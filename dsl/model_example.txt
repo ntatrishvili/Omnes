@@ -63,7 +63,6 @@ generators:
       household: HH1
     relations:
       battery1.max_charge_rate < 2 * pv1.power
-      battery1.max_discharge_rate < 2 * pv1.peak_power
 
   - pv2 on bus_LV2
     peak_power: 3
@@ -75,7 +74,7 @@ generators:
       #Default contributes_to: electric_power_balance
       household: HH2
 
-  Wind:
+  wind:
   - id: wind1 on bus_LV3
     peak_power: 5
     efficiency: 0.95
@@ -143,7 +142,7 @@ Loads:
     tags:
       household: HH2
 
-  Charger:
+  converters:
   - heater1 on bus_LV1 charges hot_water1
     # input and output are only valid options for a converter
     controllable

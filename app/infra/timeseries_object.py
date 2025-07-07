@@ -29,10 +29,10 @@ class TimeseriesObject(Quantity):
         :keyword freq: str, optional
         """
         super().__init__(**kwargs)
-        data = kwargs.get("data", None)
-        input_path = kwargs.get("input_path", None)
-        col = kwargs.get("col", None)
-        freq = kwargs.get("freq", None)
+        data = kwargs.pop("data", None)
+        input_path = kwargs.pop("input_path", None)
+        col = kwargs.pop("col", None)
+        freq = kwargs.pop("freq", None)
 
         if isinstance(data, pd.DataFrame):
             self.data = pd.DataFrame(data)

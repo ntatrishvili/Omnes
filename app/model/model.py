@@ -1,3 +1,4 @@
+import secrets
 from typing import Optional
 
 from pandas import date_range
@@ -17,7 +18,7 @@ class TimesetBuilder:
     def create(cls, **kwargs):
         time_start = kwargs.get("time_start", None)
         time_end = kwargs.get("time_end", None)
-        # Huge hack, how to handle?
+        # TODO: Huge hack, how to handle?
         if time_start is None and time_end is None:
             time_start = "2019-01-01"
         number_of_time_steps = kwargs.get("number_of_time_steps", None)
@@ -63,7 +64,7 @@ class Model:
         """
         Initialize the model with an optional name
         """
-        self.id: str = id if id else "model"
+        self.id: str = id if id is not None else secrets.token_hex(16)
         self.time_set: TimeSet = timeset_builder.create(**kwargs)
         self.entities: list[Entity] = kwargs.get("entities", [])
 
@@ -113,21 +114,24 @@ class Model:
         model.add_entity(Slack(id="slack"))
         return model
 
-    def to_pulp(self, converter: Optional[Converter] = None, **kwargs):
+    def convert(self, converter: Optional[Converter] = None, **kwargs):
         """
-        Convert the model to pulp variables
+        Convert the model to an optimization/simulation problem
         """
         number_of_time_steps = kwargs.get("time_set", self.number_of_time_steps)
         frequency = kwargs.get("frequency", self.frequency)
-        converter = converter or PulpConverter()
-        pulp_vars = {}
+        variables = {}
         for entity in self.entities:
-            pulp_vars.update(entity.to_pulp(number_of_time_steps, frequency, converter))
-        pulp_vars["time_set"] = range(number_of_time_steps)
-        return pulp_vars
+            variables.update(entity.convert(number_of_time_steps, frequency, converter))
+        variables["time_set"] = range(number_of_time_steps)
+        return variables
 
     def __str__(self):
         """
         String representation of the model
         """
         return "\n".join([str(entity) for entity in self.entities])
+
+    @frequency.setter
+    def frequency(self, value):
+        self.time_set.resolution = value

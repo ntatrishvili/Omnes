@@ -37,9 +37,9 @@ class Parameter(Quantity):
         - value (float or int): The scalar value of the parameter.
     """
 
-    def __init__(self, **kwargs: object) -> object:
+    def __init__(self, **kwargs: object):
         super().__init__(**kwargs)
-        self.value = kwargs.get("value", None)
+        self.value = kwargs.pop("value", None)
 
     def to_pulp(self, name: str, freq: str, time_set: int):
         if self.value is None:
@@ -54,17 +54,3 @@ class Parameter(Quantity):
             return float(self.value) == float(other)
         except (TypeError, ValueError):
             return False
-
-
-class Constant(Parameter):
-    """
-    Represents a scalar quantity used as a parameter in the model, this quantity remains constant throughout the lifetime of the Entity.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.__value = kwargs.get("value", None)
-
-    @property
-    def value(self):
-        return self.__value

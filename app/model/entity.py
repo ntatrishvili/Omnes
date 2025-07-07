@@ -28,7 +28,10 @@ class Entity:
     """
 
     def __init__(
-        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
+        self,
+        id: Optional[str] = None,
+        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        **kwargs,
     ):
         """
         Initialize the entity with an optional id.
@@ -51,13 +54,12 @@ class Entity:
         entity.parent_id = self.id
         self.sub_entities.append(entity)
 
-    def to_pulp(
+    def convert(
         self, time_set: int, new_freq: str, converter: Optional[Converter] = None
     ):
         """
-        Delegate to a visitor for pulp conversion.
+        Delegate to a visitor for conversion.
         """
-        converter = converter or PulpConverter()
         return converter.convert(self, time_set, new_freq)
 
     def __str__(self):

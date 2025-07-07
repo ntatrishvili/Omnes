@@ -2,7 +2,10 @@ from typing import Optional
 
 from .storage import Storage
 from ..device import Vector
-from ...infra.timeseries_object_factory import TimeseriesFactory
+from ...infra.timeseries_object_factory import (
+    TimeseriesFactory,
+    DefaultTimeseriesFactory,
+)
 
 
 class Battery(Storage):
@@ -10,7 +13,10 @@ class Battery(Storage):
     default_contributes_to = "electric_power_balance"
 
     def __init__(
-        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
+        self,
+        id: Optional[str] = None,
+        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        **kwargs,
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
         self.quantities.update(
@@ -20,6 +26,7 @@ class Battery(Storage):
                 "e_bess_stor": self.ts_factory.create("e_bess_stor", **kwargs),
             }
         )
+
 
     def __str__(self):
         """

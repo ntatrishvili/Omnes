@@ -1,7 +1,10 @@
 from typing import Optional
 
 from app.infra.quantity import Parameter
-from app.infra.timeseries_object_factory import TimeseriesFactory
+from app.infra.timeseries_object_factory import (
+    TimeseriesFactory,
+    DefaultTimeseriesFactory,
+)
 from app.model.device import Device, Vector
 
 
@@ -12,7 +15,10 @@ class Generator(Device):
     default_efficiency = 0
 
     def __init__(
-        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
+        self,
+        id: Optional[str] = None,
+        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        **kwargs
     ):
         super().__init__(id, ts_factory, **kwargs)
         self.quantities.update(
@@ -25,3 +31,4 @@ class Generator(Device):
                 ),
             }
         )
+

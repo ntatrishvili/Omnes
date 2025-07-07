@@ -1,7 +1,10 @@
 from typing import Optional
 
-from app.infra.quantity import Constant, Parameter
-from app.infra.timeseries_object_factory import TimeseriesFactory
+from app.infra.quantity import Parameter
+from app.infra.timeseries_object_factory import (
+    TimeseriesFactory,
+    DefaultTimeseriesFactory,
+)
 from app.model.grid_component.grid_component import GridComponent
 
 
@@ -12,7 +15,10 @@ class Line(GridComponent):
     default_max_current: Optional[float] = None
 
     def __init__(
-        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
+        self,
+        id: Optional[str] = None,
+        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        **kwargs,
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
         self.from_bus = kwargs.pop("from_bus")
@@ -21,16 +27,16 @@ class Line(GridComponent):
             {
                 "current": self.ts_factory.create("current", **kwargs),
                 "max_current": Parameter(
-                    value=kwargs.get("max_current", self.default_max_current)
+                    value=kwargs.pop("max_current", self.default_max_current)
                 ),
                 "line_length": Parameter(
-                    value=kwargs.get("line_length", self.default_line_length)
+                    value=kwargs.pop("line_length", self.default_line_length)
                 ),
                 "reactance": Parameter(
-                    value=kwargs.get("reactance", self.default_reactance)
+                    value=kwargs.pop("reactance", self.default_reactance)
                 ),
                 "resistance": Parameter(
-                    values=kwargs.get("resistance", self.default_resistance)
+                    values=kwargs.pop("resistance", self.default_resistance)
                 ),
             }
         )

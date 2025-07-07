@@ -1,7 +1,10 @@
 from typing import Optional
 
 from app.model.device import Device, Vector
-from app.infra.timeseries_object_factory import TimeseriesFactory
+from app.infra.timeseries_object_factory import (
+    TimeseriesFactory,
+    DefaultTimeseriesFactory,
+)
 
 
 class Load(Device):
@@ -11,11 +14,12 @@ class Load(Device):
     def __init__(
         self,
         id: Optional[str] = None,
-        ts_factory: TimeseriesFactory = None,
+        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
         **kwargs: object,
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
         self.quantities.update({"p_cons": self.ts_factory.create("p_cons", **kwargs)})
+
 
     def __str__(self):
         """

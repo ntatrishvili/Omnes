@@ -1,12 +1,18 @@
 from typing import Optional
 
-from app.infra.timeseries_object_factory import TimeseriesFactory
+from app.infra.timeseries_object_factory import (
+    TimeseriesFactory,
+    DefaultTimeseriesFactory,
+)
 from app.model.entity import Entity
 
 
 class Slack(Entity):
     def __init__(
-        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
+        self,
+        id: Optional[str] = None,
+        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        **kwargs,
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
         self.id = id if id else "slack"
