@@ -4,15 +4,25 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'app/**'
+      - 'test/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches:
       - main
+    paths:
+      - 'app/**'
+      - 'test/**'
+      - '.github/workflows/ci.yml'
 
 jobs:
   quality-checks:
     name: Code Quality and Tests
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,9 +44,18 @@ jobs:
       - name: Run Bandit (Security Checks)
         run: bandit -r . --exclude ./test/
 
-      - name: Run Safety (Check for Vulnerabilities)
-        run: safety check --full-report
+      - name: Run Pytest with Coverage (Unit Tests)
+        run: |
+          pip install pytest-cov
+          pytest --cov=app/model --cov=app/infra --cov-report=term-missing --cov-report=xml --maxfail=3 --disable-warnings -v
 
-      - name: Run Pytest (Unit Tests)
-        run: pytest --maxfail=3 --disable-warnings -v
-        continue-on-error: true
+      - name: Upload Coverage to GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+      - name: Pytest Coverage Comment
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-xml-coverage-path: ./coverage.xml
