@@ -1,7 +1,5 @@
 from typing import Optional
 
-import pandas as pd
-
 from .entity import Entity
 from .timeseries_object_factory import TimeseriesFactory
 
@@ -17,5 +15,5 @@ class PV(Entity):
         """
         String representation of the PV entity.
         """
-        production_sum = self["p_pv"].sum() if not self["p_pv"].empty else 0
+        production_sum = self.p_pv.sum() if not self.p_pv.empty else 0
         return f"PV '{self.id}' with production sum = {production_sum}"

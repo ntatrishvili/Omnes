@@ -1,7 +1,5 @@
 from typing import Optional
 
-import pandas as pd
-
 from .entity import Entity
 from .timeseries_object_factory import TimeseriesFactory
 
@@ -17,5 +15,5 @@ class Consumer(Entity):
         """
         String representation of the Consumer entity.
         """
-        consumption_sum = self["p_cons"].sum() if not self["p_cons"].empty else 0
+        consumption_sum = self.p_cons.sum() if not self.p_cons.empty else 0
         return f"Consumer '{self.id}' with consumption_sum={consumption_sum}"
