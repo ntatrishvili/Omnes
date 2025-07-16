@@ -14,6 +14,5 @@ if __name__ == "__main__":
     with open("data/model_config.json", "r") as file:
         config = json.load(file)
     model = Model.build(config, time_set, freq)
-    pulp_vars = []
     problem = convert(model)
     optimize(**problem)
