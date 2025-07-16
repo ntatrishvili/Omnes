@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from app.model.timeseries_object import TimeseriesObject
+from app.infra.timeseries_object import TimeseriesObject
 
 
 class TimeseriesFactory(ABC):

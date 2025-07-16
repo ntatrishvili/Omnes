@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from pandas import date_range
 
-from app.model.timeseries_object import TimeseriesObject
+from app.infra.timeseries_object import TimeseriesObject
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ def test_to_nd(sample_df):
 
 
 def test_empty_to_pulp(monkeypatch):
-    from app.model import timeseries_object
+    from app.infra import timeseries_object
 
     monkeypatch.setattr(
         timeseries_object,
@@ -77,7 +77,7 @@ def test_partial_to_pulp(sample_df, monkeypatch):
     df = sample_df.iloc[:48]
     ts = TimeseriesObject(data=df)
     monkeypatch.setattr(
-        "app.model.timeseries_object.create_empty_pulp_var",
+        "app.infra.timeseries_object.create_empty_pulp_var",
         lambda name, time_set: [f"{name}_{i}" for i in range(time_set)],
     )
 
