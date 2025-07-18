@@ -24,14 +24,14 @@ def test_entity_with_quantity():
     )
     c = Consumer(id="consumer", p_cons=p_cons)
     print(c)
-    assert c["p_cons"].sum().sum() == 192
+    assert c.p_cons.sum().sum() == 192
 
 
 def test_two_entities():
     battery = Battery("battery", capacity=1, max_power=1.2)
     print(battery)
-    assert battery["capacity"] == 1
-    assert battery["max_power"] == 1.2
+    assert battery.capacity == 1
+    assert np.isclose(battery.max_power, 1.2)
 
     p_pv = TimeseriesObject(
         data=DataFrame(
@@ -46,7 +46,7 @@ def test_two_entities():
     )
     pv = PV("pv", p_pv=p_pv)
     print(pv)
-    assert pv["p_pv"].sum().sum() == 192
+    assert pv.p_pv.sum().sum() == 192
 
 
 def test_model():

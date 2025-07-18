@@ -15,8 +15,8 @@ class TestBattery(unittest.TestCase):
     def test_battery_init(self):
         b = Battery(id="bat1", ts_factory=self.ts_factory, max_power=10, capacity=100)
         self.assertEqual(b.id, "bat1")
-        self.assertEqual(b.parameters["max_power"], 10)
-        self.assertEqual(b.parameters["capacity"], 100)
+        self.assertEqual(b.max_power, 10)
+        self.assertEqual(b.capacity, 100)
         self.assertIn("p_bess_in", b.quantities)
         self.assertIn("p_bess_out", b.quantities)
         self.assertIn("e_bess_stor", b.quantities)

@@ -17,7 +17,7 @@ class TestConsumer(unittest.TestCase):
         c = Consumer(id="c1", ts_factory=self.ts_factory, max_power=7)
         self.assertEqual(c.id, "c1")
         self.assertIn("p_cons", c.quantities)
-        self.assertIsInstance(c.quantities["p_cons"], pd.Series)
+        self.assertIsInstance(c.p_cons, pd.Series)
         self.assertIsInstance(str(c), str)
 
 
