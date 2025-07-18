@@ -32,10 +32,10 @@ class TestEntity(unittest.TestCase):
         e = Entity(id="ent1", ts_factory=self.ts_factory)
         e.parameters["foo"] = 42
         e.quantities["bar"] = "baz"
-        self.assertEqual(e["foo"], 42)
-        self.assertEqual(e["bar"], "baz")
+        self.assertEqual(e.foo, 42)
+        self.assertEqual(e.bar, "baz")
         with self.assertRaises(KeyError):
-            _ = e["notfound"]
+            _ = e.notfound
 
 
 if __name__ == "__main__":

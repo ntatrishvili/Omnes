@@ -51,10 +51,23 @@ class Entity:
         )
         return f"Unit '{self.id}' containing: [{sub_entities_str}]"
 
-    def __getitem__(self, item):
-        if item in self.parameters:
-            return self.parameters[item]
-        elif item in self.quantities:
-            return self.quantities[item]
+    def __getattr__(self, name):
+        """
+        Get an attribute by name, checking parameters and quantities.
+        """
+        if name in self.parameters:
+            return self.parameters[name]
+        elif name in self.quantities:
+            return self.quantities[name]
         else:
-            raise KeyError(f"'{item}' not found in parameters or quantities")
+            raise KeyError(f"'{name}' not found in parameters or quantities")
+
+    def __dir__(self):
+        """
+        Extend the default dir to include parameters and quantities.
+        """
+        return (
+            super().__dir__()
+            + list(self.quantities.keys())
+            + list(self.parameters.keys())
+        )
