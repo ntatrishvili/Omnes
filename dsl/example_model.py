@@ -154,7 +154,9 @@ slack_out = slack.p_slack_out.convert_entity(
 battery1_max_discharge = battery1.max_dischage_rate.convert_entity(
     "battery1_max_discharge", time_resolution, number_of_time_steps
 )
-pv1_peak_power = pv1.p_pv.convert_entity("pv1_power", time_resolution, number_of_time_steps)
+pv1_peak_power = pv1.p_pv.convert_entity(
+    "pv1_power", time_resolution, number_of_time_steps
+)
 
 # Example constraint from DSL:
 # battery1.max_discharge_rate < 2 * pv1.peak_power

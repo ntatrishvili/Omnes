@@ -132,7 +132,7 @@ class TimeseriesObject(Quantity):
         return self.resample_to("15min", closed=closed)
 
     def resample_to(
-            self, new_freq, method=None, agg="mean", closed="right", in_place=False
+        self, new_freq, method=None, agg="mean", closed="right", in_place=False
     ) -> "TimeseriesObject":
         """
         Resample the stored time series to a new frequency.

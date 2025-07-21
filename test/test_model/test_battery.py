@@ -14,7 +14,13 @@ class TestBattery(unittest.TestCase):
         self.ts_factory = DummyTimeseriesFactory()
 
     def test_battery_init(self):
-        b = Battery(id="bat1", ts_factory=self.ts_factory, max_charge_rate=10, capacity=100, bus="bus1")
+        b = Battery(
+            id="bat1",
+            ts_factory=self.ts_factory,
+            max_charge_rate=10,
+            capacity=100,
+            bus="bus1",
+        )
         self.assertEqual(b.id, "bat1")
         self.assertEqual(b.max_charge_rate, 10)
         self.assertEqual(b.capacity, 100)

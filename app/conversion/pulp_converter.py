@@ -19,7 +19,9 @@ class PulpConverter(Converter):
         return variables
 
     @override
-    def convert_entity(self, entity: Entity, time_set: int = None, new_freq: str = None):
+    def convert_entity(
+        self, entity: Entity, time_set: int = None, new_freq: str = None
+    ):
         """
         Convert an Entity and its sub-entities into a flat dictionary of pulp variables
         suitable for optimization.
@@ -43,8 +45,13 @@ class PulpConverter(Converter):
             A flat dictionary containing all pulp variables from the entity and its descendants.
         """
         variables = {
-            f"{entity.id}.{key}": self.convert_quantity(self, quantity, name=f"{entity.id}.{key}", time_set=time_set,
-                                                        freq=new_freq)
+            f"{entity.id}.{key}": self.convert_quantity(
+                self,
+                quantity,
+                name=f"{entity.id}.{key}",
+                time_set=time_set,
+                freq=new_freq,
+            )
             for key, quantity in entity.quantities.items()
         }
         for sub_entity in entity.sub_entities:
@@ -52,14 +59,18 @@ class PulpConverter(Converter):
         return variables
 
     @override
-    def convert_quantity(self, quantity: Quantity, name: str, time_set: int = None, freq: str = None):
+    def convert_quantity(
+        self, quantity: Quantity, name: str, time_set: int = None, freq: str = None
+    ):
         """Convert the time series data to a format suitable for pulp optimization."""
         if quantity.empty():
             return create_empty_pulp_var(name, time_set)
         return quantity.get_values(time_set=time_set, freq=freq)
 
     @override
-    def convert_relation(self, relation: Relation, time_set: int = None, new_freq: str = None):
+    def convert_relation(
+        self, relation: Relation, time_set: int = None, new_freq: str = None
+    ):
         pass
 
 

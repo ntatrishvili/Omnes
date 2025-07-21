@@ -18,7 +18,7 @@ class Quantity(ABC):
 
     def __init__(self, **kwargs): ...
 
-    def convert(self, converter:Converter,  **kwargs):
+    def convert(self, converter: Converter, **kwargs):
         """Converts the quantity into a pulp-compatible format (e.g., a time series array or a value-variable)."""
         return converter.convert_quantity(self, **kwargs)
 
@@ -30,6 +30,7 @@ class Quantity(ABC):
 
     @abstractmethod
     def empty(self) -> bool: ...
+
 
 class Parameter(Quantity):
     """
