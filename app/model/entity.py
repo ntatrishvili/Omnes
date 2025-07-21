@@ -1,7 +1,6 @@
 import secrets
 from typing import Optional, Dict
 
-from app.conversion.converter import Converter
 from app.infra.quantity import Quantity
 from app.infra.relation import Relation
 from app.infra.timeseries_object_factory import (
@@ -53,9 +52,7 @@ class Entity:
         entity.parent_id = self.id
         self.sub_entities.append(entity)
 
-    def convert(
-        self, time_set: int, new_freq: str, converter: Optional[Converter] = None
-    ):
+    def convert(self, time_set: int, new_freq: str, converter):
         """
         Delegate to a visitor for conversion.
         """

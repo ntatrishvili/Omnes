@@ -1,11 +1,7 @@
-from abc import ABC
-
 import numpy as np
 import pandas as pd
 
-from app.conversion.converter import Converter
 from app.infra.quantity import Quantity
-from app.conversion.pulp_converter import create_empty_pulp_var
 
 
 class TimeseriesObject(Quantity):

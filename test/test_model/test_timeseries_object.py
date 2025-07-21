@@ -14,19 +14,19 @@ class TestTimeseriesObject(unittest.TestCase):
 
     def test_init_with_dataframe(self):
         df = pd.DataFrame(
-            {"val": [1, 2, 3]}, index=pd.date_range("2020-01-01", periods=3, freq="H")
+            {"val": [1, 2, 3]}, index=pd.date_range("2020-01-01", periods=3, freq="h")
         )
         ts = TimeseriesObject(data=df)
         self.assertFalse(ts.data.empty)
         self.assertIsInstance(ts.data, pd.DataFrame)
 
     def test_normalize_freq(self):
-        self.assertEqual(TimeseriesObject.normalize_freq("H"), "1H")
+        self.assertEqual(TimeseriesObject.normalize_freq("h"), "1h")
         self.assertEqual(TimeseriesObject.normalize_freq("15min"), "15min")
 
     def test_to_df(self):
         df = pd.DataFrame(
-            {"val": [1, 2, 3]}, index=pd.date_range("2020-01-01", periods=3, freq="H")
+            {"val": [1, 2, 3]}, index=pd.date_range("2020-01-01", periods=3, freq="h")
         )
         ts = TimeseriesObject(data=df)
         pd.testing.assert_frame_equal(ts.to_df(), df)

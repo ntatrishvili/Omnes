@@ -1,7 +1,6 @@
 import secrets
 from typing import Optional
 
-from app.conversion.converter import Converter
 from app.infra.util import get_input_path, TimesetBuilder, TimeSet
 from app.model.generator.pv import PV
 from app.model.entity import Entity
@@ -79,7 +78,7 @@ class Model:
         model.add_entity(Slack(id="slack"))
         return model
 
-    def convert(self, converter: Converter, time_set: int = None, new_freq: str = None):
+    def convert(self, converter, time_set: int = None, new_freq: str = None):
         """
         Convert the model to an optimization/simulation problem
         """

@@ -1,5 +1,3 @@
-from typing import override
-
 import pulp
 
 from app.conversion.converter import Converter
@@ -10,7 +8,6 @@ from app.model.model import Model
 
 
 class PulpConverter(Converter):
-    @override
     def convert_model(self, model: Model, time_set: int = None, new_freq: str = None):
         variables = {}
         for entity in model.entities:
@@ -18,7 +15,6 @@ class PulpConverter(Converter):
         variables["time_set"] = range(time_set)
         return variables
 
-    @override
     def convert_entity(
         self, entity: Entity, time_set: int = None, new_freq: str = None
     ):
@@ -58,7 +54,6 @@ class PulpConverter(Converter):
             variables.update(self.convert_entity(sub_entity, time_set, new_freq))
         return variables
 
-    @override
     def convert_quantity(
         self, quantity: Quantity, name: str, time_set: int = None, freq: str = None
     ):
@@ -67,7 +62,6 @@ class PulpConverter(Converter):
             return create_empty_pulp_var(name, time_set)
         return quantity.get_values(time_set=time_set, freq=freq)
 
-    @override
     def convert_relation(
         self, relation: Relation, time_set: int = None, new_freq: str = None
     ):

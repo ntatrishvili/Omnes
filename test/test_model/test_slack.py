@@ -18,8 +18,8 @@ class TestSlack(unittest.TestCase):
         self.assertEqual(s.id, "s1")
         self.assertIn("p_slack_in", s.quantities)
         self.assertIn("p_slack_out", s.quantities)
-        self.assertIsInstance(s.quantities.p_slack_in, pd.Series)
-        self.assertIsInstance(s.quantities.p_slack_out, pd.Series)
+        self.assertIsInstance(s.p_slack_in, pd.Series)
+        self.assertIsInstance(s.p_slack_out, pd.Series)
         self.assertIsInstance(str(s), str)
 
 
