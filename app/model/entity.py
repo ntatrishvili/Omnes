@@ -59,7 +59,7 @@ class Entity:
         """
         Delegate to a visitor for conversion.
         """
-        return converter.convert(self, time_set, new_freq)
+        return converter.convert_entity(self, time_set, new_freq)
 
     def __str__(self):
         """

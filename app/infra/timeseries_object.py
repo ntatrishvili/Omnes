@@ -1,8 +1,11 @@
+from abc import ABC
+
 import numpy as np
 import pandas as pd
 
+from app.conversion.converter import Converter
 from app.infra.quantity import Quantity
-from app.infra.util import create_empty_pulp_var
+from app.conversion.pulp_converter import create_empty_pulp_var
 
 
 class TimeseriesObject(Quantity):
@@ -129,7 +132,7 @@ class TimeseriesObject(Quantity):
         return self.resample_to("15min", closed=closed)
 
     def resample_to(
-        self, new_freq, method=None, agg="mean", closed="right", in_place=False
+            self, new_freq, method=None, agg="mean", closed="right", in_place=False
     ) -> "TimeseriesObject":
         """
         Resample the stored time series to a new frequency.
@@ -207,21 +210,9 @@ class TimeseriesObject(Quantity):
         """
         return self.data.values.flatten()
 
-    def to_pulp(self, name: str, freq: str, time_set: int):
-        """
-        Convert the time series data to a format suitable for pulp optimization.
-
-        If the data is empty, returns empty pulp variable with given name.
-        If the data length does not match `time_set`, the data is resampled to the given frequency.
-        Otherwise, returns the time series data as stored.
-
-        :param name: int: The base name for pulp variables if data is empty.
-        :param freq: int: The frequency to resample to if needed (e.g., '15min', '1H').
-        :param time_set: int: The number of time steps in the time series.
-        :return: Either a list of empty pulp variables or the DataFrame.
-        """
-        if self.data.empty:
-            return create_empty_pulp_var(name, time_set)
+    def get_values(self, **kwargs):
+        freq = kwargs.get("freq", self.freq)
+        time_set = kwargs.get("time_set", len(self.data))
         if freq != self.freq:
             return self.resample_to(freq).to_nd()
         if time_set != len(self.data):
@@ -237,3 +228,9 @@ class TimeseriesObject(Quantity):
         if data_attr is not None:
             return data_attr
         raise AttributeError(f"'TimeseriesObject' object has no attribute '{name}'")
+
+    def empty(self) -> bool:
+        return self.data.empty
+
+    def __eq__(self, other):
+        return self.data == other.data and self.freq == other.freq

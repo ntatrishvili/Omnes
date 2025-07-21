@@ -79,17 +79,11 @@ class Model:
         model.add_entity(Slack(id="slack"))
         return model
 
-    def convert(self, converter: Optional[Converter] = None, **kwargs):
+    def convert(self, converter: Converter, time_set: int = None, new_freq: str = None):
         """
         Convert the model to an optimization/simulation problem
         """
-        number_of_time_steps = kwargs.get("time_set", self.number_of_time_steps)
-        frequency = kwargs.get("frequency", self.frequency)
-        variables = {}
-        for entity in self.entities:
-            variables.update(entity.convert(number_of_time_steps, frequency, converter))
-        variables["time_set"] = range(number_of_time_steps)
-        return variables
+        return converter.convert_model(self, time_set=time_set, new_freq=new_freq)
 
     def __str__(self):
         """

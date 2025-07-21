@@ -143,18 +143,18 @@ number_of_time_steps = model.number_of_time_steps
 # Example pulp problem
 prob = LpProblem("Energy_Community", LpMinimize)
 
-slack_in = slack["p_slack_in"].to_pulp(
+slack_in = slack.p_slack_in.convert_entity(
     "slack_in", time_resolution, number_of_time_steps
 )
-slack_out = slack["p_slack_out"].to_pulp(
+slack_out = slack.p_slack_out.convert_entity(
     "slack_out", time_resolution, number_of_time_steps
 )
 
 # Assume you have pulp-compatible variables or values
-battery1_max_discharge = battery1["max_power"].to_pulp(
+battery1_max_discharge = battery1.max_dischage_rate.convert_entity(
     "battery1_max_discharge", time_resolution, number_of_time_steps
 )
-pv1_peak_power = pv1["p_pv"].to_pulp("pv1_power", time_resolution, number_of_time_steps)
+pv1_peak_power = pv1.p_pv.convert_entity("pv1_power", time_resolution, number_of_time_steps)
 
 # Example constraint from DSL:
 # battery1.max_discharge_rate < 2 * pv1.peak_power
@@ -162,7 +162,7 @@ prob += battery1_max_discharge <= 2 * pv1_peak_power, "BatteryDischargeLimit"
 
 # Example conditional (must be translated as logic):
 # if battery1.capacity < 6 then battery1.max_discharge_rate < 3
-if battery1["capacity"] < 6:
+if battery1.capacity < 6:
     prob += battery1_max_discharge <= 3, "ConditionalBatteryLimit"
 
 context = {
@@ -170,9 +170,9 @@ context = {
     "pv1.peak_power": pv1_peak_power,
 }
 
-prob += relation1.to_pulp(context, time_set=number_of_time_steps), "R1_battery_limit"
+prob += relation1.convert(context, time_set=number_of_time_steps), "R1_battery_limit"
 prob += (
-    relation2.to_pulp(context, time_set=number_of_time_steps),
+    relation2.convert(context, time_set=number_of_time_steps),
     "R2_conditional_discharge",
 )
 
@@ -181,4 +181,4 @@ if battery1["capacity"].value < 6:
     prob += context["battery1.max_discharge_rate"] <= 3, "Manual_Conditional_Limit"
 
 relation = Relation("battery1.max_discharge_rate < 2 * pv1.peak_power")
-prob += relation.to_pulp(context, "")
+prob += relation.convert(context, "")

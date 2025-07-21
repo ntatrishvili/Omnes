@@ -1,4 +1,3 @@
-from app.conversion.convert_optimization import convert
 from app.conversion.converter import Converter
 from app.infra.singleton import Singleton
 from app.model.model import Model
@@ -23,7 +22,4 @@ class Context(Singleton):
     def register_context(
         self, model: Model, converter: Converter, time_set: int, time_resolution: str
     ):
-        self.context = convert(
-            model,
-            converter,
-        )
+        self.context = converter.convert_model(model, time_set, time_resolution)

@@ -41,7 +41,7 @@ class Relation:
         else:
             raise ValueError(f"Unknown operator in consequence: {cons_op}")
 
-    def to_pulp(
+    def convert(
         self, context: dict, time_set: int, resolution: str, date: str = "2025-01-01"
     ):
         expr = self.expr.strip().lower()

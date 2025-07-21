@@ -1,9 +1,10 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 
-from app.infra.util import create_empty_pulp_var
+from app.conversion.converter import Converter
+from app.conversion.pulp_converter import create_empty_pulp_var
 
 
-class Quantity:
+class Quantity(ABC):
     """
     Abstract base class for representing any abstract quantity (e.g. power flow, financial amount) within an entity.
 
@@ -17,14 +18,18 @@ class Quantity:
 
     def __init__(self, **kwargs): ...
 
+    def convert(self, converter:Converter,  **kwargs):
+        """Converts the quantity into a pulp-compatible format (e.g., a time series array or a value-variable)."""
+        return converter.convert_quantity(self, **kwargs)
+
     @abstractmethod
-    def to_pulp(self, name: str, freq: str, time_set: int): ...
+    def get_values(self, **kwargs): ...
 
     @abstractmethod
     def __eq__(self, other): ...
 
-    """Converts the quantity into a pulp-compatible format (e.g., a time series array or a value-variable)."""
-
+    @abstractmethod
+    def empty(self) -> bool: ...
 
 class Parameter(Quantity):
     """
@@ -41,11 +46,6 @@ class Parameter(Quantity):
         super().__init__(**kwargs)
         self.value = kwargs.pop("value", None)
 
-    def to_pulp(self, name: str, freq: str, time_set: int):
-        if self.value is None:
-            return create_empty_pulp_var(name, time_set)
-        return self.value
-
     def __str__(self):
         return f"{self.value}"
 
@@ -54,3 +54,9 @@ class Parameter(Quantity):
             return float(self.value) == float(other)
         except (TypeError, ValueError):
             return False
+
+    def empty(self) -> bool:
+        return self.value is None
+
+    def get_values(self, **kwargs):
+        return self.value
