@@ -1,3 +1,4 @@
+import ast
 import re
 
 from pulp import lpSum
@@ -22,7 +23,7 @@ class Relation:
     @staticmethod
     def _eval_expression(expr: str, context: dict):
         # Evaluate left/right expressions in the context
-        return eval(expr, {}, context)
+        return ast.literal_eval(expr)
 
     @staticmethod
     def evaluate_operation(cons_op, left_val, right_val):
