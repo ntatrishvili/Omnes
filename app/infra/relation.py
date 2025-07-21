@@ -1,10 +1,8 @@
 import re
 
-import pandas
 from pulp import lpSum
-from datetime import datetime, timedelta
 
-from app.model.model import TimesetBuilder
+from app.infra.util import TimesetBuilder
 
 
 class Relation:
@@ -43,7 +41,9 @@ class Relation:
         else:
             raise ValueError(f"Unknown operator in consequence: {cons_op}")
 
-    def to_pulp(self, context: dict, time_set: int, resolution: str, date: str = "2025-01-01"):
+    def to_pulp(
+        self, context: dict, time_set: int, resolution: str, date: str = "2025-01-01"
+    ):
         expr = self.expr.strip().lower()
 
         if expr.startswith("if"):
@@ -56,7 +56,9 @@ class Relation:
             cond_left, cond_op, cond_right = re.split(r"(<=|>=|==|!=|<|>)", condition)
             cons_left, cons_op, cons_right = re.split(r"(<=|>=|==|!=|<|>)", consequence)
 
-            cond_result = self._eval_expression(f"{cond_left.strip()} {cond_op} {cond_right.strip()}", context)
+            cond_result = self._eval_expression(
+                f"{cond_left.strip()} {cond_op} {cond_right.strip()}", context
+            )
             if cond_result:
                 left_val = self._eval_expression(cons_left.strip(), context)
                 right_val = self._eval_expression(cons_right.strip(), context)
@@ -73,7 +75,9 @@ class Relation:
             indices = TimesetBuilder.create(time_set, resolution, date)
 
             var = context[f"{entity_id}.{quantity_name}"]  # e.g. heater2.p_in
-            return [var[i] >= 0.01 for i in indices]  # Small threshold to indicate "enabled"
+            return [
+                var[i] >= 0.01 for i in indices
+            ]  # Small threshold to indicate "enabled"
 
         elif "min_on_duration" in expr:
             # Pattern: heater2.min_on_duration = 2h
@@ -83,11 +87,15 @@ class Relation:
             entity_id, min_duration = m.groups()
             min_duration = int(min_duration)
 
-            on_status = context.get(f"{entity_id}.on")  # Expect boolean vars [0/1] for each time step
+            on_status = context.get(
+                f"{entity_id}.on"
+            )  # Expect boolean vars [0/1] for each time step
             if on_status is None:
                 raise ValueError(f"Missing .on time series in context for {entity_id}")
 
-            return lpSum(on_status) >= min_duration  # Total ON time steps must reach minimum
+            return (
+                lpSum(on_status) >= min_duration
+            )  # Total ON time steps must reach minimum
 
         else:
             # Simple expression

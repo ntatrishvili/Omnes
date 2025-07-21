@@ -31,6 +31,5 @@ class HotWaterStorage(Storage):
             }
         )
 
-
     def __str__(self):
         return f"Hot water storage '{self.id}' with volume: {self.quantities['volume']} l and set temperature {self.quantities['set_temperature']} °C"

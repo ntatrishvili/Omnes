@@ -2,7 +2,6 @@ import secrets
 from typing import Optional, Dict
 
 from app.conversion.converter import Converter
-from app.conversion.pulp_converter import PulpConverter
 from app.infra.quantity import Quantity
 from app.infra.relation import Relation
 from app.infra.timeseries_object_factory import (
@@ -71,11 +70,17 @@ class Entity:
         )
         return f"Entity '{self.id}' containing: [{sub_entities_str}]"
 
-    def __getitem__(self, item):
+    def __getattr__(self, name):
         """
-        Allows direct access to quantities via `entity["name"]`
+        Get an attribute by name, checking parameters and quantities.
         """
-        if item in self.quantities:
-            return self.quantities[item]
+        if name in self.quantities:
+            return self.quantities[name]
         else:
-            raise KeyError(f"'{item}' not found in parameters or quantities")
+            raise KeyError(f"'{name}' not found in parameters or quantities")
+
+    def __dir__(self):
+        """
+        Extend the default dir to include parameters and quantities.
+        """
+        return super().__dir__() + list(self.quantities.keys())

@@ -20,5 +20,10 @@ class Context(Singleton):
     def __setitem__(self, key, value):
         self.context[key] = value
 
-    def register_context(self, model: Model, converter: Converter, time_set: int, time_resolution: str):
-        self.context = convert(model, converter, )
+    def register_context(
+        self, model: Model, converter: Converter, time_set: int, time_resolution: str
+    ):
+        self.context = convert(
+            model,
+            converter,
+        )

@@ -27,7 +27,6 @@ class Battery(Storage):
             }
         )
 
-
     def __str__(self):
         """
         String representation of the Battery entity.

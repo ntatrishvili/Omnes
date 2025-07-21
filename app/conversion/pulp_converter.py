@@ -25,8 +25,12 @@ class PulpConverter(Converter):
         dict
             A flat dictionary containing all pulp variables from the entity and its descendants.
         """
-        variables = {f"{entity.id}.{key}": ts.convert(name=f"{entity.id}.{key}", freq=new_freq, time_set=time_set) for
-            key, ts in entity.quantities.items()}
+        variables = {
+            f"{entity.id}.{key}": ts.convert(
+                name=f"{entity.id}.{key}", freq=new_freq, time_set=time_set
+            )
+            for key, ts in entity.quantities.items()
+        }
         for sub_entity in entity.sub_entities:
             variables.update(self.convert(sub_entity, time_set, new_freq))
         return variables

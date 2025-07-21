@@ -1,46 +1,13 @@
 import secrets
 from typing import Optional
 
-from pandas import date_range
-
 from app.conversion.converter import Converter
-from app.conversion.pulp_converter import PulpConverter
-from app.infra.util import get_input_path
+from app.infra.util import get_input_path, TimesetBuilder, TimeSet
 from app.model.generator.pv import PV
 from app.model.entity import Entity
 from app.model.load.load import Load
 from app.model.slack import Slack
 from app.model.storage.battery import Battery
-
-
-class TimesetBuilder:
-    @classmethod
-    def create(cls, **kwargs):
-        time_start = kwargs.get("time_start", None)
-        time_end = kwargs.get("time_end", None)
-        # TODO: Huge hack, how to handle?
-        if time_start is None and time_end is None:
-            time_start = "2019-01-01"
-        number_of_time_steps = kwargs.get("number_of_time_steps", None)
-        resolution = kwargs.get("resolution", None)
-        dates = date_range(
-            start=time_start,
-            end=time_end,
-            freq=resolution,
-            periods=number_of_time_steps,
-        )
-        number_of_time_steps = dates.shape[0]
-        resolution = dates.freq
-        return TimeSet(time_start, time_end, resolution, number_of_time_steps, dates)
-
-
-class TimeSet:
-    def __init__(self, start, end, resolution, number_of_time_steps, time_points):
-        self.start = start
-        self.end = end
-        self.resolution = resolution
-        self.number_of_time_steps = number_of_time_steps
-        self.time_points = time_points
 
 
 class Model:
@@ -85,8 +52,6 @@ class Model:
         Build the model from a configuration dictionary
         """
         model = cls(id, number_of_time_steps=time_set, resolution=frequency)
-        model.time_set = time_set
-        model.frequency = frequency
         for entity_name, content in config.items():
             entity = Entity(entity_name)
             for pv_id, info in content["pvs"].items():

@@ -18,7 +18,6 @@ class Wind(Generator):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
         self.quantities.update({"p_wind": self.ts_factory.create("p_wind", **kwargs)})
 
-
     def __str__(self):
         production_sum = self["p_wind"].sum() if not self["p_wind"].empty else 0
         return f"Wind turbine '{self.id}' with production sum = {production_sum}"

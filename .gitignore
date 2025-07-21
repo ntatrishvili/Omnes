@@ -1,6 +1,19 @@
+# Git and IDE files
 .git/
 .idea/
+
+# Python virtual environments
 venv/
+
+# Python cache files
 __pycache__/
+
+# Logs
 *.log
+
+# Configuration files
 config.ini
+
+# Coverage reports
+htmlcov/
+.coverage

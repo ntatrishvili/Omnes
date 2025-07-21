@@ -27,8 +27,8 @@ class Slack(Entity):
         """
         String representation of the Slack entity.
         """
-        flow_in_sum = self["p_slack_in"].sum() if not self["p_slack_in"].empty else 0
-        flow_out_sum = self["p_slack_out"].sum() if not self["p_slack_out"].empty else 0
+        flow_in_sum = self.p_slack_in.sum() if not self.p_slack_in.empty else 0
+        flow_out_sum = self.p_slack_out.sum() if not self.p_slack_out.empty else 0
         return (
             f"Slack '{self.id}' with flow_in_sum = {flow_in_sum},flow_out_sum ="
             f" {flow_out_sum}"

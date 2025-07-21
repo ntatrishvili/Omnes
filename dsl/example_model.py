@@ -47,8 +47,12 @@ wind1 = Wind(
 )
 
 # Instantiate Battery
-relation1 = Relation("battery1.max_discharge_rate < 2 * pv1.peak_power", "BatteryDischargeRate")
-relation2 = Relation("if battery1.capacity < 6 then battery1.max_discharge_rate < 3", "BatteryCapacity")
+relation1 = Relation(
+    "battery1.max_discharge_rate < 2 * pv1.peak_power", "BatteryDischargeRate"
+)
+relation2 = Relation(
+    "if battery1.capacity < 6 then battery1.max_discharge_rate < 3", "BatteryCapacity"
+)
 relation3 = Relation("heater2.power enabled from 10:00 to 16:00", "HeaterEnabled")
 relation4 = Relation("heater2.min_on_duration = 2h", "HeaterMinOnDuration")
 
@@ -62,7 +66,7 @@ battery1 = Battery(
     charge_efficiency=0.95,
     discharge_efficiency=0.95,
     storage_efficiency=0.995,
-    relations=[relation1, relation2]
+    relations=[relation1, relation2],
 )
 
 hot_water_storage1 = HotWaterStorage(
@@ -95,7 +99,11 @@ hot_water_storage2 = HotWaterStorage(
 )
 
 water_heater2 = WaterHeater(
-    id="heater2", household="HH2", charges="hot_water2", bus="bus_LV2", conversion_efficiency=0.995
+    id="heater2",
+    household="HH2",
+    charges="hot_water2",
+    bus="bus_LV2",
+    conversion_efficiency=0.995,
 )
 
 # Instantiate Loads
