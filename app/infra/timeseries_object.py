@@ -4,6 +4,20 @@ import pandas as pd
 from app.infra.quantity import Quantity
 
 
+def infer_freq_from_two_dates(data):
+    delta = data.index[1] - data.index[0]
+    seconds = delta.total_seconds()
+
+    if seconds % 3600 == 0:
+        freq_str = f"{int(seconds // 3600)}h"
+    elif seconds % 60 == 0:
+        freq_str = f"{int(seconds // 60)}min"
+    else:
+        freq_str = f"{int(seconds)}s"
+
+    return freq_str
+
+
 class TimeseriesObject(Quantity):
     """
     A class representing a time series object.
@@ -46,7 +60,10 @@ class TimeseriesObject(Quantity):
             if freq is not None:
                 self.resample_to(freq)
             else:
-                self.freq = self.normalize_freq(pd.infer_freq(self.data.index))
+                if len(self.data) < 3:
+                    self.freq = infer_freq_from_two_dates(self.data)
+                else:
+                    self.freq = self.normalize_freq(pd.infer_freq(self.data.index))
         else:
             self.freq = None
 
@@ -91,9 +108,9 @@ class TimeseriesObject(Quantity):
         """
         Normalize the frequency string to a standard format.
         :param freq: str
-            The frequency string to normalize (e.g., 'H').
+            The frequency string to normalize (e.g., 'h').
         :return: str
-            The normalized frequency string (e.g., '1H').
+            The normalized frequency string (e.g., '1h').
         """
         if freq is not None and freq.isalpha():
             return f"1{freq}"
@@ -111,7 +128,7 @@ class TimeseriesObject(Quantity):
         """
         if self.freq is None:
             raise ValueError("Frequency of the time series is not set.")
-        return self.resample_to("1H", closed=closed)
+        return self.resample_to("1h", closed=closed)
 
     def to_15m(self, closed="left") -> "TimeseriesObject":
         """
@@ -128,13 +145,19 @@ class TimeseriesObject(Quantity):
         return self.resample_to("15min", closed=closed)
 
     def resample_to(
-        self, new_freq, method=None, agg="mean", closed="right", in_place=False
+        self,
+        new_freq,
+        method=None,
+        agg="mean",
+        closed="right",
+        in_place=False,
+        keep_original_dtypes=False,
     ) -> "TimeseriesObject":
         """
         Resample the stored time series to a new frequency.
 
         :param new_freq: str
-            The new frequency to resample to (e.g., '15min', 'H').
+            The new frequency to resample to (e.g., '15min', 'h').
         :param method: str, optional
             The resampling method to use ('interpolate', 'ffill', 'bfill', or 'agg'). Defaults to None.
         :param agg: str, optional
@@ -143,6 +166,8 @@ class TimeseriesObject(Quantity):
             Which side of bin interval is closed. ('right', 'left'). Defaults to 'right'.
         :param in_place: bool, optional
             Signals whether the object itself is modified at the end of the operation
+        :param keep_original_dtypes: bool, optional
+            Signals whether the returned object's stored data types correspond to the datatypes of the original obhect.
         :raises ValueError:
             If the frequency cannot be inferred or if an unsupported method is used.
         :return: TimeseriesObject
@@ -165,6 +190,7 @@ class TimeseriesObject(Quantity):
             )
 
         try:
+            dtypes = self.data.dtypes
             if method is None:
                 if pd.Timedelta(new_freq) < pd.Timedelta(current_freq):
                     method = "interpolate"  # Upsampling
@@ -185,6 +211,8 @@ class TimeseriesObject(Quantity):
                 raise ValueError(
                     "Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'."
                 )
+            if keep_original_dtypes:
+                resampled = resampled.astype(dtypes)
         except Exception as e:
             raise ValueError(f"Error during resampling: {e}")
 
@@ -229,4 +257,4 @@ class TimeseriesObject(Quantity):
         return self.data.empty
 
     def __eq__(self, other):
-        return self.data == other.data and self.freq == other.freq
+        return self.data.equals(other.data) and self.freq == other.freq
