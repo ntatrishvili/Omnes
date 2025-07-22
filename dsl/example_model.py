@@ -20,6 +20,8 @@ bus_lv1 = Bus(id="bus_LV1")
 bus_lv2 = Bus(id="bus_LV2", phase="C")
 bus_lv3 = Bus(id="bus_LV3", phase_count=3)
 
+# Lehetne a default egy külön struktúra?
+# a line ne a buszok nevét vegye át, hanem a referenciát rájuk
 Line.default_line_length = 0.1
 Line.default_resistance = 0.05
 Line.default_reactance = 0.05
@@ -50,9 +52,12 @@ wind1 = Wind(
 relation1 = Relation(
     "battery1.max_discharge_rate < 2 * pv1.peak_power", "BatteryDischargeRate"
 )
+
 relation2 = Relation(
     "if battery1.capacity < 6 then battery1.max_discharge_rate < 3", "BatteryCapacity"
 )
+
+# 3-operandusú kiejezés legyen belőle
 relation3 = Relation("heater2.power enabled from 10:00 to 16:00", "HeaterEnabled")
 relation4 = Relation("heater2.min_on_duration = 2h", "HeaterMinOnDuration")
 

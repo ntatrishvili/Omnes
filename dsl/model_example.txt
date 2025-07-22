@@ -101,7 +101,7 @@ storages:
         #Default vector: electricity
         #Default contributes_to: electric_power_balance
   - relations:
-      if battery1.capacity < 6 then battery1.max_discharge_rate < 3
+      if battery1.capacity < 6 then battery1.max_discharge_rate = 3
 
   - hot_water1 on bus_LV1
     # l
