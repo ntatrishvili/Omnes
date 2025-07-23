@@ -52,12 +52,9 @@ wind1 = Wind(
 relation1 = Relation(
     "battery1.max_discharge_rate < 2 * pv1.peak_power", "BatteryDischargeRate"
 )
-
 relation2 = Relation(
     "if battery1.capacity < 6 then battery1.max_discharge_rate < 3", "BatteryCapacity"
 )
-
-# 3-operandusú kiejezés legyen belőle
 relation3 = Relation("heater2.power enabled from 10:00 to 16:00", "HeaterEnabled")
 relation4 = Relation("heater2.min_on_duration = 2h", "HeaterMinOnDuration")
 

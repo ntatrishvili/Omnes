@@ -1,59 +1,73 @@
 import unittest
 
 import pytest
-from pulp import LpVariable, LpBinary, LpContinuous
 
-from app.infra.relation import Relation
+from app.infra.relation import (
+    Relation,
+    BinaryExpression,
+    IfThenExpression,
+    TimeConditionExpression,
+    AssignmentExpression,
+)
 
 
-class TestRelation(unittest.TestCase):
-    def setUp(self):
-        self.dummy_context = {
-            "a": 3,
-            "b": 5,
-            "c": 7,
-            "d": 9,
-            "device.power": [
-                LpVariable(f"power_{i}", cat=LpContinuous) for i in range(6)
-            ],
-            "heater2.on": [LpVariable(f"on_{i}", cat=LpBinary) for i in range(4)],
-        }
+# Test BinaryExpression parsing
+def test_binary_expression_parsing():
+    relation = Relation(
+        "battery1.max_discharge_rate < 2 * pv1.peak_power", "BatteryDischargeRate"
+    )
+    expr = relation.expression
+    assert isinstance(expr, BinaryExpression)
+    assert expr.left == "battery1.max_discharge_rate"
+    assert expr.operator == "<"
+    assert expr.right == "2 * pv1.peak_power"
+    assert str(expr) == "(battery1.max_discharge_rate < 2 * pv1.peak_power)"
 
-    def test_simple_expression(self):
-        rel = Relation("a < b", "simple_test")
-        result = rel.convert(self.dummy_context, time_set=4, resolution="1h")
-        assert result is True
 
-    def test_conditional_true(self):
-        rel = Relation("if a < b then c < d", "cond_test_true")
-        result = rel.convert(self.dummy_context, time_set=4, resolution="1h")
-        assert result is True
+# Test IfThenExpression parsing
+def test_if_then_expression_parsing():
+    relation = Relation(
+        "if battery1.capacity < 6 then battery1.max_discharge_rate < 3",
+        "BatteryCapacity",
+    )
+    expr = relation.expression
+    assert isinstance(expr, IfThenExpression)
+    assert isinstance(expr.condition, BinaryExpression)
+    assert isinstance(expr.consequence, BinaryExpression)
+    assert expr.condition.left == "battery1.capacity"
+    assert expr.consequence.right == "3"
+    assert (
+        str(expr)
+        == "(if (battery1.capacity < 6) then (battery1.max_discharge_rate < 3))"
+    )
 
-    def test_conditional_false(self):
-        rel = Relation("if a > b then c < d", "cond_test_false")
-        result = rel.convert(self.dummy_context, time_set=4, resolution="1h")
-        assert result is None  # condition not satisfied
 
-    def test_time_enablement(self):
-        rel = Relation("device.power enabled from 10:00 to 15:00", "enable_test")
-        result = rel.convert(
-            self.dummy_context, time_set=6, resolution="1h", date="2025-01-01"
-        )
-        assert isinstance(result, list)
-        assert all(constraint.name().startswith("power_") for constraint in result)
-        assert len(result) > 0
+# Test TimeConditionExpression parsing
+def test_time_condition_expression_parsing():
+    relation = Relation("heater2.power enabled from 10:00 to 16:00", "HeaterEnabled")
+    expr = relation.expression
+    assert isinstance(expr, TimeConditionExpression)
+    assert expr.entity == "heater2.power"
+    assert expr.condition == "enabled"
+    assert expr.start_time == "10:00"
+    assert expr.end_time == "16:00"
+    assert str(expr) == "(heater2.power enabled from 10:00 to 16:00)"
 
-    def test_min_on_duration(self):
-        rel = Relation("heater2.min_on_duration = 2h", "duration_test")
-        result = rel.convert(
-            self.dummy_context, time_set=4, resolution="1h", date="2025-01-01"
-        )
-        assert result.name.startswith("on_0") or "Sum" in result.name()
 
-    def test_invalid_expression(self):
-        with pytest.raises(ValueError):
-            rel = Relation("if a < b then then c < d", "invalid_expr")
-            rel.convert({}, 4, "1h")
+# Test AssignmentExpression parsing
+def test_assignment_expression_parsing():
+    relation = Relation("heater2.min_on_duration = 2h", "HeaterMinOnDuration")
+    expr = relation.expression
+    assert isinstance(expr, AssignmentExpression)
+    assert expr.target == "heater2.min_on_duration"
+    assert expr.value == "2h"
+    assert str(expr) == "(heater2.min_on_duration = 2h)"
+
+
+# Test invalid expression raises error
+def test_invalid_expression_raises():
+    with pytest.raises(ValueError):
+        Relation("this is not valid", "InvalidTest")
 
 
 if __name__ == "__main__":

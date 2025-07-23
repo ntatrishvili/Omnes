@@ -1,106 +1,97 @@
-import ast
+from abc import ABC, abstractmethod
+
+
+class Expression(ABC):
+    @abstractmethod
+    def __str__(self):
+        pass
+
+
+class BinaryExpression(Expression):
+    def __init__(self, left, operator, right):
+        self.left = left
+        self.operator = operator
+        self.right = right
+
+    def __str__(self):
+        return f"({self.left} {self.operator} {self.right})"
+
+
+class IfThenExpression(Expression):
+    def __init__(self, condition_expr, consequence_expr):
+        self.condition = condition_expr
+        self.consequence = consequence_expr
+
+    def __str__(self):
+        return f"(if {self.condition} then {self.consequence})"
+
+
+class TimeConditionExpression(Expression):
+    def __init__(self, entity, condition, start_time, end_time):
+        self.entity = entity
+        self.condition = condition
+        self.start_time = start_time
+        self.end_time = end_time
+
+    def __str__(self):
+        return f"({self.entity} {self.condition} from {self.start_time} to {self.end_time})"
+
+
+class AssignmentExpression(Expression):
+    def __init__(self, target, value):
+        self.target = target
+        self.value = value
+
+    def __str__(self):
+        return f"({self.target} = {self.value})"
+
+
 import re
-
-from pulp import lpSum
-
-from app.infra.util import TimesetBuilder
 
 
 class Relation:
-    """
-    Represents a DSL constraint between entity quantities and converts it to a PuLP constraint.
-    Supports:
-        - Simple expressions:   a < b
-        - Conditionals:         if a < b then c < d
-        - Time enablement:      device.power enabled from 10:00 to 16:00
-        - Duration constraints: device.min_on_duration = 2h
-    """
-
-    def __init__(self, expr: str, name: str):
+    def __init__(self, raw_expr: str, name: str):
+        self.raw_expr = raw_expr.strip()
         self.name = name
-        self.expr = expr
+        self.expression = self.parse(self.raw_expr)
 
-    @staticmethod
-    def _eval_expression(expr: str, context: dict):
-        # Evaluate left/right expressions in the context
-        return ast.literal_eval(expr)
-
-    @staticmethod
-    def evaluate_operation(cons_op, left_val, right_val):
-        if cons_op == "<":
-            return left_val <= right_val
-        elif cons_op == "<=":
-            return left_val <= right_val
-        elif cons_op == ">":
-            return left_val >= right_val
-        elif cons_op == ">=":
-            return left_val >= right_val
-        elif cons_op == "==":
-            return left_val == right_val
-        elif cons_op == "!=":
-            return left_val != right_val
-        else:
-            raise ValueError(f"Unknown operator in consequence: {cons_op}")
-
-    def convert(
-        self, context: dict, time_set: int, resolution: str, date: str = "2025-01-01"
-    ):
-        expr = self.expr.strip().lower()
-
+    def parse(self, expr: str) -> Expression:
         if expr.startswith("if"):
-            # Pattern: if a < b then c < d
-            m = re.match(r"if (.+?) then (.+)", expr)
-            if not m:
-                raise ValueError(f"Invalid conditional expression: {expr}")
-            condition, consequence = m.groups()
+            return self._parse_if_then(expr)
+        if " from " in expr and " to " in expr:
+            return self._parse_time_condition(expr)
+        if "=" in expr and not any(op in expr for op in ["<", ">", "<=", ">=", "!="]):
+            return self._parse_assignment(expr)
+        return self._parse_binary(expr)
 
-            cond_left, cond_op, cond_right = re.split(r"(<=|>=|==|!=|<|>)", condition)
-            cons_left, cons_op, cons_right = re.split(r"(<=|>=|==|!=|<|>)", consequence)
+    def _parse_if_then(self, expr: str) -> IfThenExpression:
+        _, condition, then_expr = re.split(r"\s*if\s*|\s*then\s*", expr)
+        return IfThenExpression(
+            self.parse(condition.strip()), self.parse(then_expr.strip())
+        )
 
-            cond_result = self._eval_expression(
-                f"{cond_left.strip()} {cond_op} {cond_right.strip()}", context
-            )
-            if cond_result:
-                left_val = self._eval_expression(cons_left.strip(), context)
-                right_val = self._eval_expression(cons_right.strip(), context)
-                return self.evaluate_operation(cons_op, left_val, right_val)
-            else:
-                return None  # Condition not true → no constraint
+    def _parse_binary(self, expr: str) -> BinaryExpression:
+        match = re.search(r"(<=|>=|==|!=|<|>)", expr)
+        if not match:
+            raise ValueError(f"Unsupported binary expression: {expr}")
+        operator = match.group(1)
+        left, right = expr.split(operator, 1)
+        return BinaryExpression(left.strip(), operator, right.strip())
 
-        elif "enabled from" in expr:
-            # Pattern: heater2.power enabled from 10:00 to 16:00
-            m = re.match(r"(\w+)\.(\w+) enabled from ([\d:]+) to ([\d:]+)", expr)
-            if not m:
-                raise ValueError(f"Invalid time-enable expression: {expr}")
-            entity_id, quantity_name, t_start, t_end = m.groups()
-            indices = TimesetBuilder.create(time_set, resolution, date)
+    def _parse_time_condition(self, expr: str) -> TimeConditionExpression:
+        match = re.match(
+            r"(.+?)\s+(.*?)\s+from\s+(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})", expr
+        )
+        if not match:
+            raise ValueError(f"Malformed time condition: {expr}")
+        entity, condition, start_time, end_time = match.groups()
+        return TimeConditionExpression(
+            entity.strip(), condition.strip(), start_time, end_time
+        )
 
-            var = context[f"{entity_id}.{quantity_name}"]  # e.g. heater2.p_in
-            return [
-                var[i] >= 0.01 for i in indices
-            ]  # Small threshold to indicate "enabled"
+    def _parse_assignment(self, expr: str) -> AssignmentExpression:
+        left, right = expr.split("=", 1)
+        return AssignmentExpression(left.strip(), right.strip())
 
-        elif "min_on_duration" in expr:
-            # Pattern: heater2.min_on_duration = 2h
-            m = re.match(r"(\w+)\.min_on_duration *= *(\d+)h", expr)
-            if not m:
-                raise ValueError(f"Invalid duration expression: {expr}")
-            entity_id, min_duration = m.groups()
-            min_duration = int(min_duration)
-
-            on_status = context.get(
-                f"{entity_id}.on"
-            )  # Expect boolean vars [0/1] for each time step
-            if on_status is None:
-                raise ValueError(f"Missing .on time series in context for {entity_id}")
-
-            return (
-                lpSum(on_status) >= min_duration
-            )  # Total ON time steps must reach minimum
-
-        else:
-            # Simple expression
-            left, op, right = re.split(r"(<=|>=|==|!=|<|>)", self.expr.replace(" ", ""))
-            left_val = self._eval_expression(left, context)
-            right_val = self._eval_expression(right, context)
-            return self.evaluate_operation(op, left_val, right_val)
+    def __str__(self):
+        return f"[{self.name}] {self.expression}"
