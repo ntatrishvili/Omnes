@@ -36,7 +36,7 @@ class Line(GridComponent):
                     value=kwargs.pop("reactance", self.default_reactance)
                 ),
                 "resistance": Parameter(
-                    values=kwargs.pop("resistance", self.default_resistance)
+                    value=kwargs.pop("resistance", self.default_resistance)
                 ),
             }
         )
@@ -45,4 +45,4 @@ class Line(GridComponent):
         """
         String representation of the Bus entity.
         """
-        return f"Line '{self.id}' {self['from_bus']}--{self['to_bus']} with length {self['line_length']}"
+        return f"Line '{self.id}' {self.from_bus}--{self.to_bus} with length {self.line_length}"

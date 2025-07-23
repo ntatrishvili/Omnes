@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 class BusType(Enum):
-    PQ = auto()
-    I = auto()
-    Z = auto()
-    SLACK = auto()
+    PQ = "PQ"
+    I = "I"
+    Z = "Z"
+    SLACK = "SLACK"
 
 
 class Bus(GridComponent):
@@ -44,4 +44,4 @@ class Bus(GridComponent):
         """
         String representation of the Bus entity.
         """
-        return f"Bus '{self.id}' with nominal voltage={self['nominal_voltage']} and type '{self['type'].value}'"
+        return f"Bus '{self.id}' with nominal voltage={self.nominal_voltage} and type '{self.type.value.value}'"
