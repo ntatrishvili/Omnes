@@ -1,29 +1,48 @@
 import secrets
-from collections import defaultdict
 from typing import Optional, Dict
 
-from app.conversion.converter import Converter
-from app.conversion.pulp_converter import PulpConverter
-from app.model.timeseries_object import TimeseriesObject
-from app.model.timeseries_object_factory import (
+from app.infra.quantity import Quantity
+from app.infra.relation import Relation
+from app.infra.timeseries_object_factory import (
     TimeseriesFactory,
     DefaultTimeseriesFactory,
 )
 
 
 class Entity:
+    """
+    Represents any modelled object (e.g., component, device, node) in the system.
+
+    Entities form the core building blocks of the energy system model. Each Entity
+    can have quantities (data or decision variables), hierarchical sub-entities,
+    and semantic or optimization-relevant relations.
+
+    Attributes:
+        - id (str): Unique identifier.
+        - quantities (Dict[str, Quantity]): Named quantities belonging to this entity.
+        - sub_entities (list[Entity]): Optional nested child entities.
+        - relations (list[Relation]): Constraints or rules related to this entity.
+        - ts_factory (TimeseriesFactory): Used to generate time series objects in an advanced manner.
+    """
+
     def __init__(
-        self, id: Optional[str] = None, ts_factory: TimeseriesFactory = None, **kwargs
+        self,
+        id: Optional[str] = None,
+        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        **kwargs,
     ):
         """
         Initialize the entity with an optional id.
         """
         self.id = str(id) if id is not None else secrets.token_hex(16)
-        self.quantities: Dict[str, TimeseriesObject] = {}
-        self.parameters = defaultdict(float)
+        self.quantities: Dict[str, Quantity] = {}
         self.sub_entities: list[Entity] = []
+        self.relations: list[Relation] = []
         self.parent = None
         self.ts_factory = ts_factory or DefaultTimeseriesFactory()
+        self.relations = {Relation(expr=rel) for rel in kwargs.pop("relations", [])}
+        if "input_path" in kwargs and "col" not in kwargs:
+            kwargs["col"] = self.id
 
     def add_sub_entity(self, entity) -> None:
         """
@@ -33,14 +52,11 @@ class Entity:
         entity.parent_id = self.id
         self.sub_entities.append(entity)
 
-    def to_pulp(
-        self, time_set: int, new_freq: str, converter: Optional[Converter] = None
-    ):
+    def convert(self, time_set: int, new_freq: str, converter):
         """
-        Delegate to a visitor for pulp conversion.
+        Delegate to a visitor for conversion.
         """
-        converter = converter or PulpConverter()
-        return converter.convert(self, time_set, new_freq)
+        return converter.convert_entity(self, time_set, new_freq)
 
     def __str__(self):
         """
@@ -49,15 +65,13 @@ class Entity:
         sub_entities_str = ", ".join(
             [str(sub_entity) for sub_entity in self.sub_entities]
         )
-        return f"Unit '{self.id}' containing: [{sub_entities_str}]"
+        return f"Entity '{self.id}' containing: [{sub_entities_str}]"
 
     def __getattr__(self, name):
         """
         Get an attribute by name, checking parameters and quantities.
         """
-        if name in self.parameters:
-            return self.parameters[name]
-        elif name in self.quantities:
+        if name in self.quantities:
             return self.quantities[name]
         else:
             raise KeyError(f"'{name}' not found in parameters or quantities")
@@ -66,8 +80,4 @@ class Entity:
         """
         Extend the default dir to include parameters and quantities.
         """
-        return (
-            super().__dir__()
-            + list(self.quantities.keys())
-            + list(self.parameters.keys())
-        )
+        return super().__dir__() + list(self.quantities.keys())

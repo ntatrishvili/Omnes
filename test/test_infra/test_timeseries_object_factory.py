@@ -1,5 +1,6 @@
 import unittest
-from app.model.timeseries_object_factory import DefaultTimeseriesFactory
+
+from app.infra.timeseries_object_factory import DefaultTimeseriesFactory
 
 
 class TestDefaultTimeseriesFactory(unittest.TestCase):
@@ -7,7 +8,8 @@ class TestDefaultTimeseriesFactory(unittest.TestCase):
         factory = DefaultTimeseriesFactory()
         obj = factory.create("p_test")
         # Should return a TimeseriesObject instance
-        from app.model.timeseries_object import TimeseriesObject
+
+        from app.infra.timeseries_object import TimeseriesObject
 
         self.assertIsInstance(obj, TimeseriesObject)
 

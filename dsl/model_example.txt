@@ -1,0 +1,175 @@
+# TODO: ahol enum választások vannak, ott a választási lehetőségeket töltsük ki
+# Megbeszélni, hogy milyen típusú relációkat akarunk reprezentálni
+# - találjunk ki egy csomó példarelációt (1-2 elég egyébként)
+# - plusz néhány példaoptimalizálót is
+
+# TODO: ezeknek a kódbeli reprezentációját is elkészíteni -> példányosítani ezeket az objektumokat
+# TODO: pulp konverziót is megcsinálni
+# +Pulp modellbe beeégetni egy-két relációt
+
+# TODO: Utána reprezentációt készíteni a relációknak, és esetleg azt is Pupl-ra konvertálni
+
+model:
+  name: Energy_Community
+  start: 2025-01-01 00:00
+  end: 2025-01-02 00:00
+  resolution: 1h
+
+buses:
+  nominal_voltage: 400
+
+  # 3-phase bus
+  # If phase_counts 3, do not specify phase name
+  - bus_MV -> 3
+    type: Slack
+    # This overloads default voltage, which is 400
+    nominal_voltage: 10000
+
+  # bus_LV1 is on phase A, which is the default phase, thus do not need to be specified separately
+  - bus_LV1
+    # type: PQ is the default, no need to specify
+
+  # on phase C
+  - bus_LV2 -> C
+
+  # 3-phase bus
+  - bus_LV3 -> 3
+
+lines:
+    # km
+    line_length: 0.1
+    # Ohm/km
+    resistance: 0.05
+    # Ohm/km
+    reactance: 0.1
+
+  - line1 from bus_MV to bus_LV1
+  - line2 from bus_LV1 to bus_LV2
+  - line3 bus_LV1 to bus_LV3
+
+devices:
+generators:
+    efficiency: 0.9
+
+  PV:
+  - pv1 on bus_LV1
+    peak_power: 4
+    # pv power input is in data/input.csv in column "pv1"
+    power: data/input.csv
+    tags:
+      # Validate this: vector can only be electricity
+      #Default vector: electricity
+      #Default contributes_to: electric_power_balance
+      household: HH1
+    relations:
+      battery1.max_charge_rate < 2 * pv1.power
+
+  - pv2 on bus_LV2
+    peak_power: 3
+    # pv power input is in data/input.csv in column "pv2"
+    power: input/pv2.csv
+    tags:
+      # Validate this: can only be electricity
+      #Default vector: electricity
+      #Default contributes_to: electric_power_balance
+      household: HH2
+
+  wind:
+  - id: wind1 on bus_LV3
+    peak_power: 5
+    efficiency: 0.95
+    # wind power input is in data/input.csv in column "wind"
+    power: data/input.csv -> wind
+    tags:
+      #Default vector: electricity
+      #Default contributes_to: electric_power_balance
+      # No household here, does not belong to any specific household
+
+storages:
+  - battery1 on bus_LV3
+    capacity: 5
+    max_charge_rate: 2
+    # default: max_charge_rate
+    max_discharge_rate: 2
+    # default: 1
+    charge_efficiency: 0.95
+    # default: 1
+    discharge_efficiency: 0.95
+    # default: 1
+    storage_efficiency: 0.995
+    tags:
+        #Default vector: electricity
+        #Default contributes_to: electric_power_balance
+  - relations:
+      if battery1.capacity < 6 then battery1.max_discharge_rate = 3
+
+  - hot_water1 on bus_LV1
+    # l
+    volume: 120
+    set_temperature: 60
+    heat: input/input.csv -> hot_water1
+    tags:
+      #Default vector: heat
+      #Default contributes_to: heat_balance
+      household: HH1
+
+  - hot_water2 on bus_LV2
+    type: HotWater
+    # l
+    volume: 200
+    max_charge_rate: 2
+    max_discharge_rate: 2
+    material: Water
+    set_temperature: 55
+    heat: input/hot_water2.csv
+    tags:
+      # Default vector: heat
+      # Default contributes_to: heat_balance
+      household: HH2
+
+Loads:
+  - load1 on bus_LV1
+    type: Load
+    power: input/load1.csv
+    tags:
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
+      household: HH1
+
+  - load2 on bus_LV2
+    type: Load
+    electricity: input/load2.csv
+    tags:
+      household: HH2
+
+  converters:
+  - heater1 on bus_LV1 charges hot_water1
+    # input and output are only valid options for a converter
+    controllable
+    tags:
+      is same as the input
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
+      household: HH1
+
+    relations:
+      power enabled from 10:00 to 16:00
+      min_on_duration = 2h
+
+  - heater2 on bus_LV2 charges hot_water2
+    # this is not controllable, so 'controllable' is not specified
+    tags:
+      is same as the input
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
+      household: HH2
+
+    relations:
+      power enabled from 10:00 to 16:00
+      min_on_duration = 2h
+
+Slacks:
+  - slack on bus_MV
+    # tags:
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance

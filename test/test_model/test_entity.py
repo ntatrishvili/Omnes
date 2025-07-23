@@ -1,6 +1,6 @@
 import unittest
 from app.model.entity import Entity
-from app.model.timeseries_object_factory import TimeseriesFactory
+from app.infra.timeseries_object_factory import TimeseriesFactory
 
 
 class DummyTimeseriesFactory(TimeseriesFactory):
@@ -16,7 +16,6 @@ class TestEntity(unittest.TestCase):
         e = Entity(id="ent1", ts_factory=self.ts_factory)
         self.assertEqual(e.id, "ent1")
         self.assertEqual(e.ts_factory, self.ts_factory)
-        self.assertIsInstance(e.parameters, dict)
         self.assertIsInstance(e.quantities, dict)
         self.assertIsInstance(str(e), str)
 
@@ -30,8 +29,8 @@ class TestEntity(unittest.TestCase):
 
     def test_getitem(self):
         e = Entity(id="ent1", ts_factory=self.ts_factory)
-        e.parameters["foo"] = 42
         e.quantities["bar"] = "baz"
+        e.quantities["foo"] = 42
         self.assertEqual(e.foo, 42)
         self.assertEqual(e.bar, "baz")
         with self.assertRaises(KeyError):

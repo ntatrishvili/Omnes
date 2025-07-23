@@ -1,7 +1,8 @@
 import unittest
 import pandas as pd
-from app.model.consumer import Consumer
-from app.model.timeseries_object_factory import TimeseriesFactory
+
+from app.infra.timeseries_object_factory import TimeseriesFactory
+from app.model.load.load import Load
 
 
 class DummyTimeseriesFactory(TimeseriesFactory):
@@ -14,7 +15,7 @@ class TestConsumer(unittest.TestCase):
         self.ts_factory = DummyTimeseriesFactory()
 
     def test_consumer_init(self):
-        c = Consumer(id="c1", ts_factory=self.ts_factory, max_power=7)
+        c = Load(id="c1", ts_factory=self.ts_factory, max_power=7, bus="c1")
         self.assertEqual(c.id, "c1")
         self.assertIn("p_cons", c.quantities)
         self.assertIsInstance(c.p_cons, pd.Series)

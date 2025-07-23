@@ -1,7 +1,8 @@
 import unittest
 import pandas as pd
-from app.model.pv import PV
-from app.model.timeseries_object_factory import TimeseriesFactory
+
+from app.infra.timeseries_object_factory import TimeseriesFactory
+from app.model.generator.pv import PV
 
 
 class DummyTimeseriesFactory(TimeseriesFactory):
@@ -15,7 +16,7 @@ class TestPV(unittest.TestCase):
         self.ts_factory = DummyTimeseriesFactory()
 
     def test_pv_init(self):
-        pv = PV(id="pv1", ts_factory=self.ts_factory, max_power=5)
+        pv = PV(id="pv1", ts_factory=self.ts_factory, max_power=5, bus="pv1")
         self.assertEqual(pv.id, "pv1")
         self.assertIn("p_pv", pv.quantities)
         self.assertIsInstance(pv.quantities["p_pv"], pd.Series)
