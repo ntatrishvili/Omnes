@@ -9,8 +9,10 @@ from app.infra.quantity import Quantity
 def infer_freq_from_two_dates(data):
     """Helper function to infer frequency from two dates, supports both pandas and xarray."""
     if isinstance(data, xr.DataArray):
-        if 'time' not in data.coords:
-            raise ValueError("The provided DataArray does not contain a 'time' coordinate.")
+        if "time" not in data.coords:
+            raise ValueError(
+                "The provided DataArray does not contain a 'time' coordinate."
+            )
         time_coord = data.coords["time"]
         delta = time_coord[1] - time_coord[0]
         # Convert xarray timedelta to pandas timedelta for total_seconds()
