@@ -9,7 +9,7 @@ from app.infra.quantity import Quantity
 def infer_freq_from_two_dates(data):
     """Helper function to infer frequency from two dates, supports both pandas and xarray."""
     if isinstance(data, xr.DataArray):
-        time_coord = data.coords['time']
+        time_coord = data.coords["time"]
         delta = time_coord[1] - time_coord[0]
         # Convert xarray timedelta to pandas timedelta for total_seconds()
         seconds = pd.Timedelta(delta.values).total_seconds()
@@ -31,7 +31,7 @@ class TimeseriesObject(Quantity):
     """
     A class representing a time series object using xarray.DataArray as the backend.
     This class handles multi-dimensional time series data, including reading from CSV files,
-    resampling, and normalizing frequencies. Maintains full backward compatibility with 
+    resampling, and normalizing frequencies. Maintains full backward compatibility with
     pandas DataFrame-based code while enabling multi-dimensional energy system modeling.
     """
 
@@ -59,98 +59,98 @@ class TimeseriesObject(Quantity):
         :type attrs: dict, optional
         """
         super().__init__(**kwargs)
-        
-        # Extract and prepare parameters
+
         params = self._extract_init_parameters(kwargs)
-        
-        # Initialize data
+
         self.data = self._initialize_data_array(params)
-        
-        # Set frequency
-        self.freq = self._initialize_frequency(params['freq'])
+
+        self.freq = self._initialize_frequency(params["freq"])
 
     def _extract_init_parameters(self, kwargs):
         """Extract and prepare initialization parameters."""
         attrs = kwargs.pop("attrs", {})
-        
+
         # Add remaining kwargs as metadata attributes
         for key, value in kwargs.items():
-            if not key.startswith('_'):
+            if not key.startswith("_"):
                 attrs[key] = value
-        
+
         return {
-            'data': kwargs.pop("data", None),
-            'input_path': kwargs.pop("input_path", None),
-            'col': kwargs.pop("col", None),
-            'freq': kwargs.pop("freq", None),
-            'dims': kwargs.pop("dims", None),
-            'coords': kwargs.pop("coords", None),
-            'attrs': attrs
+            "data": kwargs.pop("data", None),
+            "input_path": kwargs.pop("input_path", None),
+            "col": kwargs.pop("col", None),
+            "freq": kwargs.pop("freq", None),
+            "dims": kwargs.pop("dims", None),
+            "coords": kwargs.pop("coords", None),
+            "attrs": attrs,
         }
 
     def _initialize_data_array(self, params):
         """Initialize the xarray DataArray based on input parameters."""
-        if isinstance(params['data'], xr.DataArray):
-            data = params['data'].copy()
-            data.attrs.update(params['attrs'])
+        if isinstance(params["data"], xr.DataArray):
+            data = params["data"].copy()
+            data.attrs.update(params["attrs"])
             return data
-        elif isinstance(params['data'], pd.DataFrame):
-            return self._dataframe_to_xarray(params['data'], params['dims'], params['coords'], params['attrs'])
-        elif params['input_path'] is not None and params['col'] is not None:
-            df_data = self._read_csv_to_dataframe(params['input_path'], params['col'])
-            return self._dataframe_to_xarray(df_data, params['dims'], params['coords'], params['attrs'])
-        else:
-            return xr.DataArray(
-                data=[],
-                dims=['time'],
-                coords={'time': []},
-                attrs=params['attrs']
+        elif isinstance(params["data"], pd.DataFrame):
+            return self._dataframe_to_xarray(
+                params["data"], params["dims"], params["coords"], params["attrs"]
             )
+        elif params["input_path"] is not None and params["col"] is not None:
+            df_data = self._read_csv_to_dataframe(params["input_path"], params["col"])
+            return self._dataframe_to_xarray(
+                df_data, params["dims"], params["coords"], params["attrs"]
+            )
+        else:
+            return xr.DataArray(data=[], dims=["time"], attrs=params["attrs"])
 
     def _initialize_frequency(self, freq_param):
         """Initialize the frequency attribute."""
         if self.empty():
             return None
-        
+
         if freq_param is not None:
             self.resample_to(freq_param)
             return freq_param
-        
+
         return self._infer_frequency_from_data()
 
     def _infer_frequency_from_data(self):
         """Infer frequency from the data."""
-        if self.data.sizes['time'] < 3:
+        if self.data.sizes["time"] < 3:
             return infer_freq_from_two_dates(self.data)
         else:
             return self.normalize_freq(
-                pd.infer_freq(pd.DatetimeIndex(self.data.coords['time'].values))
+                pd.infer_freq(pd.DatetimeIndex(self.data.coords["time"].values))
             )
 
-    def _dataframe_to_xarray(self, df: pd.DataFrame, dims: Optional[List[str]] = None, 
-                            coords: Optional[Dict[str, Any]] = None, 
-                            attrs: Optional[Dict[str, Any]] = None) -> xr.DataArray:
+    def _dataframe_to_xarray(
+        self,
+        df: pd.DataFrame,
+        dims: Optional[List[str]] = None,
+        coords: Optional[Dict[str, Any]] = None,
+        attrs: Optional[Dict[str, Any]] = None,
+    ) -> xr.DataArray:
         """Convert pandas DataFrame to xarray DataArray."""
         if attrs is None:
             attrs = {}
-        
+
         # For single-column DataFrames (most common case)
         if len(df.columns) == 1:
             col_name = df.columns[0]
             return xr.DataArray(
                 data=df[col_name].values,
-                dims=['time'],
-                coords={'time': df.index},
+                dims=["time"],
+                coords={"time": df.index},
                 attrs=attrs,
-                name=col_name
+                name=col_name,
             )
         else:
             # Multi-column DataFrame - create variable dimension
             return xr.DataArray(
                 data=df.values,
-                dims=['time', 'variable'],
-                coords={'time': df.index, 'variable': df.columns},
-                attrs=attrs
+                dims=["time", "variable"],
+                coords={"time": df.index, "variable": df.columns},
+                attrs=attrs,
             )
 
     def _read_csv_to_dataframe(self, input_path: str, col: str) -> pd.DataFrame:
@@ -266,11 +266,11 @@ class TimeseriesObject(Quantity):
         if self.empty() or self.freq == new_freq:
             return self
 
-        print(f"Resampling from {self.freq} to {new_freq}")
-        
         # Get resampled DataFrame
-        resampled_df = self._perform_resampling(new_freq, method, agg, closed, keep_original_dtypes)
-        
+        resampled_df = self._perform_resampling(
+            new_freq, method, agg, closed, keep_original_dtypes
+        )
+
         # Convert back to xarray and create result
         return self._create_resampled_result(resampled_df, new_freq, in_place)
 
@@ -280,19 +280,16 @@ class TimeseriesObject(Quantity):
             # Convert to pandas for resampling (xarray resampling is more limited)
             df = self.to_df()
             current_freq = self._validate_and_get_current_freq(df)
-            
-            # Determine resampling method
+
             method = self._determine_resampling_method(method, new_freq, current_freq)
-            
-            # Perform resampling
             resampled = self._resample_dataframe(df, new_freq, method, agg, closed)
-            
+
             # Apply dtype preservation if requested
             if keep_original_dtypes:
                 resampled = resampled.astype(df.dtypes)
-                
+
             return resampled
-            
+
         except Exception as e:
             raise ValueError(f"Error during resampling: {e}")
 
@@ -302,10 +299,12 @@ class TimeseriesObject(Quantity):
             current_freq = TimeseriesObject.normalize_freq(pd.infer_freq(df.index))
         except Exception as e:
             raise ValueError(f"Error inferring frequency: {e}")
-        
+
         if current_freq is None:
-            raise ValueError("Cannot infer current frequency. Please specify method manually.")
-        
+            raise ValueError(
+                "Cannot infer current frequency. Please specify method manually."
+            )
+
         return current_freq
 
     def _determine_resampling_method(self, method, new_freq, current_freq):
@@ -320,7 +319,7 @@ class TimeseriesObject(Quantity):
     def _resample_dataframe(self, df, new_freq, method, agg, closed):
         """Resample the DataFrame using the specified method."""
         resampler = df.resample(new_freq, closed=closed)
-        
+
         if method == "interpolate":
             return resampler.interpolate("linear")
         elif method in ("ffill", "bfill"):
@@ -328,18 +327,17 @@ class TimeseriesObject(Quantity):
         elif method == "agg":
             return resampler.agg(agg)
         else:
-            raise ValueError("Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'.")
+            raise ValueError(
+                "Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'."
+            )
 
     def _create_resampled_result(self, resampled_df, new_freq, in_place):
         """Create the final resampled TimeseriesObject result."""
         # Convert back to xarray DataArray
         resampled_data = self._dataframe_to_xarray(
-            resampled_df, 
-            list(self.data.dims), 
-            None, 
-            self.data.attrs
+            resampled_df, list(self.data.dims), None, self.data.attrs
         )
-        
+
         if in_place:
             self.data = resampled_data
             self.freq = new_freq
@@ -351,26 +349,26 @@ class TimeseriesObject(Quantity):
 
     def to_df(self) -> pd.DataFrame:
         """Convert to pandas DataFrame for backward compatibility."""
-        if 'variable' in self.data.dims:
+        if "variable" in self.data.dims:
             # Multi-variable case created from DataFrame
             return self.data.to_pandas()
         elif len(self.data.dims) == 1:
             # Single dimension case (time only)
             return pd.DataFrame(
-                {self.data.name or 'value': self.data.values},
-                index=self.data.coords['time'].values
+                {self.data.name or "value": self.data.values},
+                index=self.data.coords["time"].values,
             )
         else:
             # Multi-dimensional case - flatten non-time dimensions and create columns
             # This provides a basic backward compatibility for multi-dimensional data
-            time_coord = self.data.coords['time']
-            
+            time_coord = self.data.coords["time"]
+
             # Reshape the data: keep time as first dimension, flatten others
-            time_size = self.data.sizes['time']
+            time_size = self.data.sizes["time"]
             reshaped_data = self.data.values.reshape(time_size, -1)
-            
+
             # Create column names based on coordinate combinations
-            non_time_dims = [dim for dim in self.data.dims if dim != 'time']
+            non_time_dims = [dim for dim in self.data.dims if dim != "time"]
             if len(non_time_dims) == 1:
                 # Single non-time dimension
                 dim_name = non_time_dims[0]
@@ -379,12 +377,8 @@ class TimeseriesObject(Quantity):
             else:
                 # Multiple non-time dimensions - enumerate columns
                 columns = [f"col_{i}" for i in range(reshaped_data.shape[1])]
-            
-            return pd.DataFrame(
-                reshaped_data,
-                index=time_coord.values,
-                columns=columns
-            )
+
+            return pd.DataFrame(reshaped_data, index=time_coord.values, columns=columns)
 
     def to_nd(self) -> np.ndarray:
         """Convert to numpy array."""
@@ -393,15 +387,15 @@ class TimeseriesObject(Quantity):
     def get_values(self, **kwargs):
         """Get values with optional resampling and slicing."""
         freq = kwargs.get("freq", self.freq)
-        time_set = kwargs.get("time_set", self.data.sizes.get('time', 0))
-        
+        time_set = kwargs.get("time_set", self.data.sizes.get("time", 0))
+
         if freq != self.freq:
             resampled = self.resample_to(freq)
-            if time_set != resampled.data.sizes.get('time', 0):
+            if time_set != resampled.data.sizes.get("time", 0):
                 return resampled.data.values.flatten()[:time_set]
             return resampled.to_nd()
-        
-        if time_set != self.data.sizes.get('time', 0):
+
+        if time_set != self.data.sizes.get("time", 0):
             return self.data.values.flatten()[:time_set]
         return self.to_nd()
 
@@ -420,8 +414,9 @@ class TimeseriesObject(Quantity):
         result.freq = self.freq
         return result
 
-    def add_dimension(self, dim_name: str, coord_values: List[Any], 
-                     axis: Optional[int] = None) -> "TimeseriesObject":
+    def add_dimension(
+        self, dim_name: str, coord_values: List[Any], axis: Optional[int] = None
+    ) -> "TimeseriesObject":
         """Add a new dimension to the data."""
         expanded_data = self.data.expand_dims({dim_name: coord_values}, axis=axis)
         result = TimeseriesObject(data=expanded_data)
@@ -451,7 +446,7 @@ class TimeseriesObject(Quantity):
 
     def empty(self) -> bool:
         """Check if the data is empty."""
-        return self.data.sizes.get('time', 0) == 0
+        return self.data.sizes.get("time", 0) == 0
 
     def __eq__(self, other):
         """Check equality with another TimeseriesObject."""
