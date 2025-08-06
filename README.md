@@ -1,20 +1,20 @@
-# Omnes 🔋⚡
+# Omnes 
 
 **Omnes** is an energy system modelling platform that lets you transform structured datasets into solvable energy models using a simple configuration and processing pipeline. Built for flexibility and clarity, Omnes supports modular data uploads, transformation, and model execution — currently with support for the **Gurobi** solver.
 
 ---
 
-## 🚀 Features
+## Features
 
-- 🧩 Upload data files to the `data/` folder to describe your energy system (e.g., technologies, resources, demands)
-- ⚙️ Easily configure the time set, resolution, and model settings via `config.ini`
-- 🔁 Transform input data into a model-ready format
-- 📉 Run your custom optimization script with full Gurobi integration
-- 🧪 Modular design for experimenting with different models and solvers (Gurobi supported currently)
+- Upload data files to the `data/` folder to describe your energy system (e.g., technologies, resources, demands)
+- Easily configure the time set, resolution, and model settings via `config.ini`
+- Transform input data into a model-ready format
+- Run your custom optimization script with full Gurobi integration
+- Modular design for experimenting with different models and solvers (Gurobi supported currently)
 
 ---
 
-## 📂 Repository Structure
+## Repository Structure
 
 ```bash
 Omnes/
@@ -30,7 +30,7 @@ Omnes/
 
 ---
 
-## ⚙️ Getting Started
+## Getting Started
 
 ### 1. Clone the repository
 
@@ -71,7 +71,7 @@ This will transform the input data, build your energy system model, and run it u
 
 ---
 
-## 📌 Requirements
+## Requirements
 
 - Python 3.9+
 - [Gurobi](https://www.gurobi.com/) (Academic or commercial license)
@@ -79,20 +79,20 @@ This will transform the input data, build your energy system model, and run it u
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please open an issue or pull request to discuss improvements, bugs, or new features.
 
 ---
 
-## 📜 License
+## License
 
 MIT License — see `LICENSE` file.  
 SPDX-License-Identifier: MIT
 
 ---
 
-## 👩‍💻 Maintainer
+## Maintainer
 
 Built and maintained by
 
