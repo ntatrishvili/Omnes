@@ -1,12 +1,16 @@
 import secrets
 from typing import Optional
 
-from app.infra.util import TimeSet, TimesetBuilder, get_input_path
+from utils.logging_setup import get_logger
+from app.infra.util import get_input_path, TimesetBuilder, TimeSet
+from app.model.generator.pv import PV
 from app.model.entity import Entity
 from app.model.generator.pv import PV
 from app.model.load.load import Load
 from app.model.slack import Slack
 from app.model.storage.battery import Battery
+
+log = get_logger(__name__)
 
 
 class Model:
@@ -50,6 +54,7 @@ class Model:
         """
         Build the model from a configuration dictionary
         """
+        log.info(f"Building model '{id}' with {time_set} time steps")
         model = cls(id, number_of_time_steps=time_set, resolution=frequency)
         for entity_name, content in config.items():
             entity = Entity(entity_name)
@@ -79,6 +84,7 @@ class Model:
                 entity.add_sub_entity(b)
             model.add_entity(entity)
         model.add_entity(Slack(id="slack"))
+        log.info(f"Model built with {len(model.entities)} entities")
         return model
 
     def convert(self, converter, time_set: int = None, new_freq: str = None):
