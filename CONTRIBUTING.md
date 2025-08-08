@@ -4,7 +4,7 @@ Thank you for your interest in contributing to **Omnes**! We welcome all kinds o
 
 ---
 
-## 🚀 Contribution Workflow
+## Contribution Workflow
 
 ### 1. Fork the Repository
 
@@ -72,7 +72,7 @@ git push origin <branch-name>
 
 ---
 
-## 🔧 Pull Request Checklist
+## Pull Request Checklist
 
 * [ ] My code follows the style guidelines
 * [ ] I have performed a self-review
@@ -83,7 +83,7 @@ git push origin <branch-name>
 
 ---
 
-## 📆 Review Process
+## Review Process
 
 1. After opening a PR, GitHub will notify the reviewers.
 2. **Nia Tatrishvili** and **Lilla Barancsuk** will review your PR and leave comments or approve.
@@ -92,7 +92,7 @@ git push origin <branch-name>
 
 ---
 
-## 📃 License
+## License
 
 By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
 
