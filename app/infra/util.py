@@ -1,6 +1,10 @@
 import os
 from pandas import date_range
 
+from utils.logging_setup import get_logger
+
+log = get_logger(__name__)
+
 
 def get_input_path(filename: str = "input.csv") -> str:
     """
@@ -58,6 +62,7 @@ class TimesetBuilder:
             periods=number_of_time_steps,
         )
         number_of_time_steps = dates.shape[0]
+        log.info(f"Created timeset with {number_of_time_steps} time steps")
         resolution = dates.freq
         return TimeSet(time_start, time_end, resolution, number_of_time_steps, dates)
 
