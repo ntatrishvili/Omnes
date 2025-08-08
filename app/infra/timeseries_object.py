@@ -6,14 +6,14 @@ from typing import Optional, List, Dict, Any
 from app.infra.quantity import Quantity
 
 
-def infer_freq_from_two_dates(data):
+def infer_freq_from_two_dates(data: xr.DataArray | pd.DataFrame) -> str:
     """Helper function to infer frequency from two dates, supports both pandas and xarray."""
     if isinstance(data, xr.DataArray):
-        if "time" not in data.coords:
+        if "timestamp" not in data.coords:
             raise ValueError(
-                "The provided DataArray does not contain a 'time' coordinate."
+                "The provided DataArray does not contain a 'timestamp' coordinate."
             )
-        time_coord = data.coords["time"]
+        time_coord = data.coords["timestamp"]
         delta = time_coord[1] - time_coord[0]
         # Convert xarray timedelta to pandas timedelta for total_seconds()
         seconds = pd.Timedelta(delta.values).total_seconds()
@@ -105,7 +105,7 @@ class TimeseriesObject(Quantity):
                 df_data, params["dims"], params["coords"], params["attrs"]
             )
         else:
-            return xr.DataArray(data=[], dims=["time"], attrs=params["attrs"])
+            return xr.DataArray(data=[], dims=["timestamp"], attrs=params["attrs"])
 
     def _initialize_frequency(self, freq_param):
         """Initialize the frequency attribute."""
@@ -113,18 +113,18 @@ class TimeseriesObject(Quantity):
             return None
 
         if freq_param is not None:
-            self.resample_to(freq_param)
+            self.resample_to(freq_param, in_place=True)
             return freq_param
 
         return self._infer_frequency_from_data()
 
     def _infer_frequency_from_data(self):
         """Infer frequency from the data."""
-        if self.data.sizes["time"] < 3:
+        if self.data.sizes["timestamp"] < 3:
             return infer_freq_from_two_dates(self.data)
         else:
             return self.normalize_freq(
-                pd.infer_freq(pd.DatetimeIndex(self.data.coords["time"].values))
+                pd.infer_freq(pd.DatetimeIndex(self.data.coords["timestamp"].values))
             )
 
     def _dataframe_to_xarray(
@@ -143,8 +143,8 @@ class TimeseriesObject(Quantity):
             col_name = df.columns[0]
             return xr.DataArray(
                 data=df[col_name].values,
-                dims=["time"],
-                coords={"time": df.index},
+                dims=["timestamp"],
+                coords={"timestamp": df.index},
                 attrs=attrs,
                 name=col_name,
             )
@@ -152,8 +152,8 @@ class TimeseriesObject(Quantity):
             # Multi-column DataFrame - create variable dimension
             return xr.DataArray(
                 data=df.values,
-                dims=["time", "variable"],
-                coords={"time": df.index, "variable": df.columns},
+                dims=["timestamp", "variable"],
+                coords={"timestamp": df.index, "variable": df.columns},
                 attrs=attrs,
             )
 
@@ -198,7 +198,7 @@ class TimeseriesObject(Quantity):
         return TimeseriesObject(data=df_data)
 
     @classmethod
-    def normalize_freq(cls, freq: str) -> str:
+    def normalize_freq(cls, freq: str) -> Optional[str]:
         """
         Normalize the frequency string to a standard format.
         :param freq: str
@@ -206,9 +206,11 @@ class TimeseriesObject(Quantity):
         :return: str
             The normalized frequency string (e.g., '1h').
         """
-        if freq is not None and freq.isalpha():
+        if freq is None:
+            return None
+        if freq.isalpha():
             return f"1{freq}"
-        return f"{freq}"
+        return freq
 
     def to_1h(self, closed="left") -> "TimeseriesObject":
         """
@@ -270,12 +272,9 @@ class TimeseriesObject(Quantity):
         if self.empty() or self.freq == new_freq:
             return self
 
-        # Get resampled DataFrame
         resampled_df = self._perform_resampling(
             new_freq, method, agg, closed, keep_original_dtypes
         )
-
-        # Convert back to xarray and create result
         return self._create_resampled_result(resampled_df, new_freq, in_place)
 
     def _perform_resampling(self, new_freq, method, agg, closed, keep_original_dtypes):
@@ -357,32 +356,36 @@ class TimeseriesObject(Quantity):
             # Multi-variable case created from DataFrame
             return self.data.to_pandas()
         elif len(self.data.dims) == 1:
-            # Single dimension case (time only)
+            # Single dimension case (timestamp only)
             return pd.DataFrame(
                 {self.data.name or "value": self.data.values},
-                index=self.data.coords["time"].values,
+                index=pd.DatetimeIndex(self.data.coords["timestamp"].values),
             )
         else:
-            # Multi-dimensional case - flatten non-time dimensions and create columns
+            # Multi-dimensional case - flatten non-timestamp dimensions and create columns
             # This provides a basic backward compatibility for multi-dimensional data
-            time_coord = self.data.coords["time"]
+            timestamp_coord = self.data.coords["timestamp"]
 
-            # Reshape the data: keep time as first dimension, flatten others
-            time_size = self.data.sizes["time"]
-            reshaped_data = self.data.values.reshape(time_size, -1)
+            # Reshape the data: keep timestamp as first dimension, flatten others
+            timestamp_size = self.data.sizes["timestamp"]
+            reshaped_data = self.data.values.reshape(timestamp_size, -1)
 
             # Create column names based on coordinate combinations
-            non_time_dims = [dim for dim in self.data.dims if dim != "time"]
-            if len(non_time_dims) == 1:
-                # Single non-time dimension
-                dim_name = non_time_dims[0]
+            non_timestamp_dims = [dim for dim in self.data.dims if dim != "timestamp"]
+            if len(non_timestamp_dims) == 1:
+                # Single non-timestamp dimension
+                dim_name = non_timestamp_dims[0]
                 coord_values = self.data.coords[dim_name].values
                 columns = [f"{dim_name}_{val}" for val in coord_values]
             else:
-                # Multiple non-time dimensions - enumerate columns
+                # Multiple non-timestamp dimensions - enumerate columns
                 columns = [f"col_{i}" for i in range(reshaped_data.shape[1])]
 
-            return pd.DataFrame(reshaped_data, index=time_coord.values, columns=columns)
+            return pd.DataFrame(
+                reshaped_data,
+                index=pd.DatetimeIndex(timestamp_coord.values),
+                columns=columns,
+            )
 
     def to_nd(self) -> np.ndarray:
         """Convert to numpy array."""
@@ -391,15 +394,15 @@ class TimeseriesObject(Quantity):
     def get_values(self, **kwargs):
         """Get values with optional resampling and slicing."""
         freq = kwargs.get("freq", self.freq)
-        time_set = kwargs.get("time_set", self.data.sizes.get("time", 0))
+        time_set = kwargs.get("time_set", self.data.sizes.get("timestamp", 0))
 
         if freq != self.freq:
             resampled = self.resample_to(freq)
-            if time_set != resampled.data.sizes.get("time", 0):
+            if time_set != resampled.data.sizes.get("timestamp", 0):
                 return resampled.data.values.flatten()[:time_set]
             return resampled.to_nd()
 
-        if time_set != self.data.sizes.get("time", 0):
+        if time_set != self.data.sizes.get("timestamp", 0):
             return self.data.values.flatten()[:time_set]
         return self.to_nd()
 
@@ -450,7 +453,7 @@ class TimeseriesObject(Quantity):
 
     def empty(self) -> bool:
         """Check if the data is empty."""
-        return self.data.sizes.get("time", 0) == 0
+        return self.data.sizes.get("timestamp", 0) == 0
 
     def __eq__(self, other):
         """Check equality with another TimeseriesObject."""

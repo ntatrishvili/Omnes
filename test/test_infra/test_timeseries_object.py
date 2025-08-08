@@ -42,8 +42,8 @@ class TestTimeseriesObject(unittest.TestCase):
         times = pd.date_range("2020-01-01", periods=4, freq="1h")
         data_array = xr.DataArray(
             data=[10, 20, 30, 40],
-            dims=["time"],
-            coords={"time": times},
+            dims=["timestamp"],
+            coords={"timestamp": times},
             attrs={"technology_type": "pv", "location": "rooftop_A"},
         )
         ts = TimeseriesObject(data=data_array)
@@ -101,6 +101,234 @@ class TestTimeseriesObject(unittest.TestCase):
             finally:
                 os.remove(tmp.name)
 
+    def test_infer_freq_error_cases(self):
+        """Test error cases in frequency inference."""
+        # Test xarray DataArray without timestamp coordinate
+        data_without_timestamp = xr.DataArray([1, 2, 3], dims=["x"])
+        with self.assertRaises(ValueError) as cm:
+            from app.infra.timeseries_object import infer_freq_from_two_dates
+
+            infer_freq_from_two_dates(data_without_timestamp)
+        self.assertIn("does not contain a 'timestamp' coordinate", str(cm.exception))
+
+    def test_frequency_inference_edge_cases(self):
+        """Test frequency inference for different time intervals."""
+        from app.infra.timeseries_object import infer_freq_from_two_dates
+
+        # Test seconds frequency
+        times_sec = pd.date_range("2020-01-01", periods=3, freq="30s")
+        data_sec = xr.DataArray(
+            [1, 2, 3], dims=["timestamp"], coords={"timestamp": times_sec}
+        )
+        freq_sec = infer_freq_from_two_dates(data_sec)
+        self.assertEqual(freq_sec, "30s")
+
+        # Test minutes frequency
+        times_min = pd.date_range("2020-01-01", periods=3, freq="30min")
+        data_min = xr.DataArray(
+            [1, 2, 3], dims=["timestamp"], coords={"timestamp": times_min}
+        )
+        freq_min = infer_freq_from_two_dates(data_min)
+        self.assertEqual(freq_min, "30min")
+
+        # Test pandas DataFrame
+        df_test = pd.DataFrame(
+            {"val": [1, 2]}, index=pd.date_range("2020-01-01", periods=2, freq="2h")
+        )
+        freq_df = infer_freq_from_two_dates(df_test)
+        self.assertEqual(freq_df, "2h")
+
+    def test_init_with_frequency_resampling(self):
+        """Test initialization with frequency parameter that triggers resampling."""
+        df = pd.DataFrame(
+            {"val": [1, 2, 3, 4]},
+            index=pd.date_range("2020-01-01", periods=4, freq="1h"),
+        )
+        # Initialize with different frequency - should trigger resampling
+        ts = TimeseriesObject(data=df, freq="30min")
+        self.assertEqual(ts.freq, "30min")
+        self.assertGreaterEqual(ts.data.sizes["timestamp"], 4)
+
+    def test_empty_data_array_initialization(self):
+        """Test initialization with empty data array fallback."""
+        ts = TimeseriesObject(attrs={"test_attr": "value"})
+        self.assertTrue(ts.empty())
+        self.assertEqual(ts.get_metadata("test_attr"), "value")
+        self.assertIsNone(ts.freq)
+
+    def test_multi_column_dataframe_conversion(self):
+        """Test conversion of multi-column DataFrame to xarray."""
+        # Create multi-column DataFrame
+        df_multi = pd.DataFrame(
+            {"col1": [1, 2, 3], "col2": [4, 5, 6], "col3": [7, 8, 9]},
+            index=pd.date_range("2020-01-01", periods=3, freq="1h"),
+        )
+
+        ts = TimeseriesObject(data=df_multi)
+        self.assertFalse(ts.empty())
+        self.assertIn("variable", ts.data.dims)
+        self.assertEqual(ts.data.sizes["variable"], 3)
+        self.assertEqual(ts.data.sizes["timestamp"], 3)
+
+    def test_read_file_empty_data_error(self):
+        """Test reading a CSV file that causes EmptyDataError."""
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp:
+            # Write malformed CSV that will cause EmptyDataError
+            tmp.write("# This is just a comment file\n# No actual data\n")
+            tmp.close()
+            try:
+                with self.assertRaises(ValueError) as cm:
+                    TimeseriesObject.read(tmp.name, "val")
+                # The error message mentions missing timestamp column because pandas can't parse dates
+                self.assertIn(
+                    "Missing column provided to 'parse_dates'", str(cm.exception)
+                )
+            finally:
+                os.remove(tmp.name)
+
+    def test_resample_error_cases(self):
+        """Test error cases in resampling operations."""
+        # Create a test TimeseriesObject
+        df = pd.DataFrame(
+            {"val": [1, 2, 3, 4]},
+            index=pd.date_range("2020-01-01", periods=4, freq="1h"),
+        )
+        ts = TimeseriesObject(data=df)
+
+        # Test with unsupported resampling method
+        with self.assertRaises(ValueError) as cm:
+            ts.resample_to("30min", method="unsupported_method")
+        self.assertIn("Unsupported method", str(cm.exception))
+
+        # Test resampling with keep_original_dtypes
+        ts_with_dtypes = ts.resample_to(
+            "30min", method="interpolate", keep_original_dtypes=True
+        )
+        self.assertIsNotNone(ts_with_dtypes)
+
+        # Test in_place resampling
+        original_id = id(ts.data)
+        result = ts.resample_to("30min", method="interpolate", in_place=True)
+        self.assertIs(result, ts)  # Should return same object
+        self.assertNotEqual(id(ts.data), original_id)  # Data should be different
+
+    def test_frequency_inference_errors(self):
+        """Test frequency inference error cases."""
+        # Create data with irregular timestamps that can't infer frequency
+        irregular_times = pd.to_datetime(
+            ["2020-01-01 00:00", "2020-01-01 00:13", "2020-01-01 01:47"]
+        )
+        df_irregular = pd.DataFrame({"val": [1, 2, 3]}, index=irregular_times)
+
+        # This should handle the case where pd.infer_freq returns None
+        ts_irregular = TimeseriesObject(data=df_irregular)
+        # For irregular timestamps, frequency inference should return None
+        self.assertIsNone(ts_irregular.freq)
+
+    def test_resample_to_same_frequency(self):
+        """Test resampling to the same frequency (should return self)."""
+        df = pd.DataFrame(
+            {"val": [1, 2, 3, 4]},
+            index=pd.date_range("2020-01-01", periods=4, freq="1h"),
+        )
+        ts = TimeseriesObject(data=df)
+
+        resampled_ts = ts.resample_to("1h")
+        # Same frequency should return the original object
+        self.assertEqual(resampled_ts.freq, "1h")
+
+    def test_resample_empty_timeseries(self):
+        """Test resampling an empty timeseries."""
+        empty_ts = TimeseriesObject()
+        result = empty_ts.resample_to("1h")
+        self.assertIs(result, empty_ts)
+
+    def test_repr_method(self):
+        """Test string representation."""
+        df = pd.DataFrame(
+            {"val": [1, 2, 3, 4]},
+            index=pd.date_range("2020-01-01", periods=4, freq="1h"),
+        )
+        ts = TimeseriesObject(data=df)
+
+        repr_str = repr(ts)
+        self.assertIn("TimeseriesObject", repr_str)
+        self.assertIn("dims=", repr_str)
+        self.assertIn("shape=", repr_str)
+        self.assertIn("freq=", repr_str)
+
+    def test_read_csv_successful(self):
+        """Test successful CSV reading."""
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp:
+            # Write proper CSV data
+            tmp.write("timestamp;power;voltage\n")
+            tmp.write("2020.01.01 00:00;100;220\n")
+            tmp.write("2020.01.01 01:00;150;225\n")
+            tmp.write("2020.01.01 02:00;120;218\n")
+            tmp.close()
+            try:
+                ts = TimeseriesObject.read(tmp.name, "power")
+                self.assertFalse(ts.empty())
+                self.assertEqual(ts.data.sizes["timestamp"], 3)
+                np.testing.assert_array_equal(ts.to_nd(), [100, 150, 120])
+            finally:
+                os.remove(tmp.name)
+
+    def test_init_with_csv_path_and_col(self):
+        """Test initialization with input_path and col parameters."""
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp:
+            tmp.write("timestamp;value\n")
+            tmp.write("2020.01.01 00:00;10\n")
+            tmp.write("2020.01.01 01:00;20\n")
+            tmp.close()
+            try:
+                ts = TimeseriesObject(input_path=tmp.name, col="value")
+                self.assertFalse(ts.empty())
+                self.assertEqual(ts.data.sizes["timestamp"], 2)
+                np.testing.assert_array_equal(ts.to_nd(), [10, 20])
+            finally:
+                os.remove(tmp.name)
+
+    def test_to_1h_without_frequency(self):
+        """Test to_1h method when frequency is not set."""
+        # Create a TimeseriesObject without frequency
+        empty_ts = TimeseriesObject()
+        with self.assertRaises(ValueError) as cm:
+            empty_ts.to_1h()
+        self.assertIn("Frequency of the time series is not set", str(cm.exception))
+
+    def test_to_15m_without_frequency(self):
+        """Test to_15m method when frequency is not set."""
+        empty_ts = TimeseriesObject()
+        with self.assertRaises(ValueError) as cm:
+            empty_ts.to_15m()
+        self.assertIn("Frequency of the time series is not set", str(cm.exception))
+
+    def test_normalize_freq_edge_cases(self):
+        """Test normalize_freq with various inputs."""
+        # Test with alphabetic frequency
+        self.assertEqual(TimeseriesObject.normalize_freq("D"), "1D")
+        self.assertEqual(TimeseriesObject.normalize_freq("W"), "1W")
+
+        # Test with numeric frequency (should pass through)
+        self.assertEqual(TimeseriesObject.normalize_freq("2h"), "2h")
+        self.assertEqual(TimeseriesObject.normalize_freq("30min"), "30min")
+
+    def test_dataframe_to_xarray_with_custom_params(self):
+        """Test _dataframe_to_xarray with custom dimensions and coordinates."""
+        df = pd.DataFrame(
+            {"value": [1, 2, 3]},
+            index=pd.date_range("2020-01-01", periods=3, freq="1h"),
+        )
+
+        ts = TimeseriesObject()
+        # Test with custom attributes
+        result = ts._dataframe_to_xarray(
+            df, dims=["time"], coords=None, attrs={"test_attr": "test_value"}
+        )
+        self.assertEqual(result.attrs["test_attr"], "test_value")
+        self.assertEqual(result.name, "value")
+
 
 class TestTimeseriesObjectExtended(unittest.TestCase):
     def setUp(self):
@@ -123,7 +351,7 @@ class TestTimeseriesObjectExtended(unittest.TestCase):
         self.assertEqual(ts_15m.freq, "15min")
         # With xarray backend, check the data size
         self.assertEqual(
-            ts_15m.data.sizes["time"], (len(self.df) - 1) * 4 + 1
+            ts_15m.data.sizes["timestamp"], (len(self.df) - 1) * 4 + 1
         )  # interpolated
 
     def test_resample_to_interpolate(self):
@@ -162,9 +390,8 @@ class TestTimeseriesObjectExtended(unittest.TestCase):
         self.assertEqual(len(values), 2)
 
     def test_get_values_different_freq(self):
-        # First test with our existing 1h data
-        original_len = len(self.ts.to_nd())
-        self.assertEqual(original_len, 4)
+        # Test with our existing 1h data
+        self.assertEqual(len(self.ts.to_nd()), 4)
 
         # Create a TimeSeries with different frequency to test resampling
         ts_15min = self.ts.resample_to("15min", method="interpolate")
@@ -172,6 +399,23 @@ class TestTimeseriesObjectExtended(unittest.TestCase):
         # With interpolation, we should get more values: 4 hours * 4 intervals + 1 = 13
         expected_len = (len(self.df) - 1) * 4 + 1
         self.assertEqual(len(values_15min), expected_len)
+
+    def test_get_values_with_time_set_slicing(self):
+        """Test get_values with time_set parameter causing slicing."""
+        # Test case where time_set != data size, should slice the flattened values
+        values_sliced = self.ts.get_values(time_set=2)
+        self.assertEqual(len(values_sliced), 2)
+        np.testing.assert_array_equal(values_sliced, [1, 2])
+
+        # Test with different frequency AND time_set
+        values_freq_sliced = self.ts.get_values(freq="30min", time_set=3)
+        self.assertEqual(len(values_freq_sliced), 3)
+
+    def test_equality_with_non_timeseries_object(self):
+        """Test equality comparison with non-TimeseriesObject."""
+        self.assertFalse(self.ts == "not a timeseries")
+        self.assertFalse(self.ts == 42)
+        self.assertFalse(self.ts == None)
 
     def test_eq_operator(self):
         other = TimeseriesObject(data=self.df.copy())
@@ -187,6 +431,20 @@ class TestTimeseriesObjectExtended(unittest.TestCase):
         with self.assertRaises(AttributeError):
             _ = self.ts.non_existent_attr
 
+    def test_getattr_attribute_error(self):
+        """Test __getattr__ raising AttributeError for non-existent attributes."""
+        with self.assertRaises(AttributeError) as cm:
+            _ = self.ts.definitely_non_existent_attribute
+        self.assertIn("has no attribute", str(cm.exception))
+
+    def test_add_dimension_with_axis(self):
+        """Test add_dimension with specific axis parameter."""
+        expanded_ts = self.ts.add_dimension("scenario", ["base", "optimistic"], axis=1)
+        self.assertIn("scenario", expanded_ts.data.dims)
+        self.assertEqual(expanded_ts.data.sizes["scenario"], 2)
+        # Test that frequency is preserved
+        self.assertEqual(expanded_ts.freq, self.ts.freq)
+
     def test_empty_true_and_false(self):
         empty_ts = TimeseriesObject()
         self.assertTrue(empty_ts.empty())
@@ -201,10 +459,10 @@ class TestXArrayFeatures(unittest.TestCase):
         times = pd.date_range("2025-01-01", periods=24, freq="1h")
         rng = np.random.default_rng(42)  # Use modern numpy generator with seed
         self.multi_data = xr.DataArray(
-            data=rng.random((24, 3, 2)),  # time x location x scenario
-            dims=["time", "location", "scenario"],
+            data=rng.random((24, 3, 2)),  # timestamp x location x scenario
+            dims=["timestamp", "location", "scenario"],
             coords={
-                "time": times,
+                "timestamp": times,
                 "location": ["site_A", "site_B", "site_C"],
                 "scenario": ["optimistic", "pessimistic"],
             },
@@ -228,17 +486,17 @@ class TestXArrayFeatures(unittest.TestCase):
 
         # Select time range
         subset_ts = self.ts_multi.sel(
-            time=slice("2025-01-01 06:00", "2025-01-01 12:00")
+            timestamp=slice("2025-01-01 06:00", "2025-01-01 12:00")
         )
-        self.assertEqual(subset_ts.data.sizes["time"], 7)  # 6 hours + 1
+        self.assertEqual(subset_ts.data.sizes["timestamp"], 7)  # 6 hours + 1
 
     def test_integer_selection(self):
         """Test integer-based selection."""
-        first_timestep = self.ts_multi.isel(time=0)
-        self.assertNotIn("time", first_timestep.data.dims)
+        first_timestep = self.ts_multi.isel(timestamp=0)
+        self.assertNotIn("timestamp", first_timestep.data.dims)
 
-        first_three_times = self.ts_multi.isel(time=slice(0, 3))
-        self.assertEqual(first_three_times.data.sizes["time"], 3)
+        first_three_times = self.ts_multi.isel(timestamp=slice(0, 3))
+        self.assertEqual(first_three_times.data.sizes["timestamp"], 3)
 
     def test_add_dimension(self):
         """Test adding new dimensions."""
@@ -279,10 +537,10 @@ class TestXArrayFeatures(unittest.TestCase):
         times = pd.date_range("2025-01-01", periods=8, freq="1h")
         rng = np.random.default_rng(123)  # Use modern numpy generator with seed
         pv_data = xr.DataArray(
-            data=rng.random((8, 2, 3)),  # time x weather x degradation_year
-            dims=["time", "weather", "degradation_year"],
+            data=rng.random((8, 2, 3)),  # timestamp x weather x degradation_year
+            dims=["timestamp", "weather", "degradation_year"],
             coords={
-                "time": times,
+                "timestamp": times,
                 "weather": ["sunny", "cloudy"],
                 "degradation_year": [0, 1, 2],  # years of operation
             },
@@ -297,7 +555,7 @@ class TestXArrayFeatures(unittest.TestCase):
 
         # Test aggregation across weather scenarios
         avg_weather = ts_pv.data.mean(dim="weather")
-        self.assertEqual(avg_weather.dims, ("time", "degradation_year"))
+        self.assertEqual(avg_weather.dims, ("timestamp", "degradation_year"))
 
         # Test selection of specific degradation year
         year_0 = ts_pv.sel(degradation_year=0)

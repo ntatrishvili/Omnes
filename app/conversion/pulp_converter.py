@@ -1,6 +1,7 @@
 import pulp
 
 from app.conversion.converter import Converter
+from app.infra.quantity import Parameter
 from app.infra.quantity import Quantity
 from app.infra.relation import Relation
 from app.model.entity import Entity
@@ -9,7 +10,24 @@ from app.model.model import Model
 
 class PulpConverter(Converter):
     def convert_model(self, model: Model, time_set: int = None, new_freq: str = None):
+        """Convert the model to an optimization/simulation problem.
+        This method converts the model's entities and their quantities into a flat dictionary
+        of pulp variables suitable for optimization. It also handles the resampling of time series
+        data to the specified frequency and time set.
+        Parameters:
+        ----------
+        model : Model
+            The model to convert.
+        time_set : int, optional
+            The number of time steps to represent in the pulp variables.
+        new_freq : str, optional
+            The target frequency to resample time series data to (e.g., '15min', '1H').
+        """
         variables = {}
+        if not time_set:
+            time_set = model.number_of_time_steps
+        if not new_freq:
+            new_freq = model.frequency
         for entity in model.entities:
             variables.update(entity.convert(time_set, new_freq, self))
         variables["time_set"] = range(time_set)
@@ -41,8 +59,7 @@ class PulpConverter(Converter):
             A flat dictionary containing all pulp variables from the entity and its descendants.
         """
         variables = {
-            f"{entity.id}.{key}": self.convert_quantity(
-                self,
+            key: self.convert_quantity(
                 quantity,
                 name=f"{entity.id}.{key}",
                 time_set=time_set,
@@ -57,10 +74,17 @@ class PulpConverter(Converter):
     def convert_quantity(
         self, quantity: Quantity, name: str, time_set: int = None, freq: str = None
     ):
-        """Convert the time series data to a format suitable for pulp optimization."""
+        """Convert the time series data to a format suitable for pulp optimization.
+        If the quantity is empty, create an empty pulp variable.
+        If the quantity is a Parameter, return its value directly.
+        Otherwise, return the values resampled to the specified time set and frequency.
+        """
         if quantity.empty():
             return create_empty_pulp_var(name, time_set)
-        return quantity.get_values(time_set=time_set, freq=freq)
+        if isinstance(quantity, Parameter):
+            return quantity.get_values()
+        else:
+            return quantity.get_values(time_set=time_set, freq=freq)
 
     def convert_relation(
         self, relation: Relation, time_set: int = None, new_freq: str = None
