@@ -9,14 +9,13 @@ def optimize(**kwargs) -> None:
     time_set = kwargs["time_set"]
     p_cons = kwargs["p_cons"]
     p_pv = kwargs["p_pv"]
-    p_slack_out = kwargs.p_slack_out
-    p_slack_in = kwargs.p_slack_in
+    p_slack_out = kwargs["p_slack_out"]
+    p_slack_in = kwargs["p_slack_in"]
     p_bess_in = kwargs["p_bess_in"]
     p_bess_out = kwargs["p_bess_out"]
     e_bess_stor = kwargs["e_bess_stor"]
-    max_power_bess = kwargs["max_power"]
+    max_power_bess = kwargs["max_charge_rate"]
     max_stored_energy_bess = kwargs["capacity"]
-
     prob = pulp.LpProblem("CSCopt", pulp.LpMinimize)
 
     # Add the constraints to the problem

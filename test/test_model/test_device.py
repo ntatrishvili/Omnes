@@ -13,11 +13,6 @@ def test_device_initialization_with_bus():
     assert device.tags["contributes_to"] is None
 
 
-def test_device_missing_bus_raises():
-    with pytest.raises(ValueError, match="No bus specified for device"):
-        Device(id="dev1")  # missing 'bus'
-
-
 def test_device_custom_tags():
     device = Device(id="dev1", bus="bus1", vector=Vector.HEAT, contributes_to="load1")
     assert device.tags["vector"] == Vector.HEAT

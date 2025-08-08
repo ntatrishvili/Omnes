@@ -13,6 +13,6 @@ if __name__ == "__main__":
 
     with open("data/model_config.json", "r") as file:
         config = json.load(file)
-    model = Model.build(config, time_set, freq)
-    problem = PulpConverter().convert(model)
+    model = Model.build("model", config, time_set, freq)
+    problem = PulpConverter().convert_model(model)
     optimize(**problem)
