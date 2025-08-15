@@ -4,6 +4,10 @@ import numpy as np
 import pulp
 from pulp import LpStatusOptimal
 
+from utils.logging_setup import get_logger
+
+log = get_logger(__name__)
+
 
 def optimize(**kwargs) -> None:
     time_set = kwargs["time_set"]
@@ -51,11 +55,13 @@ def optimize(**kwargs) -> None:
     prob += pulp.lpSum([p_slack_out[t] + p_slack_in[t] for t in time_set])
 
     # Solve the problem
+    log.info("Starting optimization problem solve")
     t = time.time()
     status = prob.solve(pulp.GUROBI_CMD(msg=True))
     if status != LpStatusOptimal:
         raise RuntimeError("Unable to solve the problem!")
-    print(f"Time to solve: {time.time() - t:.3}")
+    solve_time = time.time() - t
+    log.info(f"Optimization solved in {solve_time:.3f} seconds")
     objective = pulp.value(prob.objective)
 
     print(f"Optimization Status: {prob.status}")
