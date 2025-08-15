@@ -14,7 +14,7 @@ class ConsoleFormatter(logging.Formatter):
     """Single-line console formatter: YYYY-MM-DD HH:MM:SS | LEVEL | logger.name | message"""
 
     def format(self, record):
-        timestamp = datetime.fromtimestamp(record.created).strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.fromtimestamp(record.created, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         return (
             f"{timestamp} | {record.levelname} | {record.name} | {record.getMessage()}"
         )
