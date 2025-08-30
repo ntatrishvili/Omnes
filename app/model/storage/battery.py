@@ -1,11 +1,11 @@
 from typing import Optional
 
-from .storage import Storage
-from ..device import Vector
 from ...infra.timeseries_object_factory import (
-    TimeseriesFactory,
     DefaultTimeseriesFactory,
+    TimeseriesFactory,
 )
+from ..device import Vector
+from .storage import Storage
 
 
 class Battery(Storage):

@@ -1,4 +1,5 @@
 import unittest
+
 import pandas as pd
 
 from app.infra.timeseries_object_factory import TimeseriesFactory
