@@ -1,20 +1,404 @@
+"""
+Relation and expression system for energy community modeling.
+
+This module provides the core expression system for representing and converting
+mathematical relations in energy system optimization models. It supports
+arithmetic operations, comparisons, entity references with time offsets,
+and specialized expression types for conditional and temporal constraints.
+"""
+
+import re
 from abc import ABC, abstractmethod
+from enum import Enum
+from typing import Any, List, Optional, Union
+
+
+class Operator(Enum):
+    """
+    Enumeration of supported mathematical and comparison operators.
+
+    This enum defines all operators that can be used in mathematical expressions
+    within the energy system modeling framework. Each operator maps to its
+    string representation for parsing and conversion purposes.
+    """
+
+    # Comparison operators
+    LESS_THAN = "<"
+    GREATER_THAN = ">"
+    LESS_THAN_OR_EQUAL = "<="
+    GREATER_THAN_OR_EQUAL = ">="
+    EQUAL = "=="
+    NOT_EQUAL = "!="
+
+    # Arithmetic operators
+    ADD = "+"
+    SUBTRACT = "-"
+    MULTIPLY = "*"
+    DIVIDE = "/"
+
+    @classmethod
+    def from_string(cls, op_str: str) -> "Operator":
+        """
+        Convert string representation to Operator enum.
+
+        Parameters
+        ----------
+        op_str : str
+            String representation of the operator
+
+        Returns
+        -------
+        Operator
+            Corresponding operator enum value
+
+        Raises
+        ------
+        ValueError
+            If the operator string is not supported
+        """
+        for operator in cls:
+            if operator.value == op_str:
+                return operator
+        raise ValueError(f"Unsupported operator: {op_str}")
+
+    def __str__(self) -> str:
+        """Return string representation of the operator."""
+        return self.value
 
 
 class Expression(ABC):
+    """
+    Abstract base class for all mathematical expressions.
+
+    This class defines the interface that all expression types must implement
+    for parsing, conversion, and entity ID extraction. Expression objects
+    form a tree structure representing mathematical operations.
+    """
+
     @abstractmethod
-    def __str__(self):
+    def __str__(self) -> str:
+        """
+        Return string representation of the expression.
+
+        Returns
+        -------
+        str
+            Human-readable string representation
+        """
+        pass
+
+    @abstractmethod
+    def get_ids(self) -> List[str]:
+        """
+        Extract all entity IDs referenced in this expression.
+
+        Returns
+        -------
+        List[str]
+            List of unique entity IDs used in the expression
+        """
+        pass
+
+    @abstractmethod
+    def convert(
+        self,
+        converter: Any,
+        t: int,
+        time_set: Optional[int] = None,
+        new_freq: Optional[str] = None,
+    ) -> Any:
+        """
+        Convert expression using the provided converter.
+
+        This method implements the visitor pattern, delegating conversion
+        logic to the converter object which knows how to handle specific
+        target formats (PuLP, pandapower, etc.).
+
+        Parameters
+        ----------
+        converter : Any
+            Converter object that handles format-specific conversion
+        t : int
+            Current time step
+        time_set : int, optional
+            Time set for constraint generation
+        new_freq : str, optional
+            Frequency specification for time conversion
+
+        Returns
+        -------
+        Any
+            Converted representation (format depends on converter)
+        """
         pass
 
 
+class Literal(Expression):
+    """
+    Expression representing a literal numeric value.
+
+    Literals are terminal nodes in expression trees that contain constant
+    numeric values (integers or floats).
+    """
+
+    def __init__(self, value: Union[int, float]) -> None:
+        """
+        Initialize literal with numeric value.
+
+        Parameters
+        ----------
+        value : Union[int, float]
+            The numeric value this literal represents
+        """
+        self.value = value
+
+    def __str__(self) -> str:
+        """Return string representation of the literal value."""
+        return str(self.value)
+
+    def get_ids(self) -> List[str]:
+        """
+        Return empty list as literals contain no entity references.
+
+        Returns
+        -------
+        List[str]
+            Empty list (literals have no entity IDs)
+        """
+        return []
+
+    def convert(
+        self,
+        converter: Any,
+        t: int,
+        time_set: Optional[int] = None,
+        new_freq: Optional[str] = None,
+    ) -> Any:
+        """
+        Convert literal using the provided converter.
+
+        Parameters
+        ----------
+        converter : Any
+            Converter object that handles format-specific conversion
+        t : int
+            Current time step (unused for literals)
+        time_set : int, optional
+            Time set for constraint generation (unused for literals)
+        new_freq : str, optional
+            Frequency specification (unused for literals)
+
+        Returns
+        -------
+        Any
+            Converted literal representation
+        """
+        return converter.convert_literal(self, self.value, t, time_set, new_freq)
+
+
+class EntityReference(Expression):
+    """
+    Expression representing a reference to an entity with optional time offset.
+
+    Entity references are used to access variables or properties of energy system
+    components at specific time steps. Examples include 'battery1.discharge_power(t)'
+    or 'pv1.generation(t-1)'.
+    """
+
+    def __init__(self, entity_id: str, time_offset: int = 0) -> None:
+        """
+        Initialize entity reference.
+
+        Parameters
+        ----------
+        entity_id : str
+            Identifier for the entity (e.g., 'battery1.discharge_power')
+        time_offset : int, default=0
+            Time offset relative to current time step:
+            - 0 for current time (t)
+            - -1 for previous time step (t-1)
+            - +1 for next time step (t+1)
+        """
+        if not entity_id or not entity_id.strip():
+            raise ValueError("Entity ID cannot be empty")
+
+        self.entity_id = entity_id.strip()
+        self.time_offset = time_offset
+
+    def __str__(self) -> str:
+        """Return string representation with time offset notation."""
+        if self.time_offset == 0:
+            return f"{self.entity_id}(t)"
+        elif self.time_offset < 0:
+            return f"{self.entity_id}(t{self.time_offset})"
+        else:
+            return f"{self.entity_id}(t+{self.time_offset})"
+
+    def get_ids(self) -> List[str]:
+        """
+        Return list containing this entity's ID.
+
+        Returns
+        -------
+        List[str]
+            List with single entity ID
+        """
+        return [self.entity_id]
+
+    def convert(
+        self,
+        converter: Any,
+        t: int,
+        time_set: Optional[int] = None,
+        new_freq: Optional[str] = None,
+    ) -> Any:
+        """
+        Convert entity reference using the provided converter.
+
+        Parameters
+        ----------
+        converter : Any
+            Converter object that handles format-specific conversion
+        t : int
+            Current time step
+        time_set : int, optional
+            Time set for constraint generation
+        new_freq : str, optional
+            Frequency specification for time conversion
+
+        Returns
+        -------
+        Any
+            Converted entity reference representation
+        """
+        return converter.convert_entity_reference(
+            self, self.entity_id, t, time_set, new_freq
+        )
+
+
 class BinaryExpression(Expression):
-    def __init__(self, left, operator, right):
+    def __init__(self, left: Expression, operator: Operator, right: Expression):
         self.left = left
         self.operator = operator
         self.right = right
 
     def __str__(self):
         return f"({self.left} {self.operator} {self.right})"
+
+    def get_ids(self) -> list[str]:
+        return self.left.get_ids() + self.right.get_ids()
+
+    def convert(self, converter, t: int, time_set: int = None, new_freq: str = None):
+        """Convert binary expression using the provided converter"""
+        # Recursively convert left and right sides
+        left_result = self.left.convert(converter, t, time_set, new_freq)
+        right_result = self.right.convert(converter, t, time_set, new_freq)
+
+        # Delegate to converter for the binary operation
+        return converter.convert_binary_expression(
+            self, left_result, right_result, self.operator, t, time_set, new_freq
+        )
+
+    @classmethod
+    def parse_binary(cls, expr: str) -> Expression:
+        """Parse constraint expressions like 'battery1.discharge_power(t) < 2 * battery1.discharge_power(t-1)'"""
+        # Find comparison operators first (<=, >=, ==, !=, <, >)
+        comparison_ops = ["<=", ">=", "==", "!=", "<", ">"]
+        for op_str in comparison_ops:
+            if op_str in expr:
+                parts = expr.split(op_str, 1)
+                if len(parts) == 2:
+                    left = cls._parse_arithmetic_expression(parts[0].strip())
+                    right = cls._parse_arithmetic_expression(parts[1].strip())
+                    operator = Operator.from_string(op_str)
+                    return BinaryExpression(left, operator, right)
+
+        # If no comparison operator, parse as arithmetic expression
+        return cls._parse_arithmetic_expression(expr)
+
+    @classmethod
+    def _parse_arithmetic_expression(cls, expr: str) -> Expression:
+        """Parse arithmetic expressions with +, -, *, /"""
+        # Handle addition and subtraction first (lower precedence, right-to-left)
+        for op_str in ["+", "-"]:
+            op_pos = cls._find_operator_outside_parentheses(expr, op_str)
+            if op_pos != -1:
+                left_part = expr[:op_pos].strip()
+                right_part = expr[op_pos + 1 :].strip()
+                left = cls._parse_arithmetic_expression(left_part)
+                right = cls._parse_arithmetic_expression(right_part)
+                operator = Operator.from_string(op_str)
+                return BinaryExpression(left, operator, right)
+
+        # Handle multiplication and division (higher precedence, right-to-left)
+        for op_str in ["*", "/"]:
+            op_pos = cls._find_operator_outside_parentheses(expr, op_str)
+            if op_pos != -1:
+                left_part = expr[:op_pos].strip()
+                right_part = expr[op_pos + 1 :].strip()
+                left = cls._parse_arithmetic_expression(left_part)
+                right = cls._parse_term(right_part)
+                operator = Operator.from_string(op_str)
+                return BinaryExpression(left, operator, right)
+
+        # If no arithmetic operators, parse as term
+        return cls._parse_term(expr)
+
+    @classmethod
+    def _find_operator_outside_parentheses(cls, expr: str, op: str) -> int:
+        """Find the last occurrence of an operator that's not inside parentheses"""
+        paren_depth = 0
+        last_pos = -1
+
+        for i in range(len(expr) - len(op) + 1):
+            if expr[i] == "(":
+                paren_depth += 1
+            elif expr[i] == ")":
+                paren_depth -= 1
+            elif paren_depth == 0 and expr[i : i + len(op)] == op:
+                last_pos = i
+
+        return last_pos
+
+    @classmethod
+    def _parse_term(cls, expr: str) -> Expression:
+        """Parse individual terms (numbers, entity references)"""
+        expr = expr.strip()
+
+        # Check if it's a number first
+        try:
+            # Try to parse as integer first
+            if "." not in expr:
+                value = int(expr)
+                return Literal(value)
+        except ValueError:
+            pass
+
+        try:
+            # Try to parse as float
+            value = float(expr)
+            return Literal(value)
+        except ValueError:
+            pass
+
+        # Check if it's an entity reference with explicit time index
+        # Pattern: entity_id.property(t) or entity_id.property(t-1) etc.
+        time_pattern = r"^(.+?)\(t([+-]\d+)?\)$"
+        match = re.match(time_pattern, expr)
+        if match:
+            entity_id = match.group(1)
+            time_offset_str = match.group(2)
+            time_offset = 0 if time_offset_str is None else int(time_offset_str)
+            return EntityReference(entity_id, time_offset)
+
+        # Check if it looks like an entity reference (contains a dot, suggesting entity.property)
+        if "." in expr:
+            # Treat as entity reference with default time (t)
+            return EntityReference(expr, 0)
+
+        # If it doesn't look like a number or entity reference, treat as entity reference anyway
+        # This handles cases like simple variable names
+        return EntityReference(expr, 0)
 
 
 class IfThenExpression(Expression):
@@ -24,6 +408,16 @@ class IfThenExpression(Expression):
 
     def __str__(self):
         return f"(if {self.condition} then {self.consequence})"
+
+    def get_ids(self) -> list[str]:
+        return self.condition.get_ids() + self.consequence.get_ids()
+
+    def convert(self, converter, t: int, time_set: int = None, new_freq: str = None):
+        """Convert if-then expression using the provided converter"""
+        # This would need special handling for conditional constraints
+        raise NotImplementedError(
+            "If-then expressions require special handling in optimization models"
+        )
 
 
 class TimeConditionExpression(Expression):
@@ -36,6 +430,20 @@ class TimeConditionExpression(Expression):
     def __str__(self):
         return f"({self.entity} {self.condition} from {self.start_time} to {self.end_time})"
 
+    def get_ids(self) -> list[str]:
+        # For time conditions, we need to handle the case where condition might be a string
+        if hasattr(self.condition, "get_ids"):
+            return [self.entity] + self.condition.get_ids()
+        else:
+            return [self.entity]
+
+    def convert(self, converter, t: int, time_set: int = None, new_freq: str = None):
+        """Convert time condition expression using the provided converter"""
+        # This would need special time-based constraint handling
+        raise NotImplementedError(
+            "Time condition expressions require special time-based constraint handling"
+        )
+
 
 class AssignmentExpression(Expression):
     def __init__(self, target, value):
@@ -45,8 +453,42 @@ class AssignmentExpression(Expression):
     def __str__(self):
         return f"({self.target} = {self.value})"
 
+    def get_ids(self) -> list[str]:
+        # For assignments, typically target is an entity ID and value might be literal
+        if hasattr(self.target, "get_ids"):
+            target_ids = self.target.get_ids()
+        else:
+            target_ids = [str(self.target)]
 
-import re
+        if hasattr(self.value, "get_ids"):
+            value_ids = self.value.get_ids()
+        else:
+            value_ids = []
+
+        return target_ids + value_ids
+
+    def convert(self, converter, t: int, time_set: int = None, new_freq: str = None):
+        """Convert assignment expression using the provided converter"""
+        # Recursively convert target and value
+        if hasattr(self.target, "convert"):
+            target_result = self.target.convert(converter, t, time_set, new_freq)
+        else:
+            # Simple string target, treat as entity reference
+            target_ref = EntityReference(str(self.target), 0)
+            target_result = target_ref.convert(converter, t, time_set, new_freq)
+
+        if hasattr(self.value, "convert"):
+            value_result = self.value.convert(converter, t, time_set, new_freq)
+        else:
+            # Simple literal value
+            value_result = converter.convert_literal(
+                Literal(self.value), self.value, t, time_set, new_freq
+            )
+
+        # Delegate to converter for assignment operation (equality constraint)
+        return converter.convert_binary_expression(
+            self, target_result, value_result, Operator.EQUAL, t, time_set, new_freq
+        )
 
 
 class Relation:
@@ -56,27 +498,23 @@ class Relation:
         self.expression = self.parse(self.raw_expr)
 
     def parse(self, expr: str) -> Expression:
+        """Parse the expression string into an Expression tree"""
+        # For special expressions, handle them separately
         if expr.startswith("if"):
             return self._parse_if_then(expr)
         if " from " in expr and " to " in expr:
             return self._parse_time_condition(expr)
         if "=" in expr and not any(op in expr for op in ["<", ">", "<=", ">=", "!="]):
             return self._parse_assignment(expr)
-        return self._parse_binary(expr)
+
+        # For constraint expressions, use BinaryExpression.parse_binary
+        return BinaryExpression.parse_binary(expr)
 
     def _parse_if_then(self, expr: str) -> IfThenExpression:
         _, condition, then_expr = re.split(r"\s*if\s*|\s*then\s*", expr)
         return IfThenExpression(
             self.parse(condition.strip()), self.parse(then_expr.strip())
         )
-
-    def _parse_binary(self, expr: str) -> BinaryExpression:
-        match = re.search(r"(<=|>=|==|!=|<|>)", expr)
-        if not match:
-            raise ValueError(f"Unsupported binary expression: {expr}")
-        operator = match.group(1)
-        left, right = expr.split(operator, 1)
-        return BinaryExpression(left.strip(), operator, right.strip())
 
     def _parse_time_condition(self, expr: str) -> TimeConditionExpression:
         match = re.match(
@@ -92,6 +530,36 @@ class Relation:
     def _parse_assignment(self, expr: str) -> AssignmentExpression:
         left, right = expr.split("=", 1)
         return AssignmentExpression(left.strip(), right.strip())
+
+    def get_ids(self) -> list[str]:
+        return self.expression.get_ids()
+
+    def convert(
+        self, converter, objects: dict, time_set: int = None, new_freq: str = None
+    ) -> dict[str, list]:
+        """
+        Convert this relation using the provided converter for each time step.
+
+        This implements dependency inversion - the relation delegates to the converter,
+        which contains all format-specific logic (PuLP, pandapower, etc.).
+
+        Parameters:
+        ----------
+        converter : object
+            The converter that knows how to handle conversion (e.g., PulpConverter)
+        objects : dict
+            Dictionary mapping entity IDs to their variables/objects
+        time_set : int
+            The time set to iterate over
+        new_freq : str
+            Frequency (optional)
+
+        Returns:
+        -------
+        dict
+            Dictionary containing the constraint name and the list of constraints
+        """
+        return converter.convert_relation(self, objects, time_set, new_freq)
 
     def __str__(self):
         return f"[{self.name}] {self.expression}"

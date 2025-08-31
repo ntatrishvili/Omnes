@@ -86,46 +86,47 @@ generators:
       # No household here, does not belong to any specific household
 
 storages:
-  - battery1 on bus_LV3
-    capacity: 5
-    max_charge_rate: 2
-    # default: max_charge_rate
-    max_discharge_rate: 2
-    # default: 1
-    charge_efficiency: 0.95
-    # default: 1
-    discharge_efficiency: 0.95
-    # default: 1
-    storage_efficiency: 0.995
-    tags:
-        #Default vector: electricity
-        #Default contributes_to: electric_power_balance
-  - relations:
-      if battery1.capacity < 6 then battery1.max_discharge_rate = 3
+  battery:
+    - battery1 on bus_LV3
+      capacity: 5
+      max_charge_rate: 2
+      # default: max_charge_rate
+      max_discharge_rate: 2
+      # default: 1
+      charge_efficiency: 0.95
+      # default: 1
+      discharge_efficiency: 0.95
+      # default: 1
+      storage_efficiency: 0.995
+      tags:
+          #Default vector: electricity
+          #Default contributes_to: electric_power_balance
+      relations:
+        if battery1.capacity < 6 then battery2.max_discharge_rate = 3
 
-  - hot_water1 on bus_LV1
-    # l
-    volume: 120
-    set_temperature: 60
-    heat: input/input.csv -> hot_water1
-    tags:
-      #Default vector: heat
-      #Default contributes_to: heat_balance
-      household: HH1
+  hot_water:
+    - hot_water1 on bus_LV1
+      volume: 120
+      set_temperature: 60
+      heat: input/input.csv -> hot_water1
+      tags:
+        #Default vector: heat
+        #Default contributes_to: heat_balance
+        household: HH1
 
-  - hot_water2 on bus_LV2
-    type: HotWater
-    # l
-    volume: 200
-    max_charge_rate: 2
-    max_discharge_rate: 2
-    material: Water
-    set_temperature: 55
-    heat: input/hot_water2.csv
-    tags:
-      # Default vector: heat
-      # Default contributes_to: heat_balance
-      household: HH2
+    - hot_water2 on bus_LV2
+      type: HotWater
+      # l
+      volume: 200
+      max_charge_rate: 2
+      max_discharge_rate: 2
+      material: Water
+      set_temperature: 55
+      heat: input/hot_water2.csv
+      tags:
+        # Default vector: heat
+        # Default contributes_to: heat_balance
+        household: HH2
 
 Loads:
   - load1 on bus_LV1
@@ -173,3 +174,9 @@ Slacks:
     # tags:
       # Default vector: electricity
       # Default contributes_to: electric_power_balance
+
+Relations:
+  battery1.charging\_power < 2 * pv1.power
+
+Target:
+  Minimize
