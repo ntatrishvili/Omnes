@@ -1,12 +1,26 @@
 import numpy as np
 import pandas as pd
+import xarray as xr
+from typing import Optional, List, Dict, Any
 
 from app.infra.quantity import Quantity
 
 
-def infer_freq_from_two_dates(data):
-    delta = data.index[1] - data.index[0]
-    seconds = delta.total_seconds()
+def infer_freq_from_two_dates(data: xr.DataArray) -> str:
+    """Infer timeseries frequency from first two timestamps.
+
+    :param xr.DataArray data: DataArray with 'timestamp' coordinate
+    :returns str: Frequency string (e.g. '1h', '15min')
+    :raises ValueError: If 'timestamp' coordinate is missing
+    """
+    if "timestamp" not in data.coords:
+        raise ValueError(
+            "The provided DataArray does not contain a 'timestamp' coordinate."
+        )
+    time_coord = data.coords["timestamp"]
+    delta = time_coord[1] - time_coord[0]
+    # Convert xarray timedelta to pandas timedelta for total_seconds()
+    seconds = pd.Timedelta(delta.values).total_seconds()
 
     if seconds % 3600 == 0:
         freq_str = f"{int(seconds // 3600)}h"
@@ -19,66 +33,142 @@ def infer_freq_from_two_dates(data):
 
 
 class TimeseriesObject(Quantity):
-    """
-    A class representing a time series object.
-    This class is used to handle time series data, including reading from CSV files,
-    resampling, and normalizing frequencies.
+    """A class representing a time series object using xarray.DataArray as the backend.
+    This class handles multi-dimensional time series data, including reading from CSV files,
+    resampling, and normalizing frequencies. Maintains full backward compatibility with
+    pandas DataFrame-based code while enabling multi-dimensional energy system modeling.
+
+    :ivar xr.DataArray data: Underlying time series data
+    :ivar str freq: Frequency string (e.g. '1h')
     """
 
     def __init__(self, **kwargs):
         """
-        Initialize the TimeseriesObject with either:
-        - a pandas DataFrame (using the ``data`` keyword), or
-        - a CSV file and column name (using the ``input_path`` and ``col`` keywords).
+        Initialize from xarray, pandas, or CSV file.
 
-        If neither is provided, an empty DataFrame is used.
-
-        :keyword data: The pandas DataFrame to initialize the object with.
-        :type data: pandas.DataFrame, optional
-        :keyword input_path: The path to the CSV file to read data from.
-        :type input_path: str, optional
-        :keyword col: The column name to extract from the CSV file.
-        :type col: str, optional
-        :keyword freq: str, optional
+        :param xr.DataArray|pd.DataFrame data: DataArray or DataFrame (optional)
+        :param str input_path: Path to CSV (optional)
+        :param str col: Column name (optional)
+        :param str freq: Frequency string (optional)
         """
         super().__init__(**kwargs)
-        data = kwargs.pop("data", None)
-        input_path = kwargs.pop("input_path", None)
-        col = kwargs.pop("col", None)
-        freq = kwargs.pop("freq", None)
 
-        if isinstance(data, pd.DataFrame):
-            self.data = pd.DataFrame(data)
-        elif input_path is not None and col is not None:
-            self.data = TimeseriesObject.read(input_path, col).data
+        params = self._extract_init_parameters(kwargs)
+
+        self.data = self._initialize_data_array(params)
+
+        self.freq = self._initialize_frequency(params["freq"])
+
+    def _extract_init_parameters(self, kwargs):
+        """Extract and prepare initialization parameters.
+
+        :param dict kwargs: Keyword arguments
+        :returns dict: Processed parameters
+        """
+        attrs = kwargs.pop("attrs", {})
+
+        # Add remaining kwargs as metadata attributes
+        for key, value in kwargs.items():
+            if not key.startswith("_"):
+                attrs[key] = value
+
+        return {
+            "data": kwargs.pop("data", None),
+            "input_path": kwargs.pop("input_path", None),
+            "col": kwargs.pop("col", None),
+            "freq": kwargs.pop("freq", None),
+            "dims": kwargs.pop("dims", None),
+            "coords": kwargs.pop("coords", None),
+            "attrs": attrs,
+        }
+
+    def _initialize_data_array(self, params):
+        """Initialize DataArray from parameters.
+
+        :param dict params: Initialization parameters
+        :returns xr.DataArray: DataArray
+        """
+        if isinstance(params["data"], xr.DataArray):
+            data = params["data"].copy()
+            data.attrs.update(params["attrs"])
+            return data
+        elif isinstance(params["data"], pd.DataFrame):
+            return self._dataframe_to_xarray(params["data"], params["attrs"])
+        elif params["input_path"] is not None and params["col"] is not None:
+            df_data = self._read_csv_to_dataframe(params["input_path"], params["col"])
+            return self._dataframe_to_xarray(df_data, params["attrs"])
         else:
-            self.data = pd.DataFrame()
+            return xr.DataArray(data=[], dims=["timestamp"], attrs=params["attrs"])
 
-        if not self.data.empty:
-            self.data.index = pd.to_datetime(self.data.index)
+    def _initialize_frequency(self, freq_param):
+        """Initialize frequency attribute.
 
-            if freq is not None:
-                self.resample_to(freq)
-            else:
-                if len(self.data) < 3:
-                    self.freq = infer_freq_from_two_dates(self.data)
-                else:
-                    self.freq = self.normalize_freq(pd.infer_freq(self.data.index))
+        :param str|None freq_param: Frequency string or None
+        :returns str|None: Frequency string or None
+        """
+        if self.empty():
+            return None
+
+        if freq_param is not None:
+            self.resample_to(freq_param, in_place=True)
+            return freq_param
+
+        return self._infer_frequency_from_data()
+
+    def _infer_frequency_from_data(self):
+        """Infer frequency from data.
+
+        :returns str: Inferred frequency string
+        """
+        if self.data.sizes["timestamp"] < 3:
+            return infer_freq_from_two_dates(self.data)
+        # Use xarray's infer_freq directly on the timestamp coordinate
+        freq = xr.infer_freq(self.data.coords["timestamp"])
+        return self.normalize_freq(freq)
+
+    def _dataframe_to_xarray(
+        self,
+        df: pd.DataFrame,
+        attrs: Optional[Dict[str, Any]] = None,
+    ) -> xr.DataArray:
+        """Convert DataFrame to DataArray.
+
+        :param pd.DataFrame df: DataFrame
+        :param dict|None attrs: Metadata attributes (optional)
+        :returns xr.DataArray: DataArray
+        """
+        if attrs is None:
+            attrs = {}
+
+        # For single-column DataFrames
+        if len(df.columns) == 1:
+            col_name = df.columns[0]
+            return xr.DataArray(
+                data=df[col_name].values,
+                dims=["timestamp"],
+                coords={"timestamp": df.index},
+                attrs=attrs,
+                name=col_name,
+            )
         else:
-            self.freq = None
+            # Multi-column DataFrame - create variable dimension
+            return xr.DataArray(
+                data=df.values,
+                dims=["timestamp", "variable"],
+                coords={"timestamp": df.index, "variable": df.columns},
+                attrs=attrs,
+            )
 
     @staticmethod
-    def read(input_path: str, col: str) -> "TimeseriesObject":
-        """
-        Read a CSV file and return a TimeseriesObject with
-        the specified column and timestamp parameters.
+    def _read_csv_to_dataframe(input_path: str, col: str) -> pd.DataFrame:
+        """Read CSV and return DataFrame with specified column.
 
-        :param input_path: path to the CSV file.
-        :param col: str Name of the column to extract from the CSV file.
-        :raises FileNotFoundError: If the specified file does not exist.
-        :raises ValueError: If the file is empty or invalid.
-        :raises KeyError: If the specified column is not found in the file.
-        :return: TimeseriesObject A TimeseriesObject containing the specified column and timestamp as the index.
+        :param str input_path: Path to CSV
+        :param str col: Column name
+        :returns pd.DataFrame: DataFrame with column and timestamp index
+        :raises FileNotFoundError: If file does not exist
+        :raises ValueError: If file is empty or invalid
+        :raises KeyError: If column not found
         """
         try:
             input_df = pd.read_csv(
@@ -89,6 +179,7 @@ class TimeseriesObject(Quantity):
                 parse_dates=["timestamp"],
                 date_format="%Y.%m.%d %H:%M",
             )
+            input_df.index = pd.to_datetime(input_df.index)
         except FileNotFoundError:
             raise FileNotFoundError(f"The file '{input_path}' does not exist.")
         except pd.errors.EmptyDataError:
@@ -99,154 +190,239 @@ class TimeseriesObject(Quantity):
                 f"The column '{col}' is not found in the file {input_path}'. {input_df}"
             )
 
-        result = input_df[[col]]
+        return input_df[[col]]
 
-        return TimeseriesObject(data=result)
+    @staticmethod
+    def read(input_path: str, col: str) -> "TimeseriesObject":
+        """Read CSV and return TimeseriesObject.
+
+        :param str input_path: Path to CSV
+        :param str col: Column name
+        :returns TimeseriesObject: TimeseriesObject with column and timestamp index
+        :raises FileNotFoundError: If file does not exist
+        :raises ValueError: If file is empty or invalid
+        :raises KeyError: If column not found
+        """
+        return TimeseriesObject(
+            data=TimeseriesObject._read_csv_to_dataframe(input_path, col)
+        )
 
     @classmethod
-    def normalize_freq(cls, freq: str) -> str:
+    def normalize_freq(cls, freq: str) -> Optional[str]:
+        """Normalize frequency string.
+
+        :param str freq: Frequency string
+        :returns str|None: Normalized frequency string (e.g. '1h') or None
         """
-        Normalize the frequency string to a standard format.
-        :param freq: str
-            The frequency string to normalize (e.g., 'h').
-        :return: str
-            The normalized frequency string (e.g., '1h').
-        """
-        if freq is not None and freq.isalpha():
+        if freq is None:
+            return None
+        if freq.isalpha():
             return f"1{freq}"
-        return f"{freq}"
+        return freq
 
     def to_1h(self, closed="left") -> "TimeseriesObject":
-        """
-        Convert the time series to 1-hour frequency.
-        :param closed:
-            Which side of bin interval is closed. Default is 'left'.
-        :raises ValueError:
-            If the frequency is not set.
-        :return: TimeseriesObject
-            A TimeseriesObject resampled to 1-hour frequency.
+        """Convert to 1-hour frequency.
+
+        :param str closed: Which side of bin interval is closed (default 'left')
+        :returns TimeseriesObject: Resampled TimeseriesObject
+        :raises ValueError: If frequency is not set
         """
         if self.freq is None:
             raise ValueError("Frequency of the time series is not set.")
-        return self.resample_to("1h", closed=closed)
+        return self.resample_to("1h")
 
     def to_15m(self, closed="left") -> "TimeseriesObject":
-        """
-        Convert the time series to 15-minute frequency.
-        :param closed:
-            Which side of bin interval is closed. Default is 'left'.
-        :raises ValueError:
-            If the frequency is not set.
-        :return: TimeseriesObject
-            A TimeseriesObject resampled to 15-minute frequency.
+        """Convert to 15-minute frequency.
+
+        :param str closed: Which side of bin interval is closed (default 'left')
+        :returns TimeseriesObject: Resampled TimeseriesObject
+        :raises ValueError: If frequency is not set
         """
         if self.freq is None:
             raise ValueError("Frequency of the time series is not set.")
-        return self.resample_to("15min", closed=closed)
+        return self.resample_to("15min")
 
     def resample_to(
         self,
         new_freq,
         method=None,
-        agg="mean",
-        closed="right",
+        agg="sum",
         in_place=False,
-        keep_original_dtypes=False,
     ) -> "TimeseriesObject":
-        """
-        Resample the stored time series to a new frequency.
+        """Resample to new frequency.
 
-        :param new_freq: str
-            The new frequency to resample to (e.g., '15min', 'h').
-        :param method: str, optional
-            The resampling method to use ('interpolate', 'ffill', 'bfill', or 'agg'). Defaults to None.
-        :param agg: str, optional
-            The aggregation function to use if method='agg' (e.g., 'mean', 'sum', 'last'). Defaults to 'mean'.
-        :param closed: str, optional
-            Which side of bin interval is closed. ('right', 'left'). Defaults to 'right'.
-        :param in_place: bool, optional
-            Signals whether the object itself is modified at the end of the operation
-        :param keep_original_dtypes: bool, optional
-            Signals whether the returned object's stored data types correspond to the datatypes of the original obhect.
-        :raises ValueError:
-            If the frequency cannot be inferred or if an unsupported method is used.
-        :return: TimeseriesObject
-            A TimeseriesObject resampled to the specified frequency.
+        :param str new_freq: New frequency (e.g. '15min')
+        :param str|None method: Resampling method (optional)
+        :param str agg: Aggregation function (default 'sum')
+        :param bool in_place: Modify in place (default False)
+        :returns TimeseriesObject: Resampled TimeseriesObject
+        :raises ValueError: If frequency cannot be inferred or method unsupported
         """
-        if self.data.empty or self.freq == new_freq:
+        if self.empty() or self.freq == new_freq:
             return self
 
         try:
-            print(f"Resampling from {self.freq} to {new_freq}")
-            current_freq = TimeseriesObject.normalize_freq(
-                pd.infer_freq(self.data.index)
-            )
+            current_freq = self._infer_frequency_from_data()
         except Exception as e:
-            raise ValueError(f"Error inferring frequency: {e}")
+            raise ValueError(f"Error inferring current frequency: {e}")
 
-        if current_freq is None:
-            raise ValueError(
-                "Cannot infer current frequency. Please specify method manually."
-            )
-
-        try:
-            dtypes = self.data.dtypes
-            if method is None:
-                if pd.Timedelta(new_freq) < pd.Timedelta(current_freq):
-                    method = "interpolate"  # Upsampling
-                else:
-                    method = "agg"  # Downsampling
-
-            if method == "interpolate":
-                resampled = self.data.resample(new_freq, closed=closed).interpolate(
-                    "linear"
-                )
-            elif method in ("ffill", "bfill"):
-                resampled = getattr(
-                    self.data.resample(new_freq, closed=closed), method
-                )()
-            elif method == "agg":
-                resampled = self.data.resample(new_freq, closed=closed).agg(agg)
+        if method is None:
+            if pd.Timedelta(new_freq) < pd.Timedelta(current_freq):
+                method = "interpolate"  # Upsampling
             else:
-                raise ValueError(
-                    "Unsupported method. Use 'interpolate', 'ffill', 'bfill', or 'agg'."
-                )
-            if keep_original_dtypes:
-                resampled = resampled.astype(dtypes)
-        except Exception as e:
-            raise ValueError(f"Error during resampling: {e}")
+                method = "agg"  # Downsampling
+
+        resampler = self.data.resample(timestamp=new_freq)
+        if method == "interpolate":
+            resampled = resampler.interpolate("linear")
+            ratio = self.data.sum(skipna=True) / resampled.sum(skipna=True)
+            resampled *= ratio
+        elif method == "agg":
+            resampled = getattr(resampler, agg)()
+        else:
+            raise ValueError("Unsupported method. Use 'interpolate' or 'agg'.")
 
         if in_place:
             self.data = resampled
-        return TimeseriesObject(data=resampled)
+            self.freq = new_freq
+            return self
+        result = TimeseriesObject(data=resampled)
+        result.freq = new_freq
+        return result
 
     def to_df(self) -> pd.DataFrame:
+        """Convert to pandas DataFrame.
+
+        :returns pd.DataFrame: DataFrame representation
         """
-        return: pd.DataFrame
-            The original time series data.
-        """
-        return self.data
+        if "variable" in self.data.dims:
+            # Multi-variable case created from DataFrame
+            return self.data.to_pandas()
+        elif len(self.data.dims) == 1:
+            # Single dimension case (timestamp only)
+            return pd.DataFrame(
+                {self.data.name or "value": self.data.values},
+                index=pd.DatetimeIndex(self.data.coords["timestamp"].values),
+            )
+        else:
+            # Multi-dimensional case - flatten non-timestamp dimensions and create columns
+            # This provides a basic backward compatibility for multi-dimensional data
+            timestamp_coord = self.data.coords["timestamp"]
+
+            # Reshape the data: keep timestamp as first dimension, flatten others
+            timestamp_size = self.data.sizes["timestamp"]
+            reshaped_data = self.data.values.reshape(timestamp_size, -1)
+
+            # Create column names based on coordinate combinations
+            non_timestamp_dims = [dim for dim in self.data.dims if dim != "timestamp"]
+            if len(non_timestamp_dims) == 1:
+                # Single non-timestamp dimension
+                dim_name = non_timestamp_dims[0]
+                coord_values = self.data.coords[dim_name].values
+                columns = [f"{dim_name}_{val}" for val in coord_values]
+            else:
+                # Multiple non-timestamp dimensions - enumerate columns
+                columns = [f"col_{i}" for i in range(reshaped_data.shape[1])]
+
+            return pd.DataFrame(
+                reshaped_data,
+                index=pd.DatetimeIndex(timestamp_coord.values),
+                columns=columns,
+            )
 
     def to_nd(self) -> np.ndarray:
-        """
-        return: pd.DataFrame
-            The original time series data.
+        """Convert to numpy array.
+
+        :returns np.ndarray: Flattened numpy array
         """
         return self.data.values.flatten()
 
     def get_values(self, **kwargs):
+        """Get values with optional resampling and slicing.
+
+        :param str freq: Frequency to resample to (optional)
+        :param int time_set: Number of time steps (optional)
+        :returns np.ndarray: Array of values
+        """
         freq = kwargs.get("freq", self.freq)
-        time_set = kwargs.get("time_set", len(self.data))
+        time_set = kwargs.get("time_set", self.data.sizes.get("timestamp", 0))
+
         if freq != self.freq:
-            return self.resample_to(freq).to_nd()
-        if time_set != len(self.data):
-            return self.resample_to(freq).to_nd()[:time_set]
+            resampled = self.resample_to(freq)
+            if time_set != resampled.data.sizes.get("timestamp", 0):
+                return resampled.data.values.flatten()[:time_set]
+            return resampled.to_nd()
+
+        if time_set != self.data.sizes.get("timestamp", 0):
+            return self.data.values.flatten()[:time_set]
         return self.to_nd()
 
-    def __getattr__(self, name):
+    # New xarray-specific methods
+    def sel(self, **kwargs) -> "TimeseriesObject":
+        """Select data along dimensions.
+
+        :param kwargs: Dimension names and values
+        :returns TimeseriesObject: New TimeseriesObject with selected data
         """
-        Delegate attribute access to the underlying pandas DataFrame.
-        Called only when attribute is not found in TimeseriesObject directly.
+        selected_data = self.data.sel(**kwargs)
+        result = TimeseriesObject(data=selected_data)
+        result.freq = self.freq
+        return result
+
+    def isel(self, **kwargs) -> "TimeseriesObject":
+        """Select data by integer indices.
+
+        :param kwargs: Dimension names and indices
+        :returns TimeseriesObject: New TimeseriesObject with selected data
+        """
+        selected_data = self.data.isel(**kwargs)
+        result = TimeseriesObject(data=selected_data)
+        result.freq = self.freq
+        return result
+
+    def add_dimension(
+        self, dim_name: str, coord_values: List[Any], axis: Optional[int] = None
+    ) -> "TimeseriesObject":
+        """Add a new dimension.
+
+        :param str dim_name: Name of new dimension
+        :param list coord_values: Coordinate values
+        :param int|None axis: Axis to add (optional)
+        :returns TimeseriesObject: New TimeseriesObject
+        """
+        expanded_data = self.data.expand_dims({dim_name: coord_values}, axis=axis)
+        result = TimeseriesObject(data=expanded_data)
+        result.freq = self.freq
+        return result
+
+    def set_metadata(self, **attrs) -> "TimeseriesObject":
+        """Set metadata attributes.
+
+        :param attrs: Metadata attributes
+        :returns TimeseriesObject: New TimeseriesObject with updated metadata
+        """
+        new_data = self.data.copy()
+        new_data.attrs.update(attrs)
+        result = TimeseriesObject(data=new_data)
+        result.freq = self.freq
+        return result
+
+    def get_metadata(self, key: str = None):
+        """Get metadata attributes.
+
+        :param str|None key: Metadata key (optional)
+        :returns dict|Any: All attributes or value for key
+        """
+        if key is None:
+            return dict(self.data.attrs)
+        return self.data.attrs.get(key)
+
+    def __getattr__(self, name):
+        """Delegate attribute access to DataArray.
+
+        :param str name: Attribute name
+        :returns: Attribute value
+        :raises AttributeError: If attribute not found
         """
         data_attr = getattr(self.data, name, None)
         if data_attr is not None:
@@ -254,7 +430,25 @@ class TimeseriesObject(Quantity):
         raise AttributeError(f"'TimeseriesObject' object has no attribute '{name}'")
 
     def empty(self) -> bool:
-        return self.data.empty
+        """Check if data is empty.
+
+        :returns bool: True if empty, else False
+        """
+        return self.data.sizes.get("timestamp", 0) == 0
 
     def __eq__(self, other):
+        """Check equality with another TimeseriesObject.
+
+        :param TimeseriesObject other: Object to compare
+        :returns bool: True if equal, else False
+        """
+        if not isinstance(other, TimeseriesObject):
+            return False
         return self.data.equals(other.data) and self.freq == other.freq
+
+    def __repr__(self):
+        """String representation.
+
+        :returns str: String representation
+        """
+        return f"TimeseriesObject(dims={self.data.dims}, shape={self.data.shape}, freq='{self.freq}')"

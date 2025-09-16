@@ -71,7 +71,10 @@ class Model:
                 entity.add_sub_entity(cs)
             for b_id, info in content["batteries"].items():
                 b = Battery(
-                    b_id, max_power=info["nominal_power"], capacity=info["capacity"]
+                    b_id,
+                    max_charge_rate=info["nominal_power"],
+                    max_discharge_rate=info["nominal_power"],
+                    capacity=info["capacity"],
                 )
                 entity.add_sub_entity(b)
             model.add_entity(entity)

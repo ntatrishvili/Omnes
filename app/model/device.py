@@ -26,7 +26,7 @@ class Device(Entity):
         **kwargs,
     ):
         super().__init__(id, ts_factory, **kwargs)
-        self.bus = kwargs.pop("bus", None)
+        self.bus = kwargs.pop("bus", "bus")
         if self.bus is None:
             raise ValueError(f"No bus specified for device '{self.id}'")
         self.tags = {

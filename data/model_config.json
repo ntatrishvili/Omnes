@@ -11,7 +11,7 @@
     "unit2": {
         "pvs": {},
         "consumers": {
-            "consumer1": {
+            "load2": {
                 "filename": "input2.csv"
             }
         },
