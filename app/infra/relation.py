@@ -1,3 +1,4 @@
+import uuid
 from abc import ABC, abstractmethod
 
 
@@ -50,9 +51,9 @@ import re
 
 
 class Relation:
-    def __init__(self, raw_expr: str, name: str):
+    def __init__(self, raw_expr: str, name: str = None):
         self.raw_expr = raw_expr.strip()
-        self.name = name
+        self.name = name if name else f"{uuid.uuid4().hex}"
         self.expression = self.parse(self.raw_expr)
 
     def parse(self, expr: str) -> Expression:

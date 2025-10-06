@@ -14,7 +14,7 @@ def test_device_initialization_with_bus():
 
 
 def test_device_custom_tags():
-    device = Device(id="dev1", bus="bus1", vector=Vector.HEAT, contributes_to="load1")
+    device = Device(id="dev1", bus="bus1", tags={"vector": Vector.HEAT, "contributes_to": "load1"})
     assert device.tags["vector"] == Vector.HEAT
     assert device.tags["contributes_to"] == "load1"
 

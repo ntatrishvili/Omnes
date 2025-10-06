@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import Enum
 from typing import Optional
 
 from app.infra.timeseries_object_factory import (
@@ -9,10 +9,10 @@ from app.model.entity import Entity
 
 
 class Vector(Enum):
-    ELECTRICITY = auto()
-    HEAT = auto()
-    MATERIAL = auto()
-    INVALID = auto()
+    ELECTRICITY = "electricity"
+    HEAT = "heat"
+    MATERIAL = "material"
+    INVALID = "invalid"
 
 
 class Device(Entity):
@@ -30,10 +30,10 @@ class Device(Entity):
         if self.bus is None:
             raise ValueError(f"No bus specified for device '{self.id}'")
         self.tags = {
-            "vector": kwargs.pop("vector", self.default_vector),
-            "contributes_to": kwargs.pop("contributes_to", self.default_contributes_to),
-            "household": kwargs.pop("household", self.default_contributes_to),
+            "vector": self.default_vector,
+            "contributes_to": self.default_contributes_to,
         }
+        self.tags.update(kwargs.pop("tags", {}))
 
     def update_tags(self, **tags):
         self.tags.update(**tags)

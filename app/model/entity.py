@@ -22,6 +22,7 @@ class Entity:
         - quantities (Dict[str, Quantity]): Named quantities belonging to this entity.
         - sub_entities (list[Entity]): Optional nested child entities.
         - relations (list[Relation]): Constraints or rules related to this entity.
+        - tags (dict): Dictionary of tags associated with this entity.
         - ts_factory (TimeseriesFactory): Used to generate time series objects in an advanced manner.
     """
 
@@ -40,9 +41,10 @@ class Entity:
         self.relations: list[Relation] = []
         self.parent = None
         self.ts_factory = ts_factory or DefaultTimeseriesFactory()
-        self.relations = {Relation(expr=rel) for rel in kwargs.pop("relations", [])}
-        if "input_path" in kwargs and "col" not in kwargs:
-            kwargs["col"] = self.id
+        self.relations = kwargs.pop("relations", [])
+        self.tags = kwargs.pop("tags", {})
+        if "input" in kwargs and "col" not in kwargs.get("input", {}):
+            kwargs["input"]["col"] = self.id
 
     def add_sub_entity(self, entity) -> None:
         """

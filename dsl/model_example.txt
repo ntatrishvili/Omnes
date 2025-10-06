@@ -1,14 +1,3 @@
-# TODO: ahol enum választások vannak, ott a választási lehetőségeket töltsük ki
-# Megbeszélni, hogy milyen típusú relációkat akarunk reprezentálni
-# - találjunk ki egy csomó példarelációt (1-2 elég egyébként)
-# - plusz néhány példaoptimalizálót is
-
-# TODO: ezeknek a kódbeli reprezentációját is elkészíteni -> példányosítani ezeket az objektumokat
-# TODO: pulp konverziót is megcsinálni
-# +Pulp modellbe beeégetni egy-két relációt
-
-# TODO: Utána reprezentációt készíteni a relációknak, és esetleg azt is Pupl-ra konvertálni
-
 model:
   name: Energy_Community
   start: 2025-01-01 00:00
@@ -58,8 +47,8 @@ generators:
     power: data/input.csv
     tags:
       # Validate this: vector can only be electricity
-      #Default vector: electricity
-      #Default contributes_to: electric_power_balance
+      # Default vector: electricity; possible values of vector: electricity, heat, material,
+      # Default contributes_to: electric_power_balance
       household: HH1
     relations:
       battery1.max_charge_rate < 2 * pv1.power
@@ -81,11 +70,12 @@ generators:
     # wind power input is in data/input.csv in column "wind"
     power: data/input.csv -> wind
     tags:
-      #Default vector: electricity
-      #Default contributes_to: electric_power_balance
+      # Default vector: electricity
+      # Default contributes_to: electric_power_balance
       # No household here, does not belong to any specific household
 
 storages:
+ batteries:
   - battery1 on bus_LV3
     capacity: 5
     max_charge_rate: 2
@@ -98,10 +88,10 @@ storages:
     # default: 1
     storage_efficiency: 0.995
     tags:
-        #Default vector: electricity
-        #Default contributes_to: electric_power_balance
+        # Default vector: electricity
+        # Default contributes_to: electric_power_balance
   - relations:
-      if battery1.capacity < 6 then battery1.max_discharge_rate = 3
+      if battery1.capacity < 6 then battery1.max_discharge_rate = 3, "Battery1.CapacityRelation"
 
   - hot_water1 on bus_LV1
     # l
@@ -127,7 +117,7 @@ storages:
       # Default contributes_to: heat_balance
       household: HH2
 
-Loads:
+loads:
   - load1 on bus_LV1
     type: Load
     power: input/load1.csv
@@ -168,7 +158,7 @@ Loads:
       power enabled from 10:00 to 16:00
       min_on_duration = 2h
 
-Slacks:
+slacks:
   - slack on bus_MV
     # tags:
       # Default vector: electricity
