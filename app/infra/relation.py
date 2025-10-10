@@ -18,52 +18,65 @@ class Operator(Enum):
     Enumeration of supported mathematical and comparison operators.
 
     This enum defines all operators that can be used in mathematical expressions
-    within the energy system modeling framework. Each operator maps to its
-    string representation for parsing and conversion purposes.
+    within the energy system modeling framework. Each operator contains both its
+    string representation and category information for proper handling.
     """
 
     # Comparison operators
-    LESS_THAN = "<"
-    GREATER_THAN = ">"
-    LESS_THAN_OR_EQUAL = "<="
-    GREATER_THAN_OR_EQUAL = ">="
-    EQUAL = "=="
-    NOT_EQUAL = "!="
+    LESS_THAN = ("<", "comparison")
+    GREATER_THAN = (">", "comparison")
+    LESS_THAN_OR_EQUAL = ("<=", "comparison")
+    GREATER_THAN_OR_EQUAL = (">=", "comparison")
+    EQUAL = ("==", "comparison")
+    NOT_EQUAL = ("!=", "comparison")
 
     # Arithmetic operators
-    ADD = "+"
-    SUBTRACT = "-"
-    MULTIPLY = "*"
-    DIVIDE = "/"
+    ADD = ("+", "arithmetic")
+    SUBTRACT = ("-", "arithmetic")
+    MULTIPLY = ("*", "arithmetic")
+    DIVIDE = ("/", "arithmetic")
 
+    @property
+    def symbol(self) -> str:
+        """Return the string representation of the operator."""
+        return self.value[0]
+    
+    @property
+    def category(self) -> str:
+        """Return the category of the operator (comparison or arithmetic)."""
+        return self.value[1]
+    
     @classmethod
-    def from_string(cls, op_str: str) -> "Operator":
-        """
-        Convert string representation to Operator enum.
-
-        Parameters
-        ----------
-        op_str : str
-            String representation of the operator
-
-        Returns
-        -------
-        Operator
-            Corresponding operator enum value
-
-        Raises
-        ------
-        ValueError
-            If the operator string is not supported
-        """
-        for operator in cls:
-            if operator.value == op_str:
-                return operator
-        raise ValueError(f"Unsupported operator: {op_str}")
+    def from_symbol(cls, symbol: str):
+        """Create an operator from its string symbol."""
+        for op in cls:
+            if op.symbol == symbol:
+                return op
+        raise ValueError(f"No operator found for symbol: {symbol}")
+    
+    @classmethod
+    def comparison_operators(cls):
+        """Return all comparison operators."""
+        return [op for op in cls if op.category == "comparison"]
+    
+    @classmethod
+    def arithmetic_operators(cls):
+        """Return all arithmetic operators."""
+        return [op for op in cls if op.category == "arithmetic"]
+    
+    @classmethod
+    def comparison_strings(cls):
+        """Return string representations of comparison operators."""
+        return [op.symbol for op in cls.comparison_operators()]
+    
+    @classmethod
+    def arithmetic_strings(cls):
+        """Return string representations of arithmetic operators."""
+        return [op.symbol for op in cls.arithmetic_operators()]
 
     def __str__(self) -> str:
         """Return string representation of the operator."""
-        return self.value
+        return self.symbol
 
 
 class Expression(ABC):
@@ -302,19 +315,31 @@ class BinaryExpression(Expression):
     @classmethod
     def parse_binary(cls, expr: str) -> Expression:
         """Parse constraint expressions like 'battery1.discharge_power(t) < 2 * battery1.discharge_power(t-1)'"""
-        # Find comparison operators first (<=, >=, ==, !=, <, >)
-        comparison_ops = ["<=", ">=", "==", "!=", "<", ">"]
-        for op_str in comparison_ops:
-            if op_str in expr:
-                parts = expr.split(op_str, 1)
-                if len(parts) == 2:
-                    left = cls._parse_arithmetic_expression(parts[0].strip())
-                    right = cls._parse_arithmetic_expression(parts[1].strip())
-                    operator = Operator.from_string(op_str)
-                    return BinaryExpression(left, operator, right)
+        # Sort comparison operators by length (longest first) to avoid substring conflicts
+        comparison_ops = sorted(Operator.comparison_strings(), key=len, reverse=True)
+        
+        # Find the first matching operator (longest first ensures we get <= instead of <)
+        op_str = None
+        for op in comparison_ops:
+            if op in expr:
+                op_str = op
+                break
 
-        # If no comparison operator, parse as arithmetic expression
-        return cls._parse_arithmetic_expression(expr)
+        if not op_str:
+            # Early return if no operator found
+            return cls._parse_arithmetic_expression(expr)
+
+        # Split on the found operator
+        left_str, right_str = expr.split(op_str, 1)
+
+        def _parse_side(expr_part: str):
+            return cls._parse_arithmetic_expression(expr_part.strip())
+
+        return BinaryExpression(
+            _parse_side(left_str),
+            Operator.from_symbol(op_str),
+            _parse_side(right_str)
+        )
 
     @classmethod
     def _parse_arithmetic_expression(cls, expr: str) -> Expression:
@@ -327,7 +352,7 @@ class BinaryExpression(Expression):
                 right_part = expr[op_pos + 1 :].strip()
                 left = cls._parse_arithmetic_expression(left_part)
                 right = cls._parse_arithmetic_expression(right_part)
-                operator = Operator.from_string(op_str)
+                operator = Operator.from_symbol(op_str)
                 return BinaryExpression(left, operator, right)
 
         # Handle multiplication and division (higher precedence, right-to-left)
@@ -338,7 +363,7 @@ class BinaryExpression(Expression):
                 right_part = expr[op_pos + 1 :].strip()
                 left = cls._parse_arithmetic_expression(left_part)
                 right = cls._parse_term(right_part)
-                operator = Operator.from_string(op_str)
+                operator = Operator.from_symbol(op_str)
                 return BinaryExpression(left, operator, right)
 
         # If no arithmetic operators, parse as term
@@ -504,7 +529,7 @@ class Relation:
             return self._parse_if_then(expr)
         if " from " in expr and " to " in expr:
             return self._parse_time_condition(expr)
-        if "=" in expr and not any(op in expr for op in ["<", ">", "<=", ">=", "!="]):
+        if "=" in expr and not any(op in expr for op in Operator.comparison_strings()):
             return self._parse_assignment(expr)
 
         # For constraint expressions, use BinaryExpression.parse_binary

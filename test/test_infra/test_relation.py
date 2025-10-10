@@ -14,26 +14,61 @@ from app.infra.relation import (
 
 class TestOperator(unittest.TestCase):
     def test_operator_enum_values(self):
-        """Test that operator enum has correct values"""
-        self.assertEqual(Operator.LESS_THAN.value, "<")
-        self.assertEqual(Operator.LESS_THAN_OR_EQUAL.value, "<=")
-        self.assertEqual(Operator.GREATER_THAN.value, ">")
-        self.assertEqual(Operator.GREATER_THAN_OR_EQUAL.value, ">=")
-        self.assertEqual(Operator.EQUAL.value, "==")
-        self.assertEqual(Operator.NOT_EQUAL.value, "!=")
-        self.assertEqual(Operator.ADD.value, "+")
-        self.assertEqual(Operator.SUBTRACT.value, "-")
-        self.assertEqual(Operator.MULTIPLY.value, "*")
-        self.assertEqual(Operator.DIVIDE.value, "/")
+        """Test that operator enum has correct symbol and category values"""
+        self.assertEqual(Operator.LESS_THAN.symbol, "<")
+        self.assertEqual(Operator.LESS_THAN.category, "comparison")
+        self.assertEqual(Operator.LESS_THAN_OR_EQUAL.symbol, "<=")
+        self.assertEqual(Operator.LESS_THAN_OR_EQUAL.category, "comparison")
+        self.assertEqual(Operator.GREATER_THAN.symbol, ">")
+        self.assertEqual(Operator.GREATER_THAN.category, "comparison")
+        self.assertEqual(Operator.GREATER_THAN_OR_EQUAL.symbol, ">=")
+        self.assertEqual(Operator.GREATER_THAN_OR_EQUAL.category, "comparison")
+        self.assertEqual(Operator.EQUAL.symbol, "==")
+        self.assertEqual(Operator.EQUAL.category, "comparison")
+        self.assertEqual(Operator.NOT_EQUAL.symbol, "!=")
+        self.assertEqual(Operator.NOT_EQUAL.category, "comparison")
+        self.assertEqual(Operator.ADD.symbol, "+")
+        self.assertEqual(Operator.ADD.category, "arithmetic")
+        self.assertEqual(Operator.SUBTRACT.symbol, "-")
+        self.assertEqual(Operator.SUBTRACT.category, "arithmetic")
+        self.assertEqual(Operator.MULTIPLY.symbol, "*")
+        self.assertEqual(Operator.MULTIPLY.category, "arithmetic")
+        self.assertEqual(Operator.DIVIDE.symbol, "/")
+        self.assertEqual(Operator.DIVIDE.category, "arithmetic")
 
     def test_operator_from_string(self):
-        """Test creating operators from string"""
-        self.assertEqual(Operator.from_string("<"), Operator.LESS_THAN)
-        self.assertEqual(Operator.from_string(">="), Operator.GREATER_THAN_OR_EQUAL)
-        self.assertEqual(Operator.from_string("*"), Operator.MULTIPLY)
+        """Test creating operators from string using from_symbol method"""
+        self.assertEqual(Operator.from_symbol("<"), Operator.LESS_THAN)
+        self.assertEqual(Operator.from_symbol(">="), Operator.GREATER_THAN_OR_EQUAL)
+        self.assertEqual(Operator.from_symbol("*"), Operator.MULTIPLY)
 
         with self.assertRaises(ValueError):
-            Operator.from_string("invalid")
+            Operator.from_symbol("invalid")
+
+    def test_operator_category_methods(self):
+        """Test category-based operator grouping methods"""
+        comparison_ops = Operator.comparison_operators()
+        arithmetic_ops = Operator.arithmetic_operators()
+        
+        self.assertEqual(len(comparison_ops), 6)
+        self.assertEqual(len(arithmetic_ops), 4)
+        
+        # Test that all comparison operators have the right category
+        for op in comparison_ops:
+            self.assertEqual(op.category, "comparison")
+            
+        # Test that all arithmetic operators have the right category
+        for op in arithmetic_ops:
+            self.assertEqual(op.category, "arithmetic")
+            
+        # Test string methods
+        comparison_strings = Operator.comparison_strings()
+        arithmetic_strings = Operator.arithmetic_strings()
+        
+        self.assertIn("<", comparison_strings)
+        self.assertIn("<=", comparison_strings)
+        self.assertIn("+", arithmetic_strings)
+        self.assertIn("*", arithmetic_strings)
 
 
 class TestLiteral(unittest.TestCase):

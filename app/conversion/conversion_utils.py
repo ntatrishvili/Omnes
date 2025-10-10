@@ -11,6 +11,9 @@ import pulp
 
 from app.infra.relation import Operator
 
+COMPARISON_OPERATORS = set(Operator.comparison_operators())
+ARITHMETIC_OPERATORS = set(Operator.arithmetic_operators())
+
 
 def create_empty_pulp_var(name: str, time_set_size: int) -> list[pulp.LpVariable]:
     """
@@ -47,14 +50,7 @@ def is_comparison_operator(operator) -> bool:
     bool
         True if operator is a comparison operator
     """
-    return operator in [
-        Operator.LESS_THAN_OR_EQUAL,
-        Operator.LESS_THAN,
-        Operator.GREATER_THAN_OR_EQUAL,
-        Operator.GREATER_THAN,
-        Operator.EQUAL,
-        Operator.NOT_EQUAL,
-    ]
+    return operator in COMPARISON_OPERATORS
 
 
 def is_arithmetic_operator(operator) -> bool:
@@ -71,12 +67,7 @@ def is_arithmetic_operator(operator) -> bool:
     bool
         True if operator is an arithmetic operator
     """
-    return operator in [
-        Operator.ADD,
-        Operator.SUBTRACT,
-        Operator.MULTIPLY,
-        Operator.DIVIDE,
-    ]
+    return operator in ARITHMETIC_OPERATORS
 
 
 def handle_comparison_operator(operator, left_result, right_result):
