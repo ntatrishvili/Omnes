@@ -392,16 +392,9 @@ class BinaryExpression(Expression):
 
         # Check if it's a number first
         try:
-            # Try to parse as integer first
-            if "." not in expr:
-                value = int(expr)
-                return Literal(value)
-        except ValueError:
-            pass
-
-        try:
-            # Try to parse as float
             value = float(expr)
+            if value.is_integer():
+                return Literal(int(value))
             return Literal(value)
         except ValueError:
             pass
@@ -410,20 +403,14 @@ class BinaryExpression(Expression):
         # Pattern: entity_id.property(t) or entity_id.property(t-1) etc.
         time_pattern = r"^(.+?)\(t([+-]\d+)?\)$"
         match = re.match(time_pattern, expr)
-        if match:
-            entity_id = match.group(1)
+        time_offset = 0
+        if match: 
+            expr = match.group(1)
             time_offset_str = match.group(2)
             time_offset = 0 if time_offset_str is None else int(time_offset_str)
-            return EntityReference(entity_id, time_offset)
 
-        # Check if it looks like an entity reference (contains a dot, suggesting entity.property)
-        if "." in expr:
-            # Treat as entity reference with default time (t)
-            return EntityReference(expr, 0)
-
-        # If it doesn't look like a number or entity reference, treat as entity reference anyway
-        # This handles cases like simple variable names
-        return EntityReference(expr, 0)
+        # If EntityReference initialization changes, we have to modify only one place in the code
+        return EntityReference(expr, time_offset)
 
 
 class IfThenExpression(Expression):
@@ -478,43 +465,22 @@ class AssignmentExpression(Expression):
     def __str__(self):
         return f"({self.target} = {self.value})"
 
-    def get_ids(self) -> list[str]:
-        # For assignments, typically target is an entity ID and value might be literal
-        if hasattr(self.target, "get_ids"):
-            target_ids = self.target.get_ids()
-        else:
-            target_ids = [str(self.target)]
-
-        if hasattr(self.value, "get_ids"):
-            value_ids = self.value.get_ids()
-        else:
-            value_ids = []
-
-        return target_ids + value_ids
 
     def convert(self, converter, t: int, time_set: int = None, new_freq: str = None):
         """Convert assignment expression using the provided converter"""
-        # Recursively convert target and value
-        if hasattr(self.target, "convert"):
-            target_result = self.target.convert(converter, t, time_set, new_freq)
-        else:
-            # Simple string target, treat as entity reference
-            target_ref = EntityReference(str(self.target), 0)
-            target_result = target_ref.convert(converter, t, time_set, new_freq)
+        # Converter helper: if we are at the leaves, we can specify the type of the object to return, othervise use tha built-in converter of our object
+        def _convert(obj, object_as: EntityReference):
+            if hasattr(obj, "convert"):
+                return obj.convert(converter, t, time_set, new_freq)
+        # Literal is OK with str(obj)
+            return object_as(str(obj)).convert(converter, t, time_set, new_freq)
 
-        if hasattr(self.value, "convert"):
-            value_result = self.value.convert(converter, t, time_set, new_freq)
-        else:
-            # Simple literal value
-            value_result = converter.convert_literal(
-                Literal(self.value), self.value, t, time_set, new_freq
-            )
-
+        target_result = _convert(self.target, object_as=EntityReference)
+        value_result = _convert(self.value, object_as=Literal)
         # Delegate to converter for assignment operation (equality constraint)
         return converter.convert_binary_expression(
-            self, target_result, value_result, Operator.EQUAL, t, time_set, new_freq
-        )
-
+                self, target_result, value_result, Operator.EQUAL, t, time_set, new_freq
+            )
 
 class Relation:
     def __init__(self, raw_expr: str, name: str):
