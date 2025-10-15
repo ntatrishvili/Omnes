@@ -13,6 +13,9 @@
         "consumers": {
             "load2": {
                 "filename": "input2.csv"
+            },
+            "load3": {
+                "filename": "input2.csv"
             }
         },
         "batteries": {}
@@ -24,6 +27,10 @@
             "battery1": {
                 "nominal_power": 1,
                 "capacity": 10
+            },
+            "battery2": {
+                "nominal_power": 0.5,
+                "capacity": 6
             }
         }
     }

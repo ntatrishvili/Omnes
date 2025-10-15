@@ -11,6 +11,7 @@ from app.infra.relation import (
     Literal,
     Operator,
     Relation,
+    AssignmentExpression,
 )
 
 
@@ -669,6 +670,23 @@ class TestComprehensiveCoverage(unittest.TestCase):
         self.assertEqual(vars_list[0].name, "test_var_0")
         self.assertEqual(vars_list[3].name, "test_var_3")
         self.assertEqual(vars_list[0].lowBound, 0)
+
+    def test_assignment_expression(self):
+        """Test AssignmentExpression conversion to equality constraint"""
+        from app.infra.relation import AssignmentExpression, EntityReference, Literal
+
+        time_steps = 3
+        battery_power = [pulp.LpVariable(f"battery_{t}") for t in range(time_steps)]
+        objects = {"battery.power": battery_power}
+
+        # Assignment: battery.power(t) = 42
+        expr = AssignmentExpression(EntityReference("battery.power"), Literal(42))
+        for t in range(time_steps):
+            result = expr.convert(self.converter, t, time_steps)
+            self.assertIsInstance(result, pulp.LpConstraint)
+            constraint_str = str(result)
+            self.assertIn(f"battery_{t}", constraint_str)
+            self.assertIn("42", constraint_str)
 
 
 if __name__ == "__main__":

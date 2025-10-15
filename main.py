@@ -4,8 +4,9 @@ import json
 from utils.logging_setup import init_logging, get_logger
 from app.conversion.pulp_converter import PulpConverter
 from app.model.model import Model
-from app.operation.example_optimization import optimize
+
 from dsl.example_model import get_example_model
+from app.operation.example_optimization import optimize_energy_system
 
 
 def read_model():
@@ -31,5 +32,5 @@ if __name__ == "__main__":
     log.info("Model built successfully")
     problem = PulpConverter().convert_model(model)
     log.info("Starting optimization")
-    optimize(**problem)
+    optimize_energy_system(**problem)
     log.info("Optimization completed")

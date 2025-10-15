@@ -1,7 +1,9 @@
 from pulp import LpMinimize, LpProblem
 
+from app.conversion.pulp_converter import PulpConverter
 from app.infra.relation import Relation
 from app.model.converter.converter import Converter
+from app.model.entity import Entity
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
 from app.model.grid_component.bus import Bus, BusType
@@ -11,13 +13,14 @@ from app.model.model import Model
 from app.model.slack import Slack
 from app.model.storage.battery import Battery
 from app.model.storage.hot_water_storage import HotWaterStorage
+from app.operation.example_optimization import optimize_energy_system
 
 Bus.default_nominal_voltage = 400
 bus_mv = Bus(id="bus_MV", nominal_voltage=10000, type=BusType.SLACK, phase_count=3)
 slack = Slack(id="slack", bus="bus_MV")
 
 bus_lv1 = Bus(id="bus_LV1")
-bus_lv2 = Bus(id="bus_LV2", phase="C")
+bus_lv2 = Bus(id="bus_LV2", phase="C", phase_count=1)
 bus_lv3 = Bus(id="bus_LV3", phase_count=3)
 
 # Lehetne a default egy külön struktúra?
@@ -40,6 +43,7 @@ pv1 = PV(
     input={"input_path": "data/input.csv"},
     tags={"household": "HH1"},
 )
+
 pv2 = PV(
     id="pv2",
     bus="bus_LV2",
@@ -47,6 +51,7 @@ pv2 = PV(
     input={"input_path": "data/input2.csv"},
     tags={"household": "HH2"},
 )
+
 wind1 = Wind(
     id="wind1",
     bus="bus_LV3",
@@ -56,7 +61,7 @@ wind1 = Wind(
 )
 
 # Instantiate Battery
-relation1 = Relation("battery1.max_discharge_rate < 2 * pv1.peak_power")
+#
 relation2 = Relation(
     "if battery1.capacity < 6 then battery1.max_discharge_rate = 3",
     "Battery1.CapacityRelation",
@@ -71,7 +76,9 @@ battery1 = Battery(
     charge_efficiency=0.95,
     discharge_efficiency=0.95,
     storage_efficiency=0.995,
-    relations=[relation1, relation2],
+    relations=[
+        relation2,
+    ],
 )
 
 hot_water_storage1 = HotWaterStorage(
@@ -130,6 +137,9 @@ load2 = Load(
     tags={"household": "HH2"},
 )
 
+# relation1 = Relation("battery1.max_discharge_rate < 2 * pv1.peak_power")
+# e = Entity(relations=[relation1,])
+
 time_resolution = "1h"
 model = Model(
     id="Energy_Community",
@@ -159,6 +169,5 @@ model = Model(
 )
 
 number_of_time_steps = model.number_of_time_steps
-
-# Example pulp problem
-prob = LpProblem("Energy_Community", LpMinimize)
+problem = PulpConverter().convert_model(model)
+optimize_energy_system(**problem)
