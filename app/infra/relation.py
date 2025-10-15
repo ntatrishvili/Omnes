@@ -40,12 +40,12 @@ class Operator(Enum):
     def symbol(self) -> str:
         """Return the string representation of the operator."""
         return self.value[0]
-    
+
     @property
     def category(self) -> str:
         """Return the category of the operator (comparison or arithmetic)."""
         return self.value[1]
-    
+
     @classmethod
     def from_symbol(cls, symbol: str):
         """Create an operator from its string symbol."""
@@ -53,22 +53,22 @@ class Operator(Enum):
             if op.symbol == symbol:
                 return op
         raise ValueError(f"No operator found for symbol: {symbol}")
-    
+
     @classmethod
     def comparison_operators(cls):
         """Return all comparison operators."""
         return [op for op in cls if op.category == "comparison"]
-    
+
     @classmethod
     def arithmetic_operators(cls):
         """Return all arithmetic operators."""
         return [op for op in cls if op.category == "arithmetic"]
-    
+
     @classmethod
     def comparison_strings(cls):
         """Return string representations of comparison operators."""
         return [op.symbol for op in cls.comparison_operators()]
-    
+
     @classmethod
     def arithmetic_strings(cls):
         """Return string representations of arithmetic operators."""
@@ -317,7 +317,7 @@ class BinaryExpression(Expression):
         """Parse constraint expressions like 'battery1.discharge_power(t) < 2 * battery1.discharge_power(t-1)'"""
         # Sort comparison operators by length (longest first) to avoid substring conflicts
         comparison_ops = sorted(Operator.comparison_strings(), key=len, reverse=True)
-        
+
         # Find the first matching operator (longest first ensures we get <= instead of <)
         op_str = None
         for op in comparison_ops:
@@ -336,9 +336,7 @@ class BinaryExpression(Expression):
             return cls._parse_arithmetic_expression(expr_part.strip())
 
         return BinaryExpression(
-            _parse_side(left_str),
-            Operator.from_symbol(op_str),
-            _parse_side(right_str)
+            _parse_side(left_str), Operator.from_symbol(op_str), _parse_side(right_str)
         )
 
     @classmethod
@@ -404,7 +402,7 @@ class BinaryExpression(Expression):
         time_pattern = r"^(.+?)\(t([+-]\d+)?\)$"
         match = re.match(time_pattern, expr)
         time_offset = 0
-        if match: 
+        if match:
             expr = match.group(1)
             time_offset_str = match.group(2)
             time_offset = 0 if time_offset_str is None else int(time_offset_str)
@@ -465,25 +463,26 @@ class AssignmentExpression(Expression):
     def __str__(self):
         return f"({self.target} = {self.value})"
 
-
     def convert(self, converter, t: int, time_set: int = None, new_freq: str = None):
         """Convert assignment expression using the provided converter"""
+
         # Converter helper: if we are at the leaves, we can specify the type of the object to return, othervise use tha built-in converter of our object
         def _convert(obj, object_as: EntityReference):
             if hasattr(obj, "convert"):
                 return obj.convert(converter, t, time_set, new_freq)
-        # Literal is OK with str(obj)
+            # Literal is OK with str(obj)
             return object_as(str(obj)).convert(converter, t, time_set, new_freq)
 
         target_result = _convert(self.target, object_as=EntityReference)
         value_result = _convert(self.value, object_as=Literal)
         # Delegate to converter for assignment operation (equality constraint)
         return converter.convert_binary_expression(
-                self, target_result, value_result, Operator.EQUAL, t, time_set, new_freq
-            )
+            self, target_result, value_result, Operator.EQUAL, t, time_set, new_freq
+        )
 
     def get_ids(self) -> list[str]:
         return self.target.get_ids() + self.value.get_ids()
+
 
 class Relation:
     def __init__(self, raw_expr: str, name: str):

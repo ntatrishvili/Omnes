@@ -49,22 +49,22 @@ class TestOperator(unittest.TestCase):
         """Test category-based operator grouping methods"""
         comparison_ops = Operator.comparison_operators()
         arithmetic_ops = Operator.arithmetic_operators()
-        
+
         self.assertEqual(len(comparison_ops), 6)
         self.assertEqual(len(arithmetic_ops), 4)
-        
+
         # Test that all comparison operators have the right category
         for op in comparison_ops:
             self.assertEqual(op.category, "comparison")
-            
+
         # Test that all arithmetic operators have the right category
         for op in arithmetic_ops:
             self.assertEqual(op.category, "arithmetic")
-            
+
         # Test string methods
         comparison_strings = Operator.comparison_strings()
         arithmetic_strings = Operator.arithmetic_strings()
-        
+
         self.assertIn("<", comparison_strings)
         self.assertIn("<=", comparison_strings)
         self.assertIn("+", arithmetic_strings)
