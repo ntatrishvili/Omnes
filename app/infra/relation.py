@@ -482,6 +482,9 @@ class AssignmentExpression(Expression):
                 self, target_result, value_result, Operator.EQUAL, t, time_set, new_freq
             )
 
+    def get_ids(self) -> list[str]:
+        return self.target.get_ids() + self.value.get_ids()
+
 class Relation:
     def __init__(self, raw_expr: str, name: str):
         self.raw_expr = raw_expr.strip()
