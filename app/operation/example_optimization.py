@@ -7,15 +7,15 @@ from pulp import LpStatusOptimal
 
 def optimize(**kwargs) -> None:
     time_set = kwargs["time_set"]
-    p_cons = kwargs["p_cons"]
-    p_pv = kwargs["p_pv"]
-    p_slack_out = kwargs["p_slack_out"]
-    p_slack_in = kwargs["p_slack_in"]
-    p_bess_in = kwargs["p_bess_in"]
-    p_bess_out = kwargs["p_bess_out"]
-    e_bess_stor = kwargs["e_bess_stor"]
-    max_power_bess = kwargs["max_charge_rate"]
-    max_stored_energy_bess = kwargs["capacity"]
+    p_cons = kwargs["load2.p_cons"]
+    p_pv = kwargs["pv1.p_pv"]
+    p_slack_out = kwargs["slack.p_slack_out"]
+    p_slack_in = kwargs["slack.p_slack_in"]
+    p_bess_in = kwargs["battery1.p_bess_in"]
+    p_bess_out = kwargs["battery1.p_bess_out"]
+    e_bess_stor = kwargs["battery1.e_bess_stor"]
+    max_power_bess = kwargs["battery1.max_charge_rate"]
+    max_stored_energy_bess = kwargs["battery1.capacity"]
     prob = pulp.LpProblem("CSCopt", pulp.LpMinimize)
 
     # Add the constraints to the problem

@@ -1,11 +1,11 @@
 import secrets
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 from app.infra.quantity import Quantity
 from app.infra.relation import Relation
 from app.infra.timeseries_object_factory import (
-    TimeseriesFactory,
     DefaultTimeseriesFactory,
+    TimeseriesFactory,
 )
 
 

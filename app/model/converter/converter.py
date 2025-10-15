@@ -2,8 +2,8 @@ from typing import Optional
 
 from app.infra.quantity import Parameter
 from app.infra.timeseries_object_factory import (
-    TimeseriesFactory,
     DefaultTimeseriesFactory,
+    TimeseriesFactory,
 )
 from app.model.device import Device
 from app.model.load.load import Load

@@ -4,8 +4,8 @@ from typing import Optional
 
 from app.infra.quantity import Parameter
 from app.infra.timeseries_object_factory import (
-    TimeseriesFactory,
     DefaultTimeseriesFactory,
+    TimeseriesFactory,
 )
 from app.model.grid_component.grid_component import GridComponent
 

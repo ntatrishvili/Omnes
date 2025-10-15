@@ -1,7 +1,8 @@
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 import xarray as xr
-from typing import Optional, List, Dict, Any
 
 from app.infra.quantity import Quantity
 
@@ -177,7 +178,7 @@ class TimeseriesObject(Quantity):
                 header=0,
                 index_col="timestamp",
                 parse_dates=["timestamp"],
-                date_format="%Y.%m.%d %H:%M",
+                date_format="%Y-%m-%d %H:%M:%S",
             )
             input_df.index = pd.to_datetime(input_df.index)
         except FileNotFoundError:

@@ -1,6 +1,7 @@
 import unittest
-from app.model.entity import Entity
+
 from app.infra.timeseries_object_factory import TimeseriesFactory
+from app.model.entity import Entity
 
 
 class DummyTimeseriesFactory(TimeseriesFactory):
