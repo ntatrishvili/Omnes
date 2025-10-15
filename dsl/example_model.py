@@ -1,7 +1,7 @@
 from pulp import LpMinimize, LpProblem
 
 from app.infra.relation import Relation
-from app.model.converter.converter import WaterHeater
+from app.model.converter.converter import Converter
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
 from app.model.grid_component.bus import Bus, BusType
@@ -34,31 +34,34 @@ PV.default_efficiency = 0.9
 # Instantiate PVs
 # If 'col' not specified, default 'col' will be the ID of the element
 pv1 = PV(
-    id="pv1", bus="bus_LV1", peak_power=4, input_path="data/input.csv", housedold="HH1"
+    id="pv1",
+    bus="bus_LV1",
+    peak_power=4,
+    input={"input_path": "data/input.csv"},
+    tags={"household": "HH1"},
 )
 pv2 = PV(
-    id="pv2", bus="bus_LV2", peak_power=3, input_path="data/input2.csv", household="HH2"
+    id="pv2",
+    bus="bus_LV2",
+    peak_power=3,
+    input={"input_path": "data/input2.csv"},
+    tags={"household": "HH2"},
 )
 wind1 = Wind(
     id="wind1",
     bus="bus_LV3",
     peak_power=5,
     efficiency=0.95,
-    input_path="data/input.csv",
-    col="wind",
+    input={"input_path": "data/input.csv", "col": "wind"},
 )
 
 # Instantiate Battery
-relation1 = Relation(
-    "battery1.max_discharge_rate < 2 * pv1.peak_power", "BatteryDischargeRate"
-)
+relation1 = Relation("battery1.max_discharge_rate < 2 * pv1.peak_power")
 relation2 = Relation(
-    "if battery1.capacity < 6 then battery1.max_discharge_rate < 3", "BatteryCapacity"
+    "if battery1.capacity < 6 then battery1.max_discharge_rate = 3",
+    "Battery1.CapacityRelation",
 )
-relation3 = Relation("heater2.power enabled from 10:00 to 16:00", "HeaterEnabled")
-relation4 = Relation("heater2.min_on_duration = 2h", "HeaterMinOnDuration")
 
-# Used as both max_charge_rate and max_discharge_rate
 battery1 = Battery(
     id="battery1",
     bus="bus_LV3",
@@ -76,18 +79,20 @@ hot_water_storage1 = HotWaterStorage(
     bus="bus_LV1",
     volume=120,
     set_temperature=60,
-    input_path="data/input.csv",
-    col="hot_water1",
-    household="HH1",
+    input={"input_path": "data/input.csv", "col": "hot_water1"},
+    tags={"household": "HH1"},
 )
 
-water_heater1 = WaterHeater(
+relation3 = Relation("heater1.power enabled from 10:00 to 16:00")
+relation4 = Relation("heater1.min_on_duration = 2h")
+water_heater1 = Converter(
     id="heater1",
     controllable=True,
-    household="HH1",
     charges="hot_water1",
     bus="bus_LV1",
     conversion_efficiency=0.95,
+    tags={"household": "HH1"},
+    relations=[relation3, relation4],
 )
 
 hot_water_storage2 = HotWaterStorage(
@@ -95,22 +100,35 @@ hot_water_storage2 = HotWaterStorage(
     bus="bus_LV2",
     volume=200,
     set_temperature=55,
-    input_path="data/input.csv",
-    col="hot_water2",
-    household="HH2",
+    input={"input_path": "data/input.csv", "col": "hot_water2"},
+    tags={"household": "HH2"},
 )
 
-water_heater2 = WaterHeater(
+relation5 = Relation("heater2.power enabled from 10:00 to 16:00")
+relation6 = Relation("heater2.min_on_duration = 2h")
+water_heater2 = Converter(
     id="heater2",
-    household="HH2",
     charges="hot_water2",
     bus="bus_LV2",
     conversion_efficiency=0.995,
+    tags={"household": "HH2"},
+    relations=[relation5, relation6],
 )
 
+
 # Instantiate Loads
-load1 = Load(id="load1", bus="bus_LV1", input_path="data/input.csv", household="HH1")
-load2 = Load(id="load2", bus="bus_LV2", input_path="data/input2.csv", household="HH2")
+load1 = Load(
+    id="load1",
+    bus="bus_LV1",
+    input={"input_path": "data/input.csv"},
+    tags={"household": "HH1"},
+)
+load2 = Load(
+    id="load2",
+    bus="bus_LV2",
+    input={"input_path": "data/input2.csv"},
+    tags={"household": "HH2"},
+)
 
 time_resolution = "1h"
 model = Model(

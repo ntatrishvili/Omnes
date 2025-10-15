@@ -38,6 +38,5 @@ class GridComponent(Entity):
             )
         if phase is None and phase_count == 1:
             raise ValueError("Phase must be set for single-phase buses.")
-
-        if phase_count == 3 and phase is not None:
-            raise ValueError("Phase must not be set for three-phase buses.")
+        if phase is not None and phase_count == 3:
+            raise ValueError("Three-phase bus must not have a phase set.")

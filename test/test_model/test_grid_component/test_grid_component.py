@@ -18,9 +18,7 @@ def test_single_phase_valid():
 
 
 def test_three_phase_with_explicit_phase_raises():
-    with pytest.raises(
-        ValueError, match="Phase must not be set for three-phase buses."
-    ):
+    with pytest.raises(ValueError, match="Three-phase bus must not have a phase set."):
         GridComponent(id="G3", phase_count=3, phase="A")
 
 
