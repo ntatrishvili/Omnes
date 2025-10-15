@@ -2,8 +2,8 @@ from enum import Enum
 from typing import Optional
 
 from app.infra.timeseries_object_factory import (
-    TimeseriesFactory,
     DefaultTimeseriesFactory,
+    TimeseriesFactory,
 )
 from app.model.entity import Entity
 

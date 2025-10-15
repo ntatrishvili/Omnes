@@ -1,9 +1,9 @@
-import json
 import configparser
+import json
 
 from app.conversion.pulp_converter import PulpConverter
-from app.operation.example_optimization import optimize
 from app.model.model import Model
+from app.operation.example_optimization import optimize
 
 if __name__ == "__main__":
     config = configparser.ConfigParser()

@@ -48,7 +48,7 @@ jobs:
         run: |
           pip install pytest-cov
           export PYTHONPATH=.
-          pytest --cov=app/model --cov=app/infra --cov-report=term-missing --cov-report=xml --maxfail=3 --disable-warnings -v
+          pytest --cov=app --cov-report=term-missing --cov-report=xml --maxfail=3 --disable-warnings -v
 
       - name: Upload Coverage to GitHub Actions
         uses: actions/upload-artifact@v4

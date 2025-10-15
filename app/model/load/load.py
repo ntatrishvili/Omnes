@@ -1,10 +1,10 @@
 from typing import Optional
 
-from app.model.device import Device, Vector
 from app.infra.timeseries_object_factory import (
-    TimeseriesFactory,
     DefaultTimeseriesFactory,
+    TimeseriesFactory,
 )
+from app.model.device import Device, Vector
 
 
 class Load(Device):

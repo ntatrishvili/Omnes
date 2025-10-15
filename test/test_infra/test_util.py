@@ -1,8 +1,9 @@
 import unittest
 
+import pulp
+
 import app.conversion.pulp_converter
 from app.infra import util
-import pulp
 
 
 class TestUtil(unittest.TestCase):

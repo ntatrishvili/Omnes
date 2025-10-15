@@ -1,7 +1,9 @@
 import unittest
+
 import pandas as pd
-from app.model.slack import Slack
+
 from app.infra.timeseries_object_factory import TimeseriesFactory
+from app.model.slack import Slack
 
 
 class DummyTimeseriesFactory(TimeseriesFactory):

@@ -1,4 +1,4 @@
-from pulp import LpProblem, LpMinimize
+from pulp import LpMinimize, LpProblem
 
 from app.infra.relation import Relation
 from app.model.converter.converter import Converter
