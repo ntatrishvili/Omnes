@@ -11,6 +11,7 @@ def test_converter_basic_attributes():
 
     conv = Converter(
         id="conv1",
+        charges="dev2",
         input_device=input_device,
         output_device=output_device,
         conversion_efficiency=0.8,
