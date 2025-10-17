@@ -121,7 +121,7 @@ class TimeseriesObject(Quantity):
 
         :returns str: Inferred frequency string
         """
-        if self.data.sizes["timestamp"] < 3:
+        if self.data.sizes.get("timestamp", 0) < 3:
             return infer_freq_from_two_dates(self.data)
         # Use xarray's infer_freq directly on the timestamp coordinate
         freq = xr.infer_freq(self.data.coords["timestamp"])
