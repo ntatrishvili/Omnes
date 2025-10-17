@@ -91,6 +91,7 @@ class Model:
         """
         Convert the model to an optimization/simulation problem
         """
+        log.info(f"Converting model with {time_set} steps and {new_freq} freq.")
         return converter.convert_model(self, time_set=time_set, new_freq=new_freq)
 
     def __str__(self):

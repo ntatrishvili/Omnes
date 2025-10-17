@@ -7,6 +7,7 @@ import logging
 import logging.handlers
 import os
 import sys
+import traceback
 from datetime import datetime, timezone
 
 
@@ -15,9 +16,15 @@ class ConsoleFormatter(logging.Formatter):
 
     def format(self, record):
         timestamp = datetime.fromtimestamp(record.created, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        return (
-            f"{timestamp} | {record.levelname} | {record.name} | {record.getMessage()}"
-        )
+        base = f"{timestamp} | {record.levelname} | {record.name} | {record.getMessage()}"
+
+        # If there is exception info, append formatted traceback for console readability
+        if record.exc_info:
+            exc_type, exc_value, exc_tb = record.exc_info
+            formatted = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+            return f"{base}\n{formatted}"
+
+        return base
 
 
 class JSONFormatter(logging.Formatter):
@@ -55,8 +62,33 @@ class JSONFormatter(logging.Formatter):
                 "threadName": record.threadName,
             }
 
+        # Attach structured exception information when available
         if record.exc_info:
-            log_obj["exc_info"] = self.formatException(record.exc_info)
+            exc_type, exc_value, exc_tb = record.exc_info
+            # Full formatted exception as list of strings (keeps newlines intact when joined)
+            formatted = traceback.format_exception(exc_type, exc_value, exc_tb)
+            # Extract frame-level info for better programmatic analysis
+            tb_frames = traceback.extract_tb(exc_tb)
+            frames = [
+                {
+                    "filename": f.filename,
+                    "lineno": f.lineno,
+                    "name": f.name,
+                    "line": f.line,
+                }
+                for f in tb_frames
+            ]
+
+            log_obj["exc"] = {
+                "type": exc_type.__name__ if exc_type is not None else None,
+                "message": str(exc_value),
+                "traceback": formatted,
+                "frames": frames,
+            }
+
+        # Include any stack_info (from logging.stack_info=True calls)
+        if record.stack_info:
+            log_obj["stack_info"] = record.stack_info
 
         return json.dumps(log_obj, ensure_ascii=False)
 
