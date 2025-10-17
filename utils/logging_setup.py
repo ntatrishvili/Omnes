@@ -15,8 +15,12 @@ class ConsoleFormatter(logging.Formatter):
     """Single-line console formatter: YYYY-MM-DD HH:MM:SS | LEVEL | logger.name | message"""
 
     def format(self, record):
-        timestamp = datetime.fromtimestamp(record.created, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        base = f"{timestamp} | {record.levelname} | {record.name} | {record.getMessage()}"
+        timestamp = datetime.fromtimestamp(record.created, tz=timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        base = (
+            f"{timestamp} | {record.levelname} | {record.name} | {record.getMessage()}"
+        )
 
         # If there is exception info, append formatted traceback for console readability
         if record.exc_info:

@@ -7,6 +7,7 @@ from app.model.model import Model
 from app.operation.example_optimization import optimize
 from dsl.example_model import get_example_model
 
+
 def read_model():
     config = configparser.ConfigParser()
     config.read("config.ini")
@@ -17,8 +18,13 @@ def read_model():
         config = json.load(file)
     return Model.build("model", config, time_set, freq)
 
+
 if __name__ == "__main__":
-    init_logging(level="DEBUG", log_dir="logs", log_file="app.log", )
+    init_logging(
+        level="DEBUG",
+        log_dir="logs",
+        log_file="app.log",
+    )
     log = get_logger(__name__)
     log.info("Logging initialized")
     model = read_model()
