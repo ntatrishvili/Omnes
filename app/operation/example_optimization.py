@@ -7,6 +7,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
+from utils.logging_setup import get_logger
+
+log = get_logger(__name__)
+
 
 def plot_energy_flows(kwargs, time_range_to_plot=None):
     time_set = kwargs["time_set"]
