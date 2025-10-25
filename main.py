@@ -5,7 +5,6 @@ from utils.logging_setup import init_logging, get_logger
 from app.conversion.pulp_converter import PulpConverter
 from app.model.model import Model
 
-from dsl.example_model import get_example_model
 from app.operation.example_optimization import optimize_energy_system
 
 

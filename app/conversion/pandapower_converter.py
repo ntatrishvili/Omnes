@@ -1,9 +1,7 @@
 """
 app/conversion/pandapower_converter.py
 
-A converter that maps a minimal Omnes Model to a pandapower.Net and provides helpers
-to run a single timestep (set injections/loads from model timeseries, run runpp,
-and write results back to the Omnes model).
+A converter that maps a minimal Omnes Model to a pandapowerNet.
 
 Limitations & notes:
  - This converter currently models everything as *balanced* (single-phase equivalent).
@@ -16,233 +14,351 @@ Limitations & notes:
  - We assume device time series provide values in kW. Conversion to MW is handled here.
 """
 
+from typing import Optional, Union, Dict, Any
+
+import numpy as np
 import pandapower as pp
-import pandapower.networks as pn
-import pandas as pd
-from typing import Tuple, Dict, Any
+from numpy import ndarray
+from pandapower import pandapowerNet
 
+from app.conversion.converter import Converter
+from app.conversion.validation_utils import (
+    validate_and_normalize_time_set,
+    extract_effective_time_properties,
+)
+from app.infra.quantity import Parameter, Quantity
+from app.model.entity import Entity
+from app.model.generator.pv import PV
+from app.model.generator.wind_turbine import Wind
+from app.model.grid_component.bus import Bus
 from app.model.grid_component.line import Line
+from app.model.load.load import Load
+from app.model.model import Model
+from app.model.slack import Slack
+from app.model.storage.battery import Battery
 
 
-class PandapowerConverter:
-    def __init__(self, model):
-        self.model = model
+class PandapowerConverter(Converter):
+    """
+    Converts a Model class object into a pandapower network and model variables.
+    """
+
+    DEFAULT_TIME_SET_SIZE = 10
+
+    def __init__(self):
+        super().__init__()
+        self.model = None
         self.net = pp.create_empty_network()
-        # keep maps for entity id -> pandapower element index
         self.bus_map = {}
-        self.load_map = {}
-        self.sgen_map = {}
-        self.line_map = {}
 
-    def _to_kv(self, nominal_voltage_v: float) -> float:
-        # Convert given nominal voltage (V) to kV for pandapower
-        return float(nominal_voltage_v) / 1000.0
-
-    def build_buses_and_slack(self):
-        # create buses
-        for ent in self.model.entities:
-            # we only create Bus and Slack here
-            from app.model.grid_component.bus import Bus as OmnesBus
-            from app.model.slack import Slack as OmnesSlack
-            if isinstance(ent, OmnesBus):
-                vn_kv = self._to_kv(getattr(ent, "nominal_voltage", 400))
-                # pandapower bus name stored as 'name'
-                idx = pp.create_bus(self.net, vn_kv=vn_kv, name=ent.id)
-                self.bus_map[ent.id] = idx
-
-        # create slack / external grid
-        for ent in self.model.entities:
-            from app.model.slack import Slack as OmnesSlack
-            if isinstance(ent, OmnesSlack):
-                # assume slack refers to a bus id
-                slack_bus_idx = self.bus_map.get(ent.bus)
-                if slack_bus_idx is None:
-                    raise ValueError(f"Slack refers to unknown bus {ent.bus}")
-                # create an external grid on that bus
-                pp.create_ext_grid(self.net, bus=slack_bus_idx, vm_pu=1.0, name=ent.id)
-
-    def build_lines(self):
-        # create simple lines (single segment radial lines)
-        from app.model.grid_component.line import Line as OmnesLine
-        for ent in self.model.entities:
-            if isinstance(ent, OmnesLine):
-                from_idx = self.bus_map.get(ent.from_bus)
-                to_idx = self.bus_map.get(ent.to_bus)
-                if from_idx is None or to_idx is None:
-                    raise ValueError(f"Line {ent.id} references unknown bus")
-                # use defaults or per-line values if available
-                length_km = getattr(ent, "length", getattr(Line, "default_line_length", 0.1))
-                # default line type selection: use 'underground_cable' or 'overhead_line' as available
-                # We create line with simple standard type using pandapower.create_line_from_parameters
-                r_ohm_per_km = getattr(ent, "r", getattr(Line, "default_resistance", 0.05))
-                x_ohm_per_km = getattr(ent, "x", getattr(Line, "default_reactance", 0.05))
-                c_nf_per_km = getattr(ent, "c", 0)  # optional
-                pp.create_line_from_parameters(
-                    self.net,
-                    from_idx,
-                    to_idx,
-                    length_km=length_km,
-                    r_ohm_per_km=r_ohm_per_km,
-                    x_ohm_per_km=x_ohm_per_km,
-                    c_nf_per_km=c_nf_per_km,
-                    max_i_ka=0.2,
-                    name=ent.id,
-                )
-                self.line_map[ent.id] = (from_idx, to_idx)
-
-    def build_loads_and_gens(self):
-        # Loads
-        from app.model.load.load import Load as OmnesLoad
-        from app.model.generator.pv import PV as OmnesPV
-        from app.model.generator.wind_turbine import Wind as OmnesWind
-        from app.model.storage.battery import Battery as OmnesBattery
-        for ent in self.model.entities:
-            if isinstance(ent, OmnesLoad):
-                bus_idx = self.bus_map.get(ent.bus)
-                if bus_idx is None:
-                    raise ValueError(f"Load {ent.id} references unknown bus {ent.bus}")
-                # create pandapower load with p_mw = 0 initially; we set time series later
-                idx = pp.create_load(self.net, bus=bus_idx, p_mw=0.0, q_mvar=0.0, name=ent.id)
-                self.load_map[ent.id] = idx
-            elif isinstance(ent, (OmnesPV, OmnesWind)):
-                bus_idx = self.bus_map.get(ent.bus)
-                if bus_idx is None:
-                    raise ValueError(f"Generator {ent.id} references unknown bus {ent.bus}")
-                # create static generator (sgen) element - set p_mw = 0 initially
-                # We will set sgen injection as negative p_mw (injection) when running timesteps.
-                idx = pp.create_sgen(self.net, bus=bus_idx, p_mw=0.0, q_mvar=0.0, name=ent.id)
-                self.sgen_map[ent.id] = idx
-            elif isinstance(ent, OmnesBattery):
-                # for now create an sgen for battery (we control sign externally)
-                bus_idx = self.bus_map.get(ent.bus)
-                if bus_idx is None:
-                    raise ValueError(f"Battery {ent.id} references unknown bus {ent.bus}")
-                idx = pp.create_sgen(self.net, bus=bus_idx, p_mw=0.0, q_mvar=0.0, name=ent.id)
-                self.sgen_map[ent.id] = idx
-
-    def model_to_pp_net(self) -> pp.networks.Net:
+    def _register_converters(self):
         """
-        Build a pandapower network from the Omnes model. After this call self.net is populated.
+        Register specialized converters for network elements.
         """
-        # create buses & slack first
-        self.build_buses_and_slack()
-        # lines
-        self.build_lines()
-        # loads, gens, storages (as sgens)
-        self.build_loads_and_gens()
+        from app.model.grid_component.bus import Bus
+        from app.model.grid_component.line import Line
+        from app.model.slack import Slack
+        from app.model.generator.pv import PV
+        from app.model.generator.wind_turbine import Wind
+        from app.model.storage.battery import Battery
+        from app.model.load.load import Load
 
-        # done
-        return self.net
+        # Register entity types that need special network element creation
+        self._entity_converters[Bus] = self._convert_bus_entity
+        self._entity_converters[Line] = self._convert_line_entity
+        self._entity_converters[Slack] = self._convert_slack_entity
+        self._entity_converters[PV] = self._convert_pv_entity
+        self._entity_converters[Wind] = self._convert_wind_entity
+        self._entity_converters[Battery] = self._convert_battery_entity
+        self._entity_converters[Load] = self._convert_load_entity
 
-    def _get_entity_profile_value(self, entity, timestep_idx: int) -> float:
+    def _convert_entity_default(
+        self,
+        entity: Entity,
+        time_set: Optional[Union[int, range]] = None,
+        new_freq: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
-        Given an Omnes entity that contains input={"input_path": "..."} or
-        input={"input_path": "...", "col": "..."} this helper loads the CSV and returns
-        the value at timestep_idx. Returns value in kW (as expected in Omnes).
+        Default entity conversion - just extract quantities without creating network elements.
+
+        Parameters
+        ----------
+        entity : Entity
+            The entity to convert.
+        time_set : Optional[Union[int, range]], optional
+            The number of time steps to represent in the resulting arrays.
+        new_freq : Optional[str], optional
+            The target frequency to resample time series data to.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary containing numpy arrays for the entity's quantities.
         """
-        import pandas as pd
-        ip = getattr(entity, "input", None)
-        if not ip:
-            return 0.0
-        path = ip.get("input_path")
-        if not path:
-            return 0.0
-        df = pd.read_csv(path)
-        col = ip.get("col", None)
-        if col:
-            values = df[col].values
+        entity_variables = {
+            f"{entity.id}.{key}": self.convert_quantity(
+                quantity,
+                name=f"{entity.id}.{key}",
+                time_set=time_set,
+                freq=new_freq,
+            )
+            for key, quantity in entity.quantities.items()
+        }
+
+        for sub_entity in entity.sub_entities:
+            entity_variables.update(self.convert_entity(sub_entity, time_set, new_freq))
+
+        return entity_variables
+
+    # Wrapper methods that create network elements AND extract quantities
+    def _convert_bus_entity(
+        self, bus: Bus, time_set=None, new_freq=None
+    ) -> Dict[str, Any]:
+        """Wrapper that creates bus network element and extracts quantities."""
+        self._convert_bus(bus)
+        return self._convert_entity_default(bus, time_set, new_freq)
+
+    def _convert_line_entity(
+        self, line: Line, time_set=None, new_freq=None
+    ) -> Dict[str, Any]:
+        """Wrapper that creates line network element and extracts quantities."""
+        self._convert_line(line)
+        return self._convert_entity_default(line, time_set, new_freq)
+
+    def _convert_slack_entity(
+        self, slack: Slack, time_set=None, new_freq=None
+    ) -> Dict[str, Any]:
+        """Wrapper that creates slack network element and extracts quantities."""
+        self._convert_slack(slack)
+        return self._convert_entity_default(slack, time_set, new_freq)
+
+    def _convert_pv_entity(
+        self, pv: PV, time_set=None, new_freq=None
+    ) -> Dict[str, Any]:
+        """Wrapper that creates PV network element and extracts quantities."""
+        self._convert_pv(pv)
+        return self._convert_entity_default(pv, time_set, new_freq)
+
+    def _convert_wind_entity(
+        self, wind: Wind, time_set=None, new_freq=None
+    ) -> Dict[str, Any]:
+        """Wrapper that creates wind turbine network element and extracts quantities."""
+        self._convert_wind(wind)
+        return self._convert_entity_default(wind, time_set, new_freq)
+
+    def _convert_battery_entity(
+        self, battery: Battery, time_set=None, new_freq=None
+    ) -> Dict[str, Any]:
+        """Wrapper that creates battery network element and extracts quantities."""
+        self._convert_battery(battery)
+        return self._convert_entity_default(battery, time_set, new_freq)
+
+    def _convert_load_entity(
+        self, load: Load, time_set=None, new_freq=None
+    ) -> Dict[str, Any]:
+        """Wrapper that creates load network element and extracts quantities."""
+        self._convert_load(load)
+        return self._convert_entity_default(load, time_set, new_freq)
+
+    def _convert_bus(self, bus: Bus) -> None:
+        """
+        Convert a Bus entity to a pandapower bus element.
+
+        Parameters
+        ----------
+        bus : Bus
+            The bus entity to convert
+        """
+        b = pp.create_bus(self.net, vn_kv=bus.nominal_voltage / 1000.0, name=bus.id)
+        self.bus_map[bus.id] = b
+
+    def _convert_line(self, line: Line) -> None:
+        """
+        Convert a Line entity to a pandapower line or switch element.
+
+        Creates a switch if line length, resistance, or reactance is zero,
+        otherwise creates a line from parameters.
+
+        Parameters
+        ----------
+        line : Line
+            The line entity to convert
+        """
+        if line.line_length == 0 or line.reactance == 0 or line.resistance == 0:
+            pp.create_switch(
+                self.net,
+                bus=self.bus_map[line.from_bus],
+                element=self.bus_map[line.to_bus],
+                et="b",
+            )
         else:
-            # if timestamp present, skip timestamp column
-            if "timestamp" in df.columns:
-                values = df["value"].values if "value" in df.columns else df.iloc[:, 1].values
-            else:
-                # single column
-                if df.shape[1] == 1:
-                    values = df.iloc[:, 0].values
-                else:
-                    # choose the last column as values (fallback)
-                    values = df.iloc[:, -1].values
-        # guard index
-        if timestep_idx < 0 or timestep_idx >= len(values):
-            raise IndexError(f"Requested timestep {timestep_idx} out of range for file {path}")
-        return float(values[timestep_idx])
+            pp.create_line_from_parameters(
+                self.net,
+                from_bus=self.bus_map[line.from_bus],
+                to_bus=self.bus_map[line.to_bus],
+                length_km=line.line_length,
+                r_ohm_per_km=line.resistance / line.line_length,
+                x_ohm_per_km=line.reactance / line.line_length,
+                c_nf_per_km=0,
+                max_i_ka=line.max_current / 1000.0,
+                name=line.id,
+            )
 
-    def set_timestep_values(self, timestep_idx: int):
+    def _convert_slack(self, slack: Slack) -> None:
         """
-        For each load/sgens set p_mw according to the model time-series values (kW -> MW).
-        We use convention:
-            - Loads -> create_load.p_mw is positive consumption (kW -> MW /1000)
-            - Generators (pv/wind/battery) -> sgen.p_mw is NEGATIVE for injection into network
-              (i.e., sgen.p_mw = -gen_kW/1000)
-          (This sign convention is common but please ensure consistency in your analysis.)
+        Convert a Slack entity to a pandapower external grid element.
+
+        Parameters
+        ----------
+        slack : Slack
+            The slack bus entity to convert
         """
-        # set loads
-        from app.model.load.load import Load as OmnesLoad
-        from app.model.generator.pv import PV as OmnesPV
-        from app.model.generator.wind_turbine import Wind as OmnesWind
-        from app.model.storage.battery import Battery as OmnesBattery
+        pp.create_ext_grid(self.net, bus=self.bus_map[slack.bus], name=slack.id)
 
-        # loads
-        for ent in self.model.entities:
-            if isinstance(ent, OmnesLoad):
-                idx = self.load_map.get(ent.id)
-                if idx is None:
-                    continue
-                kw = self._get_entity_profile_value(ent, timestep_idx)
-                self.net.load.at[idx, "p_mw"] = float(kw) / 1000.0
-
-        # sgens (pv, wind, battery)
-        for ent in self.model.entities:
-            if isinstance(ent, (OmnesPV, OmnesWind, OmnesBattery)):
-                idx = self.sgen_map.get(ent.id)
-                if idx is None:
-                    continue
-                # for PV/Wind we read their input CSV (or if not present use peak_power as simple proxy)
-                kw = None
-                if hasattr(ent, "input") and ent.input:
-                    try:
-                        kw = self._get_entity_profile_value(ent, timestep_idx)
-                    except Exception:
-                        kw = None
-                if kw is None:
-                    # fallback: use peak_power attribute if exists (assume instantaneous generation = peak)
-                    kw = getattr(ent, "peak_power", 0.0)
-                # convert to p_mw for pandapower and set negative for injection
-                self.net.sgen.at[idx, "p_mw"] = -float(kw) / 1000.0
-
-    def run_timestep_and_export_results(self, timestep_idx: int) -> Dict[str, Any]:
+    def _convert_pv(self, pv: PV) -> None:
         """
-        Sets timestep values, runs pandapower power flow, and returns results and writes
-        basic summaries back into the Omnes model entities (adds attributes like vm_pu, loading_percent).
+        Convert a PV entity to a pandapower static generator element.
+
+        Parameters
+        ----------
+        pv : PV
+            The PV entity to convert
         """
-        # set p_mw values from time series
-        self.set_timestep_values(timestep_idx)
+        pp.create_sgen(
+            self.net,
+            bus=self.bus_map[pv.bus],
+            p_mw=pv.peak_power / 1000.0,
+            q_mvar=0,
+            name=pv.id,
+        )
 
-        # run power flow
-        pp.runpp(self.net)
+    def _convert_wind(self, wind: Wind) -> None:
+        """
+        Convert a Wind entity to a pandapower static generator element.
 
-        # get bus voltages and line loadings and write back
-        bus_results = {}
-        for bus_id, bus_idx in self.bus_map.items():
-            vm_pu = float(self.net.res_bus.at[bus_idx, "vm_pu"]) if "vm_pu" in self.net.res_bus.columns else None
-            bus_results[bus_id] = {"vm_pu": vm_pu}
-            # store back to Omnes bus object if you want
-            # find the omnibus entity
-            for ent in self.model.entities:
-                if getattr(ent, "id", None) == bus_id:
-                    setattr(ent, "last_vm_pu", vm_pu)
+        Parameters
+        ----------
+        wind : Wind
+            The wind turbine entity to convert
+        """
+        pp.create_sgen(
+            self.net,
+            bus=self.bus_map[wind.bus],
+            p_mw=wind.peak_power / 1000.0,
+            q_mvar=0,
+            name=wind.id,
+        )
 
-        line_results = {}
-        if hasattr(self.net, "res_line"):
-            for li_idx in self.net.line.index:
-                name = self.net.line.at[li_idx, "name"]
-                # loading_percent column is common after runpp
-                loading = float(self.net.res_line.at[li_idx, "loading_percent"]) if "loading_percent" in self.net.res_line.columns else None
-                line_results[name] = {"loading_percent": loading}
-                # save back to model line entity
-                for ent in self.model.entities:
-                    if getattr(ent, "id", None) == name:
-                        setattr(ent, "last_loading_percent", loading)
+    def _convert_battery(self, battery: Battery) -> None:
+        """
+        Convert a Battery entity to a pandapower static generator element.
 
-        results = {"buses": bus_results, "lines": line_results, "net": self.net}
-        return results
+        The battery is modeled as a static generator with controllable sign
+        (positive for discharge, negative for charge).
+
+        Parameters
+        ----------
+        battery : Battery
+            The battery entity to convert
+        """
+        bus_idx = self.bus_map[battery.bus]
+        pp.create_sgen(self.net, bus=bus_idx, p_mw=0.0, q_mvar=0.0, name=battery.id)
+
+    def _convert_load(self, load: Load) -> None:
+        """
+        Convert a Load entity to a pandapower load element.
+
+        Parameters
+        ----------
+        load : Load
+            The load entity to convert
+        """
+        pp.create_load(
+            self.net, bus=self.bus_map[load.bus], p_mw=0.002, q_mvar=0, name=load.id
+        )
+
+    def convert_entity(
+        self,
+        entity: Entity,
+        time_set: Optional[Union[int, range]] = None,
+        new_freq: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Convert an Entity and its sub-entities into numpy arrays for simulation input.
+
+        This method recursively traverses the entity hierarchy, resamples all time series
+        data to the specified frequency, and converts each quantity into a numpy array.
+        Network elements are created in the pandapower net as a side effect.
+
+        Parameters
+        ----------
+        entity : Entity
+            The root entity to convert (may have sub-entities).
+        time_set : Optional[Union[int, range]], optional
+            The number of time steps to represent in the resulting arrays.
+            If None, uses the default time set size.
+        new_freq : Optional[str], optional
+            The target frequency to resample time series data to (e.g., '15min', '1H').
+
+        Returns
+        -------
+        Dict[str, Any]
+            A flat dictionary containing numpy arrays from the entity and its descendants.
+            Keys are in the format 'entity_id.quantity_name'.
+        """
+        # Convert entity quantities
+        entity_variables = {
+            f"{entity.id}.{key}": self.convert_quantity(
+                quantity,
+                name=f"{entity.id}.{key}",
+                time_set=time_set,
+                freq=new_freq,
+            )
+            for key, quantity in entity.quantities.items()
+        }
+
+        # Recursively convert sub-entities
+        for sub_entity in entity.sub_entities:
+            entity_variables.update(self.convert_entity(sub_entity, time_set, new_freq))
+
+        return entity_variables
+
+    def convert_quantity(
+        self,
+        quantity: Quantity,
+        name: str,
+        time_set: Optional[Union[int, range]] = None,
+        freq: Optional[str] = None,
+    ) -> ndarray:
+        """
+        Convert a quantity to a numpy array for pandapower simulation input.
+
+        If the quantity is empty, create a numpy array filled with NaN values.
+        If the quantity is a Parameter, return its value directly.
+        Otherwise, return the time series values resampled to the specified time set and frequency.
+
+        Parameters
+        ----------
+        quantity : Quantity
+            The quantity to convert
+        name : str
+            The name identifier for the quantity
+        time_set : Optional[Union[int, range]], optional
+            The time set specification. If None, uses default size.
+        freq : Optional[str], optional
+            The frequency for resampling
+
+        Returns
+        -------
+        np.ndarray
+            Numpy array containing the quantity values over time, or NaN array if empty
+        """
+        if quantity.empty():
+            normalized_time_set = validate_and_normalize_time_set(
+                time_set, self.DEFAULT_TIME_SET_SIZE
+            )
+            return np.ones(len(normalized_time_set)) * np.nan
+        if isinstance(quantity, Parameter):
+            return quantity.get_values()
+        else:
+            return quantity.get_values(time_set=time_set, freq=freq)

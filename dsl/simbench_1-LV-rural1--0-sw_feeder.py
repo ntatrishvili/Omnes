@@ -1,238 +1,198 @@
-from pulp import LpMinimize, LpProblem
+from os.path import join
 
-from app.conversion.pulp_converter import PulpConverter
-from app.infra.relation import Relation
-from app.model.converter.converter import Converter
-from app.model.entity import Entity
-from app.model.generator.pv import PV
-from app.model.generator.wind_turbine import Wind
+import pandas as pd
+import pandapower as pp
+import configparser
+
+from app.conversion.pandapower_converter import omnes_to_pandapower, PandapowerConverter
 from app.model.grid_component.bus import Bus, BusType
 from app.model.grid_component.line import Line
+from app.model.generator.pv import PV
+from app.model.generator.wind_turbine import Wind
 from app.model.load.load import Load
 from app.model.model import Model
-from app.model.slack import Slack
-from app.model.storage.battery import Battery
-from app.model.storage.hot_water_storage import HotWaterStorage
-from app.operation.example_optimization import optimize_energy_system
+from app.operation.example_simulation import simulate_energy_system
+from utils.logging_setup import get_logger, init_logging
 
-# network base settings
-Bus.default_nominal_voltage = 400  # LV line-to-line nominal
-Line.default_line_length = 0.15    # km (example)
-Line.default_resistance = 0.08     # ohm/km (example)
-Line.default_reactance = 0.06      # ohm/km (example)
-PV.default_efficiency = 0.9
-
-# MV / grid connection
-bus_mv = Bus(id="bus_MV", nominal_voltage=10000, type=BusType.SLACK, phase_count=3)
-slack = Slack(id="slack", bus="bus_MV")
-
-# LV feeder backbone: one LV feeder that splits into branches
-bus_lv_head = Bus(id="bus_LV_head")            # feeder head (LV side of MV/LV transformer)
-bus_lv_1 = Bus(id="bus_LV_1", phase="A", phase_count=1)   # household 1 (single-phase)
-bus_lv_2 = Bus(id="bus_LV_2", phase="B", phase_count=1)   # household 2
-bus_lv_3 = Bus(id="bus_LV_3", phase="C", phase_count=1)   # household 3
-bus_lv_4 = Bus(id="bus_LV_4", phase_count=3)              # small multi-phase connection (e.g., small farm)
-bus_lv_5 = Bus(id="bus_LV_5", phase="A", phase_count=1)   # household 4
-bus_lv_6 = Bus(id="bus_LV_6", phase="B", phase_count=1)   # household 5
-
-# Lines (simple radial layout, head -> branches)
-line_hv_to_lv = Line(id="line_MV_LV", from_bus="bus_MV", to_bus="bus_LV_head")
-
-line_1 = Line(id="line_1", from_bus="bus_LV_head", to_bus="bus_LV_1")
-line_2 = Line(id="line_2", from_bus="bus_LV_head", to_bus="bus_LV_2")
-line_3 = Line(id="line_3", from_bus="bus_LV_head", to_bus="bus_LV_3")
-line_4 = Line(id="line_4", from_bus="bus_LV_head", to_bus="bus_LV_4")
-line_5 = Line(id="line_5", from_bus="bus_LV_4", to_bus="bus_LV_5")
-line_6 = Line(id="line_6", from_bus="bus_LV_4", to_bus="bus_LV_6")
-
-# Generators: PVs at some households and one small WT at the multi-phase bus
-pv_1 = PV(
-    id="pv_1",
-    bus="bus_LV_1",
-    peak_power=3.5,  # kW
-    input={"input_path": "data/simbench/rural1/pv_p_1.csv"},  # replace with real SimBench path
-    tags={"household": "HH1"},
+# -----------------------------
+# STEP A: LOAD SIMBENCH CSV FILES
+# -----------------------------
+config = configparser.ConfigParser(
+    allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
 )
+config.read("..\\config.ini")
+root = config.get("path", "simbench_input")
+nodes = pd.read_csv(join(root, "Node.csv"), sep=";")
+slack_units = pd.read_csv(join(root, "ExternalNet.csv"), sep=";")
+lines = pd.read_csv(join(root, "Line.csv"), sep=";")
+line_types = pd.read_csv(join(root, "LineType.csv"), sep=";")
+switches = pd.read_csv(join(root, "Switch.csv"), sep=";")
 
-pv_2 = PV(
-    id="pv_2",
-    bus="bus_LV_2",
-    peak_power=2.5,
-    input={"input_path": "data/simbench/rural1/pv_p_2.csv"},
-    tags={"household": "HH2"},
-)
+# Try loading RES (Renewable Energy Sources)
+try:
+    res_units = pd.read_csv(join(root, "RES.csv"), sep=";")
+except FileNotFoundError:
+    print("No RES.csv found – skipping renewable generation.")
+    res_units = pd.DataFrame()
 
-pv_3 = PV(
-    id="pv_3",
-    bus="bus_LV_5",
-    peak_power=1.8,
-    input={"input_path": "data/simbench/rural1/pv_p_5.csv"},
-    tags={"household": "HH4"},
-)
+try:
+    load_units = pd.read_csv(join(root, "Load.csv"), sep=";")
+except FileNotFoundError:
+    print("No RES.csv found – skipping renewable generation.")
+    load_units = pd.DataFrame()
 
-wind_1 = Wind(
-    id="wind_1",
-    bus="bus_LV_4",
-    peak_power=4.0,
-    efficiency=0.95,
-    input={"input_path": "data/simbench/rural1/wind_p_4.csv", "col": "wind"},
-    tags={"farm": "small_farm"},
-)
+# -----------------------------
+# STEP B: CONVERT TO OMNES OBJECTS
+# -----------------------------
+Bus.default_nominal_voltage = 400
+Bus.default_phase = "A"
 
-# Shared battery at the end of feeder (e.g., community battery)
-relation_batt = Relation("if battery_shared.capacity < 10 then battery_shared.max_discharge_rate = 2", "BatteryShared.CapacityRelation")
-battery_shared = Battery(
-    id="battery_shared",
-    bus="bus_LV_6",
-    capacity=8.0,               # kWh
-    max_charge_rate=3.0,        # kW
-    max_discharge_rate=3.0,     # kW
-    charge_efficiency=0.95,
-    discharge_efficiency=0.95,
-    storage_efficiency=0.995,
-    relations=[relation_batt],
-    tags={"community": "shared_storage"},
-)
+# Symmetric network
+Bus.default_phase_count = 1
+buses = []
+for _, row in nodes.iterrows():
+    bus = Bus(
+        id=row["id"],
+        nominal_voltage=float(row.get("vNom", 0.4)) * 1000,
+        phase_count=3,
+        type=BusType.PQ,
+    )
+    buses.append(bus)
 
-# Hot water storages and converters (household-level flexible loads)
-hot_water_1 = HotWaterStorage(
-    id="hot_water_1",
-    bus="bus_LV_1",
-    volume=120,
-    set_temperature=60,
-    input={"input_path": "data/simbench/rural1/hw_1.csv", "col": "hw_1"},
-    tags={"household": "HH1"},
-)
-rel_hw1_a = Relation("heater1.power enabled from 06:00 to 09:00")
-rel_hw1_b = Relation("heater1.min_on_duration = 1h")
-heater1 = Converter(
-    id="heater1",
-    controllable=True,
-    charges="hot_water_1",
-    bus="bus_LV_1",
-    conversion_efficiency=0.95,
-    tags={"household": "HH1"},
-    relations=[rel_hw1_a, rel_hw1_b],
-)
+# Lines
+lines_omnes = []
+for _, row in lines.iterrows():
+    lt = line_types[line_types["id"] == row["type"]]
+    if not lt.empty:
+        r_per_km = float(lt.iloc[0]["r"])
+        x_per_km = float(lt.iloc[0]["x"])
+    else:
+        r_per_km, x_per_km = 0.1, 0.08
 
-hot_water_2 = HotWaterStorage(
-    id="hot_water_2",
-    bus="bus_LV_2",
-    volume=150,
-    set_temperature=55,
-    input={"input_path": "data/simbench/rural1/hw_2.csv", "col": "hw_2"},
-    tags={"household": "HH2"},
-)
-rel_hw2_a = Relation("heater2.power enabled from 18:00 to 22:00")
-rel_hw2_b = Relation("heater2.min_on_duration = 1h")
-heater2 = Converter(
-    id="heater2",
-    controllable=True,
-    charges="hot_water_2",
-    bus="bus_LV_2",
-    conversion_efficiency=0.95,
-    tags={"household": "HH2"},
-    relations=[rel_hw2_a, rel_hw2_b],
-)
+    line = Line(
+        id=row["id"],
+        from_bus=row["nodeA"],
+        to_bus=row["nodeB"],
+        line_length=float(row.get("d", 100)) / 1000,
+        resistance=r_per_km,
+        reactance=x_per_km,
+    )
+    lines_omnes.append(line)
 
-# Household electrical loads (map to SimBench profiles)
-load_1 = Load(
-    id="load_1",
-    bus="bus_LV_1",
-    input={"input_path": "data/simbench/rural1/load_1.csv"},
-    tags={"household": "HH1"},
-)
+# Lines
+switches_omnes = []
+for _, row in switches.iterrows():
+    switch = Line(
+        id=row["id"],
+        from_bus=row["nodeA"],
+        to_bus=row["nodeB"],
+        line_length=0,
+        resistance=0,
+        reactance=0,
+    )
+    lines_omnes.append(switch)
 
-load_2 = Load(
-    id="load_2",
-    bus="bus_LV_2",
-    input={"input_path": "data/simbench/rural1/load_2.csv"},
-    tags={"household": "HH2"},
-)
+# Slacks
+slacks = []
+for _, row in slack_units.iterrows():
+    slacks.append(
+        Bus(id=row["id"], bus=row["node"], type=BusType.SLACK, voltage=row["voltLvl"])
+    )
 
-load_3 = Load(
-    id="load_3",
-    bus="bus_LV_3",
-    input={"input_path": "data/simbench/rural1/load_3.csv"},
-    tags={"household": "HH3"},
-)
+# -----------------------------
+# Parse RES: PVs and Wind Turbines
+# -----------------------------
+pvs, winds = [], []
+if not res_units.empty:
+    for _, row in res_units.iterrows():
+        tech = str(row.get("type", "")).lower()
+        node = row["node"]
+        p_peak_kw = 1000 * float(row.get("pRES", 0.0))  # SimBench uses MW
 
-load_4 = Load(
-    id="load_4",
-    bus="bus_LV_5",
-    input={"input_path": "data/simbench/rural1/load_5.csv"},
-    tags={"household": "HH4"},
-)
+        if "pv" in tech or "solar" in tech:
+            pvs.append(
+                PV(
+                    id=row["id"],
+                    bus=node,
+                    peak_power=p_peak_kw / 1000,  # convert to kW for Omnes
+                    input={
+                        "input_path": join(root, "RESProfile.csv"),
+                        "col": row["profile"],
+                    },
+                    tags={"source": "simbench", "sR": row["sR"], "household": node},
+                )
+            )
 
-load_5 = Load(
-    id="load_5",
-    bus="bus_LV_6",
-    input={"input_path": "data/simbench/rural1/load_6.csv"},
-    tags={"household": "HH5"},
-)
+        elif "wind" in tech:
+            winds.append(
+                Wind(
+                    id=row["id"],
+                    bus=node,
+                    peak_power=p_peak_kw / 1000,
+                    efficiency=0.95,
+                    input={
+                        "input_path": join(root, "RESProfile.csv"),
+                        "col": row["profile"],
+                    },
+                    tags={"source": "simbench", "sR": row["sR"], "household": node},
+                )
+            )
 
-# Small additional device: local small battery in HH3 (example)
-battery_hh3 = Battery(
-    id="battery_hh3",
-    bus="bus_LV_3",
-    capacity=3.5,
-    max_charge_rate=1.5,
-    max_discharge_rate=1.5,
-    charge_efficiency=0.95,
-    discharge_efficiency=0.95,
-    storage_efficiency=0.995,
-    tags={"household": "HH3"},
-)
+# -----------------------------
+# Static Loads
+# -----------------------------
+loads = []
+if not load_units.empty:
+    for _, row in load_units.iterrows():
+        node = row["node"]
+        p_peak_kw = 1000 * float(row.get("pLoad", 0.0))  # SimBench uses MW
+        q_peak_kw = 1000 * float(row.get("qLoad", 0.0))  # SimBench uses MW
+        if "lv" in row["id"].lower():
+            loads.append(
+                Load(
+                    id=f"load_{row['id']}",
+                    bus=node,
+                    p_cons={
+                        "input_path": join(root, "LoadProfile.csv"),
+                        "col": row["profile"],
+                    },
+                    tags={
+                        "source": "symbench",
+                        "p_kw": p_peak_kw,
+                        "q_kw": q_peak_kw,
+                        "sR": row["sR"],
+                        "household": node,
+                    },
+                )
+            )
 
-# Build the model (1 day example at 1h resolution; adjust as needed)
-time_resolution = "1h"
+# -----------------------------
+# Build model
+# -----------------------------
 model = Model(
-    id="Energy_Community_simbench_rural1",
+    id="SimBench_Rural1_Community",
     time_start="2025-01-01 00:00",
     time_end="2025-01-02 00:00",
-    resolution=time_resolution,
-    entities=[
-        # buses & slack
-        bus_mv,
-        bus_lv_head,
-        bus_lv_1,
-        bus_lv_2,
-        bus_lv_3,
-        bus_lv_4,
-        bus_lv_5,
-        bus_lv_6,
-        slack,
-        # lines
-        line_hv_to_lv,
-        line_1,
-        line_2,
-        line_3,
-        line_4,
-        line_5,
-        line_6,
-        # generators
-        pv_1,
-        pv_2,
-        pv_3,
-        wind_1,
-        # storages
-        battery_shared,
-        battery_hh3,
-        hot_water_1,
-        hot_water_2,
-        # converters/heaters
-        heater1,
-        heater2,
-        # loads
-        load_1,
-        load_2,
-        load_3,
-        load_4,
-        load_5,
-    ],
+    resolution="1h",
+    entities=buses + lines_omnes + slacks + pvs + winds + loads,
 )
 
-# convert to pulp (your existing pipeline) and run the example optimize
-number_of_time_steps = model.number_of_time_steps
-problem = PulpConverter().convert_model(model)
-optimize_energy_system(**problem)
+# -----------------------------
+# CONVERT TO PANDAPOWER
+# RUN PANDAPOWER LOAD-FLOW
+# -----------------------------
+if __name__ == "__main__":
+    init_logging(
+        level="DEBUG",
+        log_dir="logs",
+        log_file="app.log",
+    )
+    log = get_logger(__name__)
+    log.info("Logging initialized")
+    kwargs = omnes_to_pandapower(model)
+    log.info("Model built successfully")
+    problem = PandapowerConverter().convert_model(model)
+    log.info("Starting optimization")
+    optimize_energy_system(**problem)
+    log.info("Optimization completed")
+    simulate_energy_system(**kwargs)

@@ -54,6 +54,14 @@ def validate_and_normalize_time_set(
         raise ValueError(f"time_set must be an int or range, got {type(time_set)}")
 
 
+def extract_effective_time_properties(model, new_freq, time_set):
+    effective_time_set = (
+        time_set if time_set is not None else model.number_of_time_steps
+    )
+    effective_freq = new_freq if new_freq is not None else model.frequency
+    return effective_freq, effective_time_set
+
+
 def validate_entity_exists(entity_id: str, entity_dict: dict) -> None:
     """
     Validate that an entity exists in the provided dictionary.
