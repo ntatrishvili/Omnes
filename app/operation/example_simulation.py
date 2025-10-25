@@ -3,7 +3,7 @@ from app.model.model import Model
 import pandapower as pp
 
 
-def set_timestep_values(net: pp.pandapowerNet, entities, timestep_idx: int):
+def set_timestep_values(net: pp.pandapowerNet, entity_variables, timestep_idx: int):
     """
     For each load/sgens set p_mw according to the model time-series values (kW -> MW).
     We use convention:
@@ -22,29 +22,24 @@ def set_timestep_values(net: pp.pandapowerNet, entities, timestep_idx: int):
     for idx, row in net.load.iterrows():
         load_name = f"load_{row['id']}"
         net.load.at[idx, "p_mw"] = (
-            entities[f"{load_name}.p_cons"][timestep_idx] / 1000.0
+            entity_variables[f"{load_name}.p_cons"][timestep_idx] / 1000.0
         )
-        net.load.at[idx, "q_mvar"] = entities[f"{load_name}.q_cons"] / 1000.0
+        net.load.at[idx, "q_mvar"] = entity_variables[f"{load_name}.q_cons"] / 1000.0
 
     # sgens (pv, wind, battery)
     for idx, row in net.sgen.iterrows():
         load_name = f"load_{row['id']}"
         net.load.at[idx, "p_mw"] = (
-            entities[f"{load_name}.p_cons"][timestep_idx] / 1000.0
+            entity_variables[f"{load_name}.p_cons"][timestep_idx] / 1000.0
         )
         net.sgen.at[idx, "p_mw"] = -float(kw) / 1000.0
 
 
-def simulate_energy_system(**kwargs):
-    """
-    Sets timestep values, runs pandapower power flow, and returns results and writes
-    basic summaries back into the Omnes model entities (adds attributes like vm_pu, loading_percent).
-    """
+def simulate_energy_system(net, entity_variables) -> dict:
     time_set = kwargs.get("time_set", [])
-    net = kwargs.get("net")
     model = kwargs.get("model")
     for t in time_set:
-        set_timestep_values(net, model, t)
+        set_timestep_values(net, entity_variables, t)
 
     # run power flow
     pp.runpp(self.net)

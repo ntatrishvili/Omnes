@@ -18,7 +18,8 @@ class Load(Device):
         **kwargs: object,
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
-        self.quantities.update({"p_cons": self.ts_factory.create("p_cons", **kwargs)})
+        self.create_quantity("p_cons", **kwargs)
+        self.create_quantity("q_cons", **kwargs)
 
     def __str__(self):
         """

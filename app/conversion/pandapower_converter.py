@@ -72,6 +72,63 @@ class PandapowerConverter(Converter):
         self._entity_converters[Battery] = self._convert_battery_entity
         self._entity_converters[Load] = self._convert_load_entity
 
+    def convert_model(
+        self,
+        model: Model,
+        time_set: Optional[Union[int, range]] = None,
+        new_freq: Optional[str] = None,
+    ) -> tuple[pandapowerNet, Dict[str, Any]]:
+        """
+        Convert the model to a pandapower network and extract model variables.
+
+        Converts the model's entities into a pandapower network structure (buses, lines,
+        generators, loads, etc.) and extracts their quantities as numpy arrays for time
+        series simulation. Handles resampling of time series data to the specified
+        frequency and time set.
+
+        Parameters
+        ----------
+        model : Model
+            The model to convert.
+        time_set : Optional[Union[int, range]], optional
+            The number of time steps to include in the output arrays.
+            If None, uses model.number_of_time_steps.
+        new_freq : Optional[str], optional
+            The target frequency to resample time series data to (e.g., '15min', '1H').
+            If None, uses model.frequency.
+
+        Returns
+        -------
+        tuple[pandapower.Net, Dict[str, Any]]
+            A tuple containing:
+            - The pandapower network object with all elements created
+            - Dictionary containing time series data as numpy arrays and time set information.
+              Includes a 'time_set' key with the range of time steps.
+        """
+        # Use model defaults if not specified
+        effective_freq, effective_time_set = extract_effective_time_properties(
+            model, new_freq, time_set
+        )
+
+        # Reset network state for new conversion
+        self.net = pp.create_empty_network()
+        self.bus_map = {}
+
+        # Convert all entities to model variables
+        model_variables = {}
+        for entity in model.entities:
+            model_variables.update(
+                entity.convert(effective_time_set, effective_freq, self)
+            )
+
+        # Add time set information
+        time_range = validate_and_normalize_time_set(
+            effective_time_set, self.DEFAULT_TIME_SET_SIZE
+        )
+        model_variables["time_set"] = time_range
+
+        return self.net, model_variables
+
     def _convert_entity_default(
         self,
         entity: Entity,

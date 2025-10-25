@@ -15,7 +15,8 @@ class PV(Generator):
         **kwargs: object,
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
-        self.quantities.update({"p_pv": self.ts_factory.create("p_pv", **kwargs)})
+        self.create_quantity("p_pv", **kwargs)
+        self.create_quantity("q_pv", **kwargs)
 
     def __str__(self):
         """

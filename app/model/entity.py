@@ -83,3 +83,6 @@ class Entity:
         Extend the default dir to include parameters and quantities.
         """
         return super().__dir__() + list(self.quantities.keys())
+
+    def create_quantity(self, name: str, **kwargs):
+        self.quantities.update({name: self.ts_factory.create(name, **kwargs.get(name, {}))})

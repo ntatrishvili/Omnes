@@ -30,10 +30,10 @@ class Converter(Device):
             self.output_device = self.output_device.id
         super().__init__(id, ts_factory, **kwargs)
         self.controllable = kwargs.pop("controllable", self.default_controllable)
+        self.create_quantity("p_in", **kwargs)
+        self.create_quantity("p_out", **kwargs)
         self.quantities.update(
             {
-                "p_in": self.ts_factory.create("p_in", **kwargs),
-                "p_out": self.ts_factory.create("p_out", **kwargs),
                 "conversion_efficiency": Parameter(
                     value=kwargs.pop(
                         "conversion_efficiency", self.default_conversion_efficiency
