@@ -26,7 +26,8 @@ def build_model_from_simbench():
     line_types = pd.read_csv(join(root, "LineType.csv"), sep=";")
     switches = pd.read_csv(join(root, "Switch.csv"), sep=";")
     datetime_properties = {"datetime_format": "%d.%m.%Y %H:%M",
-                           "datetime_column": "time", }
+                           "datetime_column": "time",
+                           "tz": "Europe/Berlin"}
 
     # Try loading RES (Renewable Energy Sources)
     try:
@@ -184,7 +185,7 @@ def build_model_from_simbench():
     model = Model(
         id="SimBench_Rural1_Community",
         time_start="2016-01-01 00:00",
-        time_end="2027-01-01 00:00",
+        time_end="2017-01-01 00:00",
         resolution="1h",
         entities=buses + lines_omnes + slacks + pvs + winds + loads,
     )
@@ -201,9 +202,9 @@ if __name__ == "__main__":
     log.info("Logging initialized")
     model = build_model_from_simbench()
     log.info("Model built successfully")
-    net, input_variables = PandapowerConverter().convert_model(model)
-    log.info("Model converter successfully")
+    net = PandapowerConverter().convert_model(model)
+    log.info("Model converted successfully")
 
     log.info("Starting simulation")
-    simulate_energy_system(net, input_variables)
+    simulate_energy_system(net)
     log.info("Simulation completed")

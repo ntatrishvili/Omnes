@@ -79,6 +79,7 @@ class TimeseriesObject(Quantity):
             "col": kwargs.pop("col", None),
             "datetime_column": kwargs.pop("datetime_column", None),
             "datetime_format": kwargs.pop("datetime_format", None),
+            "tz": kwargs.pop("tz", None),
             "freq": kwargs.pop("freq", None),
             "dims": kwargs.pop("dims", None),
             "coords": kwargs.pop("coords", None),
@@ -99,8 +100,9 @@ class TimeseriesObject(Quantity):
             return self._dataframe_to_xarray(params["data"], params["attrs"])
         elif params["input_path"] is not None and params["col"] is not None:
             df_data = self._read_csv_to_dataframe(params["input_path"], params["col"],
-                                                  params.get("datetime_column", None),
-                                                  datetime_format=params.get("datetime_format", None))
+                                                  datatime_column=params.get("datetime_column", None),
+                                                  datetime_format=params.get("datetime_format", None),
+                                                  tz=params.get("tz", None))
             return self._dataframe_to_xarray(df_data, params["attrs"])
         else:
             return xr.DataArray(data=[], dims=["timestamp"], attrs=params["attrs"])
@@ -128,7 +130,7 @@ class TimeseriesObject(Quantity):
         if self.data.sizes.get("timestamp", 0) < 3:
             return infer_freq_from_two_dates(self.data)
         # Use xarray's infer_freq directly on the timestamp coordinate
-        freq = xr.infer_freq(self.data.coords["timestamp"])
+        freq = xr.infer_freq(self.data.coords["timestamp"].values)
         return self.normalize_freq(freq)
 
     def _dataframe_to_xarray(
@@ -170,6 +172,7 @@ class TimeseriesObject(Quantity):
             col: str,
             datatime_column: Optional[str] = None,
             datetime_format: Optional[str] = None,
+            tz: Optional[str] = None,
     ) -> pd.DataFrame:
         """Read CSV and return DataFrame with specified column and parsed timestamp index.
 
@@ -211,6 +214,9 @@ class TimeseriesObject(Quantity):
                 break
             if not found_col:
                 raise ValueError(f"No datetime-like column could be auto-detected in the file '{input_path}'.")
+        # Localize timezone if specified
+        if tz is not None:
+            input_df.index = input_df.index.tz_localize(tz, ambiguous='infer')
         return input_df[[col]]
 
     @staticmethod
