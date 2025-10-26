@@ -25,6 +25,8 @@ def build_model_from_simbench():
     lines = pd.read_csv(join(root, "Line.csv"), sep=";")
     line_types = pd.read_csv(join(root, "LineType.csv"), sep=";")
     switches = pd.read_csv(join(root, "Switch.csv"), sep=";")
+    datetime_properties = {"datetime_format": "%d.%m.%Y %H:%M",
+                           "datetime_column": "time", }
 
     # Try loading RES (Renewable Energy Sources)
     try:
@@ -120,6 +122,7 @@ def build_model_from_simbench():
                         input={
                             "input_path": join(root, "RESProfile.csv"),
                             "col": row["profile"],
+                            **datetime_properties
                         },
                         tags={"source": "simbench", "sR": row["sR"], "household": node},
                     )
@@ -135,6 +138,7 @@ def build_model_from_simbench():
                         input={
                             "input_path": join(root, "RESProfile.csv"),
                             "col": row["profile"],
+                            **datetime_properties
                         },
                         tags={"source": "simbench", "sR": row["sR"], "household": node},
                     )
@@ -157,10 +161,12 @@ def build_model_from_simbench():
                         p_cons={
                             "input_path": join(root, "LoadProfile.csv"),
                             "col": f'{row["profile"]}_pload',
+                            **datetime_properties
                         },
                         q_cons={
                             "input_path": join(root, "LoadProfile.csv"),
                             "col": f'{row["profile"]}_qload',
+                            **datetime_properties
                         },
                         tags={
                             "source": "symbench",
@@ -177,8 +183,8 @@ def build_model_from_simbench():
     # -----------------------------
     model = Model(
         id="SimBench_Rural1_Community",
-        time_start="2025-01-01 00:00",
-        time_end="2025-01-02 00:00",
+        time_start="2016-01-01 00:00",
+        time_end="2027-01-01 00:00",
         resolution="1h",
         entities=buses + lines_omnes + slacks + pvs + winds + loads,
     )

@@ -77,6 +77,8 @@ class TimeseriesObject(Quantity):
             "data": kwargs.pop("data", None),
             "input_path": kwargs.pop("input_path", None),
             "col": kwargs.pop("col", None),
+            "datetime_column": kwargs.pop("datetime_column", None),
+            "datetime_format": kwargs.pop("datetime_format", None),
             "freq": kwargs.pop("freq", None),
             "dims": kwargs.pop("dims", None),
             "coords": kwargs.pop("coords", None),
@@ -96,7 +98,9 @@ class TimeseriesObject(Quantity):
         elif isinstance(params["data"], pd.DataFrame):
             return self._dataframe_to_xarray(params["data"], params["attrs"])
         elif params["input_path"] is not None and params["col"] is not None:
-            df_data = self._read_csv_to_dataframe(params["input_path"], params["col"])
+            df_data = self._read_csv_to_dataframe(params["input_path"], params["col"],
+                                                  params.get("datetime_column", None),
+                                                  datetime_format=params.get("datetime_format", None))
             return self._dataframe_to_xarray(df_data, params["attrs"])
         else:
             return xr.DataArray(data=[], dims=["timestamp"], attrs=params["attrs"])
@@ -128,9 +132,9 @@ class TimeseriesObject(Quantity):
         return self.normalize_freq(freq)
 
     def _dataframe_to_xarray(
-        self,
-        df: pd.DataFrame,
-        attrs: Optional[Dict[str, Any]] = None,
+            self,
+            df: pd.DataFrame,
+            attrs: Optional[Dict[str, Any]] = None,
     ) -> xr.DataArray:
         """Convert DataFrame to DataArray.
 
@@ -161,51 +165,82 @@ class TimeseriesObject(Quantity):
             )
 
     @staticmethod
-    def _read_csv_to_dataframe(input_path: str, col: str) -> pd.DataFrame:
-        """Read CSV and return DataFrame with specified column.
+    def _read_csv_to_dataframe(
+            input_path: str,
+            col: str,
+            datatime_column: Optional[str] = None,
+            datetime_format: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """Read CSV and return DataFrame with specified column and parsed timestamp index.
 
         :param str input_path: Path to CSV
-        :param str col: Column name
+        :param str col: Column name to return
+        :param str|None datatime_column: Name of time column to parse (default 'timestamp').
+                                  If None, the function will try to auto-detect a datetime-like column.
+        :param str|None datetime_format: Optional datetime format string to use for parsing.
         :returns pd.DataFrame: DataFrame with column and timestamp index
         :raises FileNotFoundError: If file does not exist
-        :raises ValueError: If file is empty or invalid
-        :raises KeyError: If column not found
+        :raises ValueError: If file is empty or invalid or no datetime column can be parsed
+        :raises KeyError: If requested column not found
         """
         try:
-            input_df = pd.read_csv(
-                input_path,
-                sep=";",
-                header=0,
-                index_col="timestamp",
-                parse_dates=["timestamp"],
-                date_format="%Y-%m-%d %H:%M:%S",
-            )
-            input_df.index = pd.to_datetime(input_df.index)
+            input_df = pd.read_csv(input_path, sep=";", header=0)
         except FileNotFoundError:
             raise FileNotFoundError(f"The file '{input_path}' does not exist.")
         except pd.errors.EmptyDataError:
             raise ValueError(f"The file '{input_path}' is empty or invalid.")
 
         if col not in input_df.columns:
-            raise KeyError(
-                f"The column '{col}' is not found in the file {input_path}'. {input_df}"
-            )
+            raise KeyError(f"The column '{col}' is not found in the file {input_path}'. {input_df}")
 
+        # If a specific time column was provided
+        if datatime_column is not None:
+            if datatime_column not in input_df.columns:
+                raise KeyError(
+                    f"The time column '{datatime_column}' is not found in the file {input_path}. Columns: {list(input_df.columns)}")
+            # Try parsing using provided format first (if any), then fallback to automatic parsing
+            input_df = TimeseriesObject.__parse_time_col(input_df, datatime_column, datetime_format=datetime_format)
+        else:
+            found_col = False
+            # Auto-detect a datetime-like column (choose the first column where parsing yields many non-nulls)
+            for c in input_df.columns:
+                if "time" not in c.lower() and "date" not in c.lower():
+                    continue
+                input_df = TimeseriesObject.__parse_time_col(input_df, c, datetime_format=datetime_format)
+                found_col = True
+                break
+            if not found_col:
+                raise ValueError(f"No datetime-like column could be auto-detected in the file '{input_path}'.")
         return input_df[[col]]
 
     @staticmethod
-    def read(input_path: str, col: str) -> "TimeseriesObject":
+    def __parse_time_col(input_df, time_col, datetime_format=None):
+        input_df[time_col] = pd.to_datetime(input_df[time_col], format=datetime_format, errors="coerce")
+        if input_df[time_col].isna().all():
+            raise ValueError(f"Could not parse datetime values from column '{time_col}'.")
+        input_df = input_df.rename(columns={time_col: "timestamp"})
+        input_df.set_index("timestamp", inplace=True, drop=True)
+        input_df.index = pd.to_datetime(input_df.index)
+        return input_df
+
+    @staticmethod
+    def read(
+            input_path: str,
+            col: str,
+            time_col: Optional[str] = "timestamp",
+            datetime_format: Optional[str] = None,
+    ) -> "TimeseriesObject":
         """Read CSV and return TimeseriesObject.
 
         :param str input_path: Path to CSV
-        :param str col: Column name
+        :param str col: Name of the column to read
+        :param str|None time_col: Name of the time column in the CSV (default 'timestamp'). If None, auto-detect.
+        :param str|None datetime_format: Optional datetime format to use for parsing
         :returns TimeseriesObject: TimeseriesObject with column and timestamp index
-        :raises FileNotFoundError: If file does not exist
-        :raises ValueError: If file is empty or invalid
-        :raises KeyError: If column not found
         """
         return TimeseriesObject(
-            data=TimeseriesObject._read_csv_to_dataframe(input_path, col)
+            data=TimeseriesObject._read_csv_to_dataframe(input_path, col, datatime_column=time_col,
+                                                         datetime_format=datetime_format)
         )
 
     @classmethod
@@ -244,11 +279,11 @@ class TimeseriesObject(Quantity):
         return self.resample_to("15min")
 
     def resample_to(
-        self,
-        new_freq,
-        method=None,
-        agg="sum",
-        in_place=False,
+            self,
+            new_freq,
+            method=None,
+            agg="sum",
+            in_place=False,
     ) -> "TimeseriesObject":
         """Resample to new frequency.
 
@@ -382,7 +417,7 @@ class TimeseriesObject(Quantity):
         return result
 
     def add_dimension(
-        self, dim_name: str, coord_values: List[Any], axis: Optional[int] = None
+            self, dim_name: str, coord_values: List[Any], axis: Optional[int] = None
     ) -> "TimeseriesObject":
         """Add a new dimension.
 
@@ -419,15 +454,27 @@ class TimeseriesObject(Quantity):
         return self.data.attrs.get(key)
 
     def __getattr__(self, name):
-        """Delegate attribute access to DataArray.
+        """Delegate attribute access to the underlying DataArray when safe.
 
-        :param str name: Attribute name
-        :returns: Attribute value
-        :raises AttributeError: If attribute not found
+        Avoid recursion when `self.data` is another TimeseriesObject or is None,
+        and do not delegate for core attributes.
         """
-        data_attr = getattr(self.data, name, None)
+        # prevent delegation for core attributes
+        if name in ("data", "freq"):
+            raise AttributeError(f"'TimeseriesObject' object has no attribute '{name}'")
+
+        # get the underlying data without triggering __getattr__
+        data = object.__getattribute__(self, "data")
+
+        # if there's no underlying object or it's another TimeseriesObject, do not delegate
+        if data is None or isinstance(data, TimeseriesObject):
+            raise AttributeError(f"'TimeseriesObject' object has no attribute '{name}'")
+
+        # delegate to the underlying object when safe
+        data_attr = getattr(data, name, None)
         if data_attr is not None:
             return data_attr
+
         raise AttributeError(f"'TimeseriesObject' object has no attribute '{name}'")
 
     def empty(self) -> bool:
