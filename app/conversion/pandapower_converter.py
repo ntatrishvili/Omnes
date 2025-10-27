@@ -77,7 +77,7 @@ class PandapowerConverter(Converter):
         model: Model,
         time_set: Optional[Union[int, range]] = None,
         new_freq: Optional[str] = None,
-    ) -> tuple[pandapowerNet, Dict[str, Any]]:
+    ) -> pandapowerNet:
         """
         Convert the model to a pandapower network and extract model variables.
 
@@ -113,11 +113,11 @@ class PandapowerConverter(Converter):
         # Reset network state for new conversion
         self.net = pp.create_empty_network()
         self.bus_map = {}
+        self.net.profiles = {}
 
         # Convert all entities to model variables
-        model_variables = {}
         for entity in model.entities:
-            model_variables.update(
+            self.net.profiles.update(
                 entity.convert(effective_time_set, effective_freq, self)
             )
 
@@ -125,9 +125,9 @@ class PandapowerConverter(Converter):
         time_range = validate_and_normalize_time_set(
             effective_time_set, self.DEFAULT_TIME_SET_SIZE
         )
-        model_variables["time_set"] = time_range
+        self.net.time_set = time_range
 
-        return self.net, model_variables
+        return self.net
 
     def _convert_entity_default(
         self,
@@ -152,7 +152,7 @@ class PandapowerConverter(Converter):
         Dict[str, Any]
             Dictionary containing numpy arrays for the entity's quantities.
         """
-        entity_variables = {
+        entity_profiles = {
             f"{entity.id}.{key}": self.convert_quantity(
                 quantity,
                 name=f"{entity.id}.{key}",
@@ -163,9 +163,9 @@ class PandapowerConverter(Converter):
         }
 
         for sub_entity in entity.sub_entities:
-            entity_variables.update(self.convert_entity(sub_entity, time_set, new_freq))
+            entity_profiles.update(self.convert_entity(sub_entity, time_set, new_freq))
 
-        return entity_variables
+        return entity_profiles
 
     # Wrapper methods that create network elements AND extract quantities
     def _convert_bus_entity(
@@ -331,7 +331,7 @@ class PandapowerConverter(Converter):
             The load entity to convert
         """
         pp.create_load(
-            self.net, bus=self.bus_map[load.bus], p_mw=0.002, q_mvar=0, name=load.id
+            self.net, bus=self.bus_map[load.bus], p_mw=load["p_kw"]/1000., q_mvar=load["q_kw"]/1000., name=load.id
         )
 
     def convert_entity(
@@ -386,7 +386,7 @@ class PandapowerConverter(Converter):
         name: str,
         time_set: Optional[Union[int, range]] = None,
         freq: Optional[str] = None,
-    ) -> ndarray:
+    ) -> Optional[ndarray]:
         """
         Convert a quantity to a numpy array for pandapower simulation input.
 
@@ -411,11 +411,57 @@ class PandapowerConverter(Converter):
             Numpy array containing the quantity values over time, or NaN array if empty
         """
         if quantity.empty():
-            normalized_time_set = validate_and_normalize_time_set(
-                time_set, self.DEFAULT_TIME_SET_SIZE
-            )
-            return np.ones(len(normalized_time_set)) * np.nan
+            return None
         if isinstance(quantity, Parameter):
             return quantity.get_values()
         else:
             return quantity.get_values(time_set=time_set, freq=freq)
+
+    def convert_back(self, net: pandapowerNet, model: Model) -> None:
+        """
+        Convert results from a pandapower network back into the Model entities.
+
+        This method updates the model's entities with results from the pandapower
+        simulation, such as power flows and voltages.
+
+        Parameters
+        ----------
+        net : pandapowerNet
+            The pandapower network containing simulation results.
+        model : Model
+            The original model to update with results.
+        """
+        # Example: Update bus voltages in the model
+        # get bus voltages and line loadings and write back
+        bus_results = {}
+        for bus_id, bus_idx in self.bus_map.items():
+            vm_pu = (
+                float(self.net.res_bus.at[bus_idx, "vm_pu"])
+                if "vm_pu" in self.net.res_bus.columns
+                else None
+            )
+            bus_results[bus_id] = {"vm_pu": vm_pu}
+            # store back to Omnes bus object if you want
+            # to find the omnibus entity
+            for ent in self.model.entities:
+                if getattr(ent, "id", None) == bus_id:
+                    setattr(ent, "last_vm_pu", vm_pu)
+
+        line_results = {}
+        if hasattr(self.net, "res_line"):
+            for li_idx in self.net.line.index:
+                name = self.net.line.at[li_idx, "name"]
+                # loading_percent column is common after runpp
+                loading = (
+                    float(self.net.res_line.at[li_idx, "loading_percent"])
+                    if "loading_percent" in self.net.res_line.columns
+                    else None
+                )
+                line_results[name] = {"loading_percent": loading}
+                # save back to model line entity
+                for ent in self.model.entities:
+                    if getattr(ent, "id", None) == name:
+                        setattr(ent, "last_loading_percent", loading)
+
+        results = {"buses": bus_results, "lines": line_results, "net": self.net}
+        return results
