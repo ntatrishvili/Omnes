@@ -21,6 +21,8 @@ class Generator(Device):
         **kwargs
     ):
         super().__init__(id, ts_factory, **kwargs)
+        self.create_quantity("p_out", **kwargs)
+        self.create_quantity("q_out", **kwargs)
         self.quantities.update(
             {
                 "peak_power": Parameter(

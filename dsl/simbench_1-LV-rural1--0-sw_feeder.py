@@ -8,8 +8,10 @@ from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
 from app.model.grid_component.bus import Bus, BusType
 from app.model.grid_component.line import Line
+from app.model.grid_component.transformer import Transformer
 from app.model.load.load import Load
 from app.model.model import Model
+from app.model.slack import Slack
 from app.operation.example_simulation import simulate_energy_system
 from utils.logging_setup import get_logger, init_logging
 
@@ -44,9 +46,29 @@ def build_model_from_simbench():
         print("No RES.csv found – skipping renewable generation.")
         load_units = pd.DataFrame()
 
+    # Try loading Transformers
+    try:
+        transformer_units = pd.read_csv(join(root, "Transformer.csv"), sep=";")
+    except FileNotFoundError:
+        transformer_units = pd.DataFrame()
+
     # -----------------------------
     # STEP B: CONVERT TO OMNES OBJECTS
     # -----------------------------
+    # Slacks
+    slacks = []
+    for _, row in slack_units.iterrows():
+        slacks.append(
+            Slack(
+                id=row["id"],
+                bus=row["node"],
+                # voltage=row["voltLvl"],
+            )
+        )
+
+    slack_nodes = slack_units["node"].tolist()
+
+    # Buses
     Bus.default_nominal_voltage = 400
     Bus.default_phase = "A"
     # Symmetric network
@@ -57,7 +79,7 @@ def build_model_from_simbench():
         bus = Bus(
             id=row["id"],
             nominal_voltage=float(row.get("vNom", 0.4)) * 1000,
-            type=BusType.PQ,
+            type=BusType.PQ if row["id"] not in slack_nodes else BusType.SLACK,
         )
         buses.append(bus)
 
@@ -78,12 +100,11 @@ def build_model_from_simbench():
             line_length=float(row.get("d", 100)),
             resistance=r_per_km,
             reactance=x_per_km,
-            max_current=float(row.get("loading_max", 100))
+            max_current=float(row.get("loading_max", 100)),
         )
         lines_omnes.append(line)
 
     # Lines
-    switches_omnes = []
     for _, row in switches.iterrows():
         switch = Line(
             id=row["id"],
@@ -92,20 +113,9 @@ def build_model_from_simbench():
             line_length=0,
             resistance=0,
             reactance=0,
+            type=row["type"],
         )
         lines_omnes.append(switch)
-
-    # Slacks
-    slacks = []
-    for _, row in slack_units.iterrows():
-        slacks.append(
-            Bus(
-                id=row["id"],
-                bus=row["node"],
-                type=BusType.SLACK,
-                voltage=row["voltLvl"],
-            )
-        )
 
     # -----------------------------
     # Parse RES: PVs and Wind Turbines
@@ -123,7 +133,7 @@ def build_model_from_simbench():
                         id=row["id"],
                         bus=node,
                         peak_power=p_peak_kw / 1000,  # convert to kW for Omnes
-                        input={
+                        p_out={
                             "input_path": join(root, "RESProfile.csv"),
                             "col": row["profile"],
                             **datetime_properties,
@@ -139,7 +149,7 @@ def build_model_from_simbench():
                         bus=node,
                         peak_power=p_peak_kw / 1000,
                         efficiency=0.95,
-                        input={
+                        p_out={
                             "input_path": join(root, "RESProfile.csv"),
                             "col": row["profile"],
                             **datetime_properties,
@@ -183,6 +193,42 @@ def build_model_from_simbench():
                 )
 
     # -----------------------------
+    # Transformers
+    # -----------------------------
+    transformers = []
+    if not transformer_units.empty:
+        for _, row in transformer_units.iterrows():
+            # Read fields with safe defaults
+            tappos = row.get("tappos", 0)
+            try:
+                tappos = int(tappos) if pd.notna(tappos) else 0
+            except Exception:
+                tappos = 0
+            auto_tap = False
+            at = row.get("autoTap", 0)
+            try:
+                auto_tap = bool(int(at)) if pd.notna(at) else False
+            except Exception:
+                auto_tap = False
+
+            transformers.append(
+                Transformer(
+                    id=row["id"],
+                    hv_bus=row.get("nodeHV"),
+                    lv_bus=row.get("nodeLV"),
+                    type=row.get("type"),
+                    tappos=tappos,
+                    auto_tap=auto_tap,
+                    auto_tap_side=row.get("autoTapSide"),
+                    loading_max=row.get("loadingMax"),
+                    substation=row.get("substation"),
+                    subnet=row.get("subnet"),
+                    volt_lvl=row.get("voltLvl"),
+                    tags={"source": "simbench"},
+                )
+            )
+
+    # -----------------------------
     # Build model
     # -----------------------------
     model = Model(
@@ -190,7 +236,7 @@ def build_model_from_simbench():
         time_start="2016-01-01 00:00",
         time_end="2017-01-01 00:00",
         resolution="1h",
-        entities=buses + lines_omnes + slacks + pvs + winds + loads,
+        entities=buses + lines_omnes + slacks + pvs + winds + loads + transformers,
     )
     return model
 

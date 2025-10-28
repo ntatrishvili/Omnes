@@ -12,9 +12,10 @@ Notes
 - Time series values are expected in kW and are converted to MW where needed.
 """
 
-from typing import Optional, Union, Dict, Any
+import logging
+from typing import Optional, Union
+import re
 
-import numpy as np
 import pandapower as pp
 from numpy import ndarray
 from pandapower import pandapowerNet
@@ -36,6 +37,10 @@ from app.model.load.load import Load
 from app.model.model import Model
 from app.model.slack import Slack
 from app.model.storage.battery import Battery
+from app.model.grid_component.transformer import Transformer
+from utils.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 
 class PandapowerConverter(Converter):
@@ -57,19 +62,21 @@ class PandapowerConverter(Converter):
         Mapping from Omnes bus id to pandapower bus index.
     """
 
-    DEFAULT_TIME_SET_SIZE = 10
-
     def __init__(self):
         super().__init__()
         self.model = None
-        self.net = pp.create_empty_network()
-        self.net.profiles = {
+        self.net = self.create_empty_net()
+        self.bus_map = {}
+
+    def create_empty_net(self):
+        net = pp.create_empty_network()
+        net.profiles = {
             "load": DataFrame(),
             "renewables": DataFrame(),
             "storage": DataFrame(),
             "powerplants": DataFrame(),
         }
-        self.bus_map = {}
+        return net
 
     def _register_converters(self):
         """
@@ -94,6 +101,8 @@ class PandapowerConverter(Converter):
         self._entity_converters[Wind] = self._convert_wind_entity
         self._entity_converters[Battery] = self._convert_battery_entity
         self._entity_converters[Load] = self._convert_load_entity
+        # Transformer converter
+        self._entity_converters[Transformer] = self._convert_transformer_entity
 
     def convert_model(
         self,
@@ -126,12 +135,12 @@ class PandapowerConverter(Converter):
         )
 
         # Reset network state for new conversion
-        self.net = pp.create_empty_network()
+        self.net = self.create_empty_net()
         self.bus_map = {}
-        self.net.profiles = {}
 
         # Convert all entities to model variables
         for entity in model.entities:
+            logger.info(f"Converting entity '{entity.id}'")
             entity.convert(effective_time_set, effective_freq, self)
 
         # Add time set information
@@ -253,6 +262,20 @@ class PandapowerConverter(Converter):
             load, time_set, new_freq, entity_type="load", idx=idx
         )
 
+    def _convert_transformer_entity(
+        self, trafo: Transformer, time_set=None, new_freq=None
+    ):
+        """Create a pandapower transformer (trafo) and extract quantities (if any)."""
+        idx = self._convert_transformer(trafo)
+        # Use 'trafo' as the pandapower table name
+        self._convert_entity_default(
+            trafo,
+            time_set,
+            new_freq,
+            entity_type="trafo",
+            idx=idx,
+        )
+
     def _convert_bus(self, bus: Bus) -> int:
         """
         Create a pandapower bus from a Bus entity.
@@ -267,7 +290,9 @@ class PandapowerConverter(Converter):
         int
             Index of the created pandapower bus.
         """
-        b = pp.create_bus(self.net, vn_kv=bus.nominal_voltage.value / 1000.0, name=bus.id)
+        b = pp.create_bus(
+            self.net, vn_kv=bus.nominal_voltage.value / 1000.0, name=bus.id
+        )
         self.bus_map[bus.id] = b
         return b
 
@@ -294,6 +319,7 @@ class PandapowerConverter(Converter):
                 bus=self.bus_map[line.from_bus],
                 element=self.bus_map[line.to_bus],
                 et="b",
+                type="CB",
             )
             kind = "switch"
         else:
@@ -418,6 +444,82 @@ class PandapowerConverter(Converter):
             name=load.id,
         )
 
+    def _convert_transformer(self, trafo: Transformer) -> int:
+        """
+        Create a pandapower transformer from a Transformer entity.
+
+        Attempt to parse SN (MVA) and HV/LV kV from trafo.type string when present.
+        Provide reasonable defaults if parsing fails.
+        """
+        # Defaults
+        sn_mva = 0.16  # default from example
+        vn_hv_kv = 20.0
+        vn_lv_kv = 0.4
+        # Try to parse e.g. "0.16 MVA 20/0.4 kV" patterns
+        if isinstance(trafo.type, str):
+            # parse leading SN value
+            m_sn = re.search(r"(\d+(\.\d+)?)\s*MVA", trafo.type, flags=re.IGNORECASE)
+            if m_sn:
+                try:
+                    sn_mva = float(m_sn.group(1))
+                except Exception:
+                    pass
+            # parse hv/lv kV values like "20/0.4 kV"
+            m_kv = re.search(
+                r"(\d+(\.\d+)?)\s*/\s*(\d+(\.\d+)?)\s*kV",
+                trafo.type,
+                flags=re.IGNORECASE,
+            )
+            if m_kv:
+                try:
+                    vn_hv_kv = float(m_kv.group(1))
+                    vn_lv_kv = float(m_kv.group(3))
+                except Exception:
+                    pass
+
+        # fallback: if loading_max provided, consider it as kW and convert to MVA-ish guess (not strict)
+        if getattr(trafo, "loading_max", None) and (not sn_mva):
+            try:
+                sn_mva = float(trafo.loading_max) / 1000.0
+            except Exception:
+                pass
+
+        # Tap position and side
+        tp_pos = int(getattr(trafo, "tappos", 0) or 0)
+        tp_side = getattr(trafo, "auto_tap_side", None)
+        tp_side = "hv" if str(tp_side or "").lower() == "hv" else "lv"
+
+        # Create transformer in pandapower using parameter-based creation
+        # Use moderate default short-circuit impedance values
+        vsc_percent = 6.0
+        vscr_percent = 0.3
+        try:
+            trafo_idx = pp.create_transformer_from_parameters(
+                self.net,
+                hv_bus=self.bus_map[trafo.hv_bus],
+                lv_bus=self.bus_map[trafo.lv_bus],
+                sn_mva=sn_mva,
+                vn_hv_kv=vn_hv_kv,
+                vn_lv_kv=vn_lv_kv,
+                vsc_percent=vsc_percent,
+                vscr_percent=vscr_percent,
+                pfe_kw=0.0,
+                i0_percent=0.0,
+                tp_pos=tp_pos,
+                tp_side=tp_side,
+                name=trafo.id,
+            )
+        except Exception:
+            # If parameter-based creation fails, try the simpler create_transformer (std_type may not exist)
+            trafo_idx = pp.create_transformer(
+                self.net,
+                hv_bus=self.bus_map[trafo.hv_bus],
+                lv_bus=self.bus_map[trafo.lv_bus],
+                std_type=None,
+                name=trafo.id,
+            )
+        return trafo_idx
+
     def convert_quantity(
         self,
         quantity: Quantity,
@@ -456,7 +558,7 @@ class PandapowerConverter(Converter):
         else:
             return quantity.value(time_set=time_set, freq=freq)
 
-    def convert_back(self, net: pandapowerNet, model: Model) -> None:
+    def convert_back(self, model: Model) -> None:
         """
         Map simulation results from a pandapower network back onto model entities.
 

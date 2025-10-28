@@ -15,12 +15,10 @@ class PV(Generator):
         **kwargs: object,
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
-        self.create_quantity("p_pv", **kwargs)
-        self.create_quantity("q_pv", **kwargs)
 
     def __str__(self):
         """
         String representation of the PV entity.
         """
-        production_sum = self.p_pv.sum() if not self.p_pv.empty else 0
+        production_sum = self.p_out.sum() if not self.p_out.empty else 0
         return f"PV '{self.id}' with production sum = {production_sum}"

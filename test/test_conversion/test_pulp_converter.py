@@ -46,25 +46,25 @@ class TestPulpConverter(unittest.TestCase):
         """Test converting parameter quantity"""
         mock_parameter = Mock(spec=Parameter)
         mock_parameter.empty.return_value = False
-        mock_parameter.get_values.return_value = 42
+        mock_parameter.value.return_value = 42
 
         result = self.converter.convert_quantity(mock_parameter, "test_name")
 
         self.assertEqual(result, 42)
-        mock_parameter.get_values.assert_called_once()
+        mock_parameter.value.assert_called_once()
 
     def test_convert_quantity_regular(self):
         """Test converting regular quantity"""
         mock_quantity = Mock(spec=Quantity)
         mock_quantity.empty.return_value = False
-        mock_quantity.get_values.return_value = [1, 2, 3, 4, 5]
+        mock_quantity.value.return_value = [1, 2, 3, 4, 5]
 
         result = self.converter.convert_quantity(
             mock_quantity, "test_name", time_set=5, freq="1H"
         )
 
         self.assertEqual(result, [1, 2, 3, 4, 5])
-        mock_quantity.get_values.assert_called_once_with(time_set=5, freq="1H")
+        mock_quantity.value.assert_called_once_with(time_set=5, freq="1H")
 
 
 class TestDynamicConstraintBuilding(unittest.TestCase):
@@ -521,7 +521,7 @@ class TestComprehensiveCoverage(unittest.TestCase):
 
                 from app.infra.util import TimeSet
 
-                dates = pd.date_range(start="2023-01-01", periods=5, freq="1H")
+                dates = pd.date_range(start="2023-01-01", periods=5, freq="1h")
                 return TimeSet(
                     start="2023-01-01",
                     end="2023-01-01 04:00:00",
@@ -677,7 +677,8 @@ class TestComprehensiveCoverage(unittest.TestCase):
 
         time_steps = 3
         battery_power = [pulp.LpVariable(f"battery_{t}") for t in range(time_steps)]
-        objects = {"battery.power": battery_power}
+        self.converter = PulpConverter()
+        self.converter.__objects = {"battery.power": battery_power}
 
         # Assignment: battery.power(t) = 42
         expr = AssignmentExpression(EntityReference("battery.power"), Literal(42))

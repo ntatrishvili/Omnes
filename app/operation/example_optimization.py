@@ -19,7 +19,7 @@ def plot_energy_flows(kwargs, time_range_to_plot=None):
         time_range_to_plot = range(nT)
 
     # Identify all components automatically
-    pv_names = {k.split(".")[0] for k in kwargs if k.startswith("pv") and ".p_pv" in k}
+    pv_names = {k.split(".")[0] for k in kwargs if k.startswith("pv") and ".p_out" in k}
     load_names = {
         k.split(".")[0] for k in kwargs if k.startswith("load") and ".p_cons" in k
     }
@@ -27,13 +27,13 @@ def plot_energy_flows(kwargs, time_range_to_plot=None):
         k.split(".")[0] for k in kwargs if k.startswith("battery") and ".p_bess_in" in k
     }
     slack_names = {
-        k.split(".")[0] for k in kwargs if k.startswith("slack") and ".p_slack_in" in k
+        k.split(".")[0] for k in kwargs if k.startswith("slack") and ".p_in" in k
     }
 
     # --- Extract and sum all variables ---
     # PV production
     pv_profiles = {
-        pv: np.array([pulp.value(kwargs[f"{pv}.p_pv"][t]) for t in time_set])
+        pv: np.array([pulp.value(kwargs[f"{pv}.p_out"][t]) for t in time_set])
         for pv in pv_names
     }
     pv_sum = sum(pv_profiles.values())
@@ -66,14 +66,14 @@ def plot_energy_flows(kwargs, time_range_to_plot=None):
     # Slack (import/export)
     slack_in_sum = np.sum(
         [
-            np.array([pulp.value(kwargs[f"{s}.p_slack_in"][t]) for t in time_set])
+            np.array([pulp.value(kwargs[f"{s}.p_in"][t]) for t in time_set])
             for s in slack_names
         ],
         axis=0,
     )
     slack_out_sum = np.sum(
         [
-            np.array([pulp.value(kwargs[f"{s}.p_slack_out"][t]) for t in time_set])
+            np.array([pulp.value(kwargs[f"{s}.p_out"][t]) for t in time_set])
             for s in slack_names
         ],
         axis=0,
@@ -189,7 +189,7 @@ def optimize_energy_system(**kwargs):
     time_set = kwargs["time_set"]
 
     # Automatically detect all components
-    pv_names = {k.split(".")[0] for k in kwargs if k.startswith("pv") and ".p_pv" in k}
+    pv_names = {k.split(".")[0] for k in kwargs if k.startswith("pv") and ".p_out" in k}
     load_names = {
         k.split(".")[0] for k in kwargs if k.startswith("load") and ".p_cons" in k
     }
@@ -197,19 +197,19 @@ def optimize_energy_system(**kwargs):
         k.split(".")[0] for k in kwargs if k.startswith("battery") and ".p_bess_in" in k
     }
     slack_names = {
-        k.split(".")[0] for k in kwargs if k.startswith("slack") and ".p_slack_in" in k
+        k.split(".")[0] for k in kwargs if k.startswith("slack") and ".p_in" in k
     }
 
     prob = pulp.LpProblem("CSCopt", pulp.LpMinimize)
 
     # Global energy balance
     for t in time_set:
-        total_pv = np.sum(kwargs[f"{pv}.p_pv"][t] for pv in pv_names)
+        total_pv = np.sum(kwargs[f"{pv}.p_out"][t] for pv in pv_names)
         total_load = np.sum(kwargs[f"{load}.p_cons"][t] for load in load_names)
         total_bess_in = pulp.lpSum(kwargs[f"{b}.p_bess_in"][t] for b in bess_names)
         total_bess_out = pulp.lpSum(kwargs[f"{b}.p_bess_out"][t] for b in bess_names)
-        total_slack_in = pulp.lpSum(kwargs[f"{s}.p_slack_in"][t] for s in slack_names)
-        total_slack_out = pulp.lpSum(kwargs[f"{s}.p_slack_out"][t] for s in slack_names)
+        total_slack_in = pulp.lpSum(kwargs[f"{s}.p_in"][t] for s in slack_names)
+        total_slack_out = pulp.lpSum(kwargs[f"{s}.p_out"][t] for s in slack_names)
 
         # Energy balance constraint
         # We need to know which one is in and which one is out
@@ -240,7 +240,7 @@ def optimize_energy_system(**kwargs):
 
     # Objective: minimize total exchange with the grid
     prob += pulp.lpSum(
-        kwargs[f"{s}.p_slack_in"][t] + kwargs[f"{s}.p_slack_out"][t]
+        kwargs[f"{s}.p_in"][t] + kwargs[f"{s}.p_out"][t]
         for s in slack_names
         for t in time_set
     )

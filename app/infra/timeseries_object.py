@@ -54,6 +54,8 @@ class TimeseriesObject(Quantity):
         """
         super().__init__(**kwargs)
 
+        self.freq = None
+
         params = self._extract_init_parameters(kwargs)
 
         self.data = self._initialize_data_array(params)

@@ -55,8 +55,9 @@ class PulpConverter(Converter):
     >>> constraints = model_vars['battery.soc_constraint']
     """
 
-    # Default time set size when none is provided
-    DEFAULT_TIME_SET_SIZE = 10
+    def __init__(self):
+        super().__init__()
+        self.__objects: Dict[str, Any] = {}
 
     def _register_converters(self):
         """

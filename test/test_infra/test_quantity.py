@@ -14,7 +14,7 @@ class TestParameter(unittest.TestCase):
 
     def test_parameter_get_values(self):
         param = Parameter(value=100)
-        self.assertEqual(param.value(), 100)
+        self.assertEqual(param.value, 100)
 
     def test_parameter_empty(self):
         self.assertTrue(Parameter().empty())

@@ -20,21 +20,20 @@ def set_timestep_values(net: pp.pandapowerNet, timestep_idx: int):
 
     # loads
     for idx, row in net.load.iterrows():
-        load_name = f"load_{row['id']}"
+        load_name = f"{row['name']}"
         net.load.at[idx, "p_mw"] = (
-            net.profiles["load"][f"{load_name}.p_cons"][timestep_idx] / 1000.0
+            net.profiles["load"][f"{load_name}_p_cons"][timestep_idx] / 1000.0
         )
         net.load.at[idx, "q_mvar"] = (
-            net.profiles["load"][f"{load_name}.q_cons"] / 1000.0
+            net.profiles["load"][f"{load_name}_q_cons"][timestep_idx] / 1000.0
         )
 
     # sgens (pv, wind, battery)
     for idx, row in net.sgen.iterrows():
-        pv_name = f"pv_{row['id']}"
-        net.load.at[idx, "p_mw"] = (
-            net.profiles["renewables"][f"{pv_name}.p_cons"][timestep_idx] / 1000.0
+        pv_name = f"{row['name']}"
+        net.sgen.at[idx, "p_mw"] = (
+            -net.profiles["renewables"][f"{pv_name}_p_out"][timestep_idx] / 1000.0
         )
-        net.sgen.at[idx, "p_mw"] = -net.profiles["renewables"][f"{pv_name}.p"] / 1000.0
 
 
 def simulate_energy_system(net):
@@ -42,5 +41,6 @@ def simulate_energy_system(net):
     for t in time_set:
         set_timestep_values(net, t)
 
+        diagnose_unsupplied(net)
         # run power flow
         pp.runpp(net)
