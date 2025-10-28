@@ -99,10 +99,13 @@ class TimeseriesObject(Quantity):
         elif isinstance(params["data"], pd.DataFrame):
             return self._dataframe_to_xarray(params["data"], params["attrs"])
         elif params["input_path"] is not None and params["col"] is not None:
-            df_data = self._read_csv_to_dataframe(params["input_path"], params["col"],
-                                                  datatime_column=params.get("datetime_column", None),
-                                                  datetime_format=params.get("datetime_format", None),
-                                                  tz=params.get("tz", None))
+            df_data = self._read_csv_to_dataframe(
+                params["input_path"],
+                params["col"],
+                datatime_column=params.get("datetime_column", None),
+                datetime_format=params.get("datetime_format", None),
+                tz=params.get("tz", None),
+            )
             return self._dataframe_to_xarray(df_data, params["attrs"])
         else:
             return xr.DataArray(data=[], dims=["timestamp"], attrs=params["attrs"])
@@ -134,9 +137,9 @@ class TimeseriesObject(Quantity):
         return self.normalize_freq(freq)
 
     def _dataframe_to_xarray(
-            self,
-            df: pd.DataFrame,
-            attrs: Optional[Dict[str, Any]] = None,
+        self,
+        df: pd.DataFrame,
+        attrs: Optional[Dict[str, Any]] = None,
     ) -> xr.DataArray:
         """Convert DataFrame to DataArray.
 
@@ -168,11 +171,11 @@ class TimeseriesObject(Quantity):
 
     @staticmethod
     def _read_csv_to_dataframe(
-            input_path: str,
-            col: str,
-            datatime_column: Optional[str] = None,
-            datetime_format: Optional[str] = None,
-            tz: Optional[str] = None,
+        input_path: str,
+        col: str,
+        datatime_column: Optional[str] = None,
+        datetime_format: Optional[str] = None,
+        tz: Optional[str] = None,
     ) -> pd.DataFrame:
         """Read CSV and return DataFrame with specified column and parsed timestamp index.
 
@@ -194,36 +197,49 @@ class TimeseriesObject(Quantity):
             raise ValueError(f"The file '{input_path}' is empty or invalid.")
 
         if col not in input_df.columns:
-            raise KeyError(f"The column '{col}' is not found in the file {input_path}'. {input_df}")
+            raise KeyError(
+                f"The column '{col}' is not found in the file {input_path}'. {input_df}"
+            )
 
         # If a specific time column was provided
         if datatime_column is not None:
             if datatime_column not in input_df.columns:
                 raise KeyError(
-                    f"The time column '{datatime_column}' is not found in the file {input_path}. Columns: {list(input_df.columns)}")
+                    f"The time column '{datatime_column}' is not found in the file {input_path}. Columns: {list(input_df.columns)}"
+                )
             # Try parsing using provided format first (if any), then fallback to automatic parsing
-            input_df = TimeseriesObject.__parse_time_col(input_df, datatime_column, datetime_format=datetime_format)
+            input_df = TimeseriesObject.__parse_time_col(
+                input_df, datatime_column, datetime_format=datetime_format
+            )
         else:
             found_col = False
             # Auto-detect a datetime-like column (choose the first column where parsing yields many non-nulls)
             for c in input_df.columns:
                 if "time" not in c.lower() and "date" not in c.lower():
                     continue
-                input_df = TimeseriesObject.__parse_time_col(input_df, c, datetime_format=datetime_format)
+                input_df = TimeseriesObject.__parse_time_col(
+                    input_df, c, datetime_format=datetime_format
+                )
                 found_col = True
                 break
             if not found_col:
-                raise ValueError(f"No datetime-like column could be auto-detected in the file '{input_path}'.")
+                raise ValueError(
+                    f"No datetime-like column could be auto-detected in the file '{input_path}'."
+                )
         # Localize timezone if specified
         if tz is not None:
-            input_df.index = input_df.index.tz_localize(tz, ambiguous='infer')
+            input_df.index = input_df.index.tz_localize(tz, ambiguous="infer")
         return input_df[[col]]
 
     @staticmethod
     def __parse_time_col(input_df, time_col, datetime_format=None):
-        input_df[time_col] = pd.to_datetime(input_df[time_col], format=datetime_format, errors="coerce")
+        input_df[time_col] = pd.to_datetime(
+            input_df[time_col], format=datetime_format, errors="coerce"
+        )
         if input_df[time_col].isna().all():
-            raise ValueError(f"Could not parse datetime values from column '{time_col}'.")
+            raise ValueError(
+                f"Could not parse datetime values from column '{time_col}'."
+            )
         input_df = input_df.rename(columns={time_col: "timestamp"})
         input_df.set_index("timestamp", inplace=True, drop=True)
         input_df.index = pd.to_datetime(input_df.index)
@@ -231,10 +247,10 @@ class TimeseriesObject(Quantity):
 
     @staticmethod
     def read(
-            input_path: str,
-            col: str,
-            time_col: Optional[str] = "timestamp",
-            datetime_format: Optional[str] = None,
+        input_path: str,
+        col: str,
+        time_col: Optional[str] = "timestamp",
+        datetime_format: Optional[str] = None,
     ) -> "TimeseriesObject":
         """Read CSV and return TimeseriesObject.
 
@@ -245,8 +261,12 @@ class TimeseriesObject(Quantity):
         :returns TimeseriesObject: TimeseriesObject with column and timestamp index
         """
         return TimeseriesObject(
-            data=TimeseriesObject._read_csv_to_dataframe(input_path, col, datatime_column=time_col,
-                                                         datetime_format=datetime_format)
+            data=TimeseriesObject._read_csv_to_dataframe(
+                input_path,
+                col,
+                datatime_column=time_col,
+                datetime_format=datetime_format,
+            )
         )
 
     @classmethod
@@ -285,11 +305,11 @@ class TimeseriesObject(Quantity):
         return self.resample_to("15min")
 
     def resample_to(
-            self,
-            new_freq,
-            method=None,
-            agg="sum",
-            in_place=False,
+        self,
+        new_freq,
+        method=None,
+        agg="sum",
+        in_place=False,
     ) -> "TimeseriesObject":
         """Resample to new frequency.
 
@@ -379,7 +399,7 @@ class TimeseriesObject(Quantity):
         """
         return self.data.values.flatten()
 
-    def get_values(self, **kwargs):
+    def value(self, **kwargs):
         """Get values with optional resampling and slicing.
 
         :param str freq: Frequency to resample to (optional)
@@ -423,7 +443,7 @@ class TimeseriesObject(Quantity):
         return result
 
     def add_dimension(
-            self, dim_name: str, coord_values: List[Any], axis: Optional[int] = None
+        self, dim_name: str, coord_values: List[Any], axis: Optional[int] = None
     ) -> "TimeseriesObject":
         """Add a new dimension.
 

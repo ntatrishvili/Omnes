@@ -71,6 +71,7 @@ class PulpConverter(Converter):
         entity: Entity,
         time_set: Optional[Union[int, range]] = None,
         new_freq: Optional[str] = None,
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Convert an Entity and its sub-entities into a flat dictionary of pulp variables.
@@ -209,9 +210,9 @@ class PulpConverter(Converter):
             )
             return create_empty_pulp_var(name, len(normalized_time_set))
         if isinstance(quantity, Parameter):
-            return quantity.get_values()
+            return quantity.value()
         else:
-            return quantity.get_values(time_set=time_set, freq=freq)
+            return quantity.value(time_set=time_set, freq=freq)
 
     def convert_relation(
         self,

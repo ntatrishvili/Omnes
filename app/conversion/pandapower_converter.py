@@ -1,17 +1,15 @@
 """
-app/conversion/pandapower_converter.py
+App conversion module: pandapower_converter
 
-A converter that maps a minimal Omnes Model to a pandapowerNet.
+Provides a converter that maps a minimal Omnes Model to a pandapower network
+(pandapowerNet). The converter models a balanced (single-phase equivalent)
+network and extracts time series profiles for use with pandapower simulations.
 
-Limitations & notes:
- - This converter currently models everything as *balanced* (single-phase equivalent).
-   For full three-phase / unbalanced studies you should use pandapower's three-phase
-   extension (or pandapower 3-phase API) and extend this converter to handle per-phase
-   injections and line geometries.
- - Batteries and flexible devices are modeled as sgen/load elements whose p_mw are set
-   externally each timestep. If you want integrated control inside pandapower, implement
-   controllers (e.g. using pandapower's controller framework).
- - We assume device time series provide values in kW. Conversion to MW is handled here.
+Notes
+- Balanced single-phase equivalent is used. Extend for three-phase/unbalanced use.
+- Batteries and flexible devices are modeled as sgen/load elements whose p_mw
+  are provided externally for each timestep.
+- Time series values are expected in kW and are converted to MW where needed.
 """
 
 from typing import Optional, Union, Dict, Any
@@ -20,6 +18,7 @@ import numpy as np
 import pandapower as pp
 from numpy import ndarray
 from pandapower import pandapowerNet
+from pandas import DataFrame
 
 from app.conversion.converter import Converter
 from app.conversion.validation_utils import (
@@ -27,6 +26,7 @@ from app.conversion.validation_utils import (
     extract_effective_time_properties,
 )
 from app.infra.quantity import Parameter, Quantity
+from app.infra.timeseries_object import TimeseriesObject
 from app.model.entity import Entity
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
@@ -40,7 +40,21 @@ from app.model.storage.battery import Battery
 
 class PandapowerConverter(Converter):
     """
-    Converts a Model class object into a pandapower network and model variables.
+    Convert an Omnes Model into a pandapower network and associated time series.
+
+    The converter constructs pandapower network elements (buses, lines, sgens,
+    loads, ext_grids, switches) and collects time series data into the network's
+    'profiles' attribute. Time series are converted to numpy arrays for use in
+    simulations.
+
+    Attributes
+    ----------
+    DEFAULT_TIME_SET_SIZE : int
+        Default fallback size for time sets when needed.
+    net : pandapowerNet
+        The pandapower network being constructed.
+    bus_map : dict
+        Mapping from Omnes bus id to pandapower bus index.
     """
 
     DEFAULT_TIME_SET_SIZE = 10
@@ -49,11 +63,20 @@ class PandapowerConverter(Converter):
         super().__init__()
         self.model = None
         self.net = pp.create_empty_network()
+        self.net.profiles = {
+            "load": DataFrame(),
+            "renewables": DataFrame(),
+            "storage": DataFrame(),
+            "powerplants": DataFrame(),
+        }
         self.bus_map = {}
 
     def _register_converters(self):
         """
-        Register specialized converters for network elements.
+        Register entity-type -> converter method mappings.
+
+        This initializes the internal mapping that assigns a conversion method
+        to each special entity class handled by this converter.
         """
         from app.model.grid_component.bus import Bus
         from app.model.grid_component.line import Line
@@ -79,31 +102,23 @@ class PandapowerConverter(Converter):
         new_freq: Optional[str] = None,
     ) -> pandapowerNet:
         """
-        Convert the model to a pandapower network and extract model variables.
-
-        Converts the model's entities into a pandapower network structure (buses, lines,
-        generators, loads, etc.) and extracts their quantities as numpy arrays for time
-        series simulation. Handles resampling of time series data to the specified
-        frequency and time set.
+        Convert a Model into a pandapower network and collect profiles.
 
         Parameters
         ----------
-        model : Model
-            The model to convert.
-        time_set : Optional[Union[int, range]], optional
-            The number of time steps to include in the output arrays.
-            If None, uses model.number_of_time_steps.
-        new_freq : Optional[str], optional
-            The target frequency to resample time series data to (e.g., '15min', '1H').
-            If None, uses model.frequency.
+        model
+            The Omnes Model to convert.
+        time_set
+            Optional time set specification (int or range). If None the model's
+            defaults are used.
+        new_freq
+            Optional target frequency for resampling time series (e.g., '15min').
 
         Returns
         -------
-        tuple[pandapower.Net, Dict[str, Any]]
-            A tuple containing:
-            - The pandapower network object with all elements created
-            - Dictionary containing time series data as numpy arrays and time set information.
-              Includes a 'time_set' key with the range of time steps.
+        pandapowerNet
+            The constructed pandapower network with 'profiles' and 'time_set'
+            attributes populated.
         """
         # Use model defaults if not specified
         effective_freq, effective_time_set = extract_effective_time_properties(
@@ -117,9 +132,7 @@ class PandapowerConverter(Converter):
 
         # Convert all entities to model variables
         for entity in model.entities:
-            self.net.profiles.update(
-                entity.convert(effective_time_set, effective_freq, self)
-            )
+            entity.convert(effective_time_set, effective_freq, self)
 
         # Add time set information
         time_range = validate_and_normalize_time_set(
@@ -134,251 +147,276 @@ class PandapowerConverter(Converter):
         entity: Entity,
         time_set: Optional[Union[int, range]] = None,
         new_freq: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        **kwargs,
+    ):
         """
-        Default entity conversion - just extract quantities without creating network elements.
+        Default conversion routine for an entity's quantities.
+
+        Extracts parameters and time series quantities from an entity and stores
+        them into the appropriate pandapower tables (e.g., net.bus, net.load)
+        or into net.profiles.
 
         Parameters
         ----------
-        entity : Entity
-            The entity to convert.
-        time_set : Optional[Union[int, range]], optional
-            The number of time steps to represent in the resulting arrays.
-        new_freq : Optional[str], optional
-            The target frequency to resample time series data to.
+        entity
+            The entity to process.
+        time_set
+            Optional time-step specification forwarded to quantity conversion.
+        new_freq
+            Optional frequency forwarded to quantity conversion.
+        kwargs
+            Internal options: 'entity_type', 'idx', and 'profile_type'.
+        """
+        entity_type = kwargs.pop("entity_type")
+        idx = kwargs.pop("idx", 0)
+        profile_type = kwargs.pop("profile_type", entity_type)
+        for key, quantity in entity.quantities.items():
+            converted_value = self.convert_quantity(
+                quantity, name=f"{entity.id}_{key}", time_set=time_set, freq=new_freq
+            )
+            if converted_value is None:
+                continue
+            elif isinstance(quantity, Parameter):
+                self.net[entity_type].loc[idx, key] = converted_value
+            elif isinstance(quantity, TimeseriesObject):
+                self.net.profiles[profile_type].loc[
+                    :, f"{entity.id}_{key}"
+                ] = converted_value
+
+    # Wrapper methods that create network elements AND extract quantities
+    def _convert_bus_entity(self, bus: Bus, time_set=None, new_freq=None):
+        """Create a pandapower bus for the given Bus entity and extract quantities."""
+        idx = self._convert_bus(bus)
+        self._convert_entity_default(
+            bus, time_set, new_freq, entity_type="bus", idx=idx
+        )
+
+    def _convert_line_entity(self, line: Line, time_set=None, new_freq=None):
+        """Create a pandapower line or switch for the given Line entity and extract quantities."""
+        idx, kind = self._convert_line(line)
+        self._convert_entity_default(
+            line, time_set, new_freq, entity_type=kind, idx=idx
+        )
+
+    def _convert_slack_entity(self, slack: Slack, time_set=None, new_freq=None):
+        """Create an external grid (slack) element and extract quantities."""
+        idx = self._convert_slack(slack)
+        self._convert_entity_default(
+            slack,
+            time_set,
+            new_freq,
+            entity_type="ext_grid",
+            idx=idx,
+            profile_type="powerplants",
+        )
+
+    def _convert_pv_entity(self, pv: PV, time_set=None, new_freq=None):
+        """Create a PV static generator element and extract quantities."""
+        idx = self._convert_pv(pv)
+        self._convert_entity_default(
+            pv,
+            time_set,
+            new_freq,
+            entity_type="sgen",
+            idx=idx,
+            profile_type="renewables",
+        )
+
+    def _convert_wind_entity(self, wind: Wind, time_set=None, new_freq=None):
+        """Create a wind static generator element and extract quantities."""
+        idx = self._convert_wind(wind)
+        self._convert_entity_default(
+            wind,
+            time_set,
+            new_freq,
+            entity_type="sgen",
+            idx=idx,
+            profile_type="renewables",
+        )
+
+    def _convert_battery_entity(self, battery: Battery, time_set=None, new_freq=None):
+        """Create a battery static generator element (modeled as sgen) and extract quantities."""
+        idx = self._convert_battery(battery)
+        self._convert_entity_default(
+            battery,
+            time_set,
+            new_freq,
+            entity_type="sgen",
+            idx=idx,
+            profile_type="storage",
+        )
+
+    def _convert_load_entity(self, load: Load, time_set=None, new_freq=None):
+        """Create a load element and extract quantities."""
+        idx = self._convert_load(load)
+        self._convert_entity_default(
+            load, time_set, new_freq, entity_type="load", idx=idx
+        )
+
+    def _convert_bus(self, bus: Bus) -> int:
+        """
+        Create a pandapower bus from a Bus entity.
+
+        Parameters
+        ----------
+        bus
+            The Bus entity to convert.
 
         Returns
         -------
-        Dict[str, Any]
-            Dictionary containing numpy arrays for the entity's quantities.
+        int
+            Index of the created pandapower bus.
         """
-        entity_profiles = {
-            f"{entity.id}.{key}": self.convert_quantity(
-                quantity,
-                name=f"{entity.id}.{key}",
-                time_set=time_set,
-                freq=new_freq,
-            )
-            for key, quantity in entity.quantities.items()
-        }
-
-        for sub_entity in entity.sub_entities:
-            entity_profiles.update(self.convert_entity(sub_entity, time_set, new_freq))
-
-        return entity_profiles
-
-    # Wrapper methods that create network elements AND extract quantities
-    def _convert_bus_entity(
-        self, bus: Bus, time_set=None, new_freq=None
-    ) -> Dict[str, Any]:
-        """Wrapper that creates bus network element and extracts quantities."""
-        self._convert_bus(bus)
-        return self._convert_entity_default(bus, time_set, new_freq)
-
-    def _convert_line_entity(
-        self, line: Line, time_set=None, new_freq=None
-    ) -> Dict[str, Any]:
-        """Wrapper that creates line network element and extracts quantities."""
-        self._convert_line(line)
-        return self._convert_entity_default(line, time_set, new_freq)
-
-    def _convert_slack_entity(
-        self, slack: Slack, time_set=None, new_freq=None
-    ) -> Dict[str, Any]:
-        """Wrapper that creates slack network element and extracts quantities."""
-        self._convert_slack(slack)
-        return self._convert_entity_default(slack, time_set, new_freq)
-
-    def _convert_pv_entity(
-        self, pv: PV, time_set=None, new_freq=None
-    ) -> Dict[str, Any]:
-        """Wrapper that creates PV network element and extracts quantities."""
-        self._convert_pv(pv)
-        return self._convert_entity_default(pv, time_set, new_freq)
-
-    def _convert_wind_entity(
-        self, wind: Wind, time_set=None, new_freq=None
-    ) -> Dict[str, Any]:
-        """Wrapper that creates wind turbine network element and extracts quantities."""
-        self._convert_wind(wind)
-        return self._convert_entity_default(wind, time_set, new_freq)
-
-    def _convert_battery_entity(
-        self, battery: Battery, time_set=None, new_freq=None
-    ) -> Dict[str, Any]:
-        """Wrapper that creates battery network element and extracts quantities."""
-        self._convert_battery(battery)
-        return self._convert_entity_default(battery, time_set, new_freq)
-
-    def _convert_load_entity(
-        self, load: Load, time_set=None, new_freq=None
-    ) -> Dict[str, Any]:
-        """Wrapper that creates load network element and extracts quantities."""
-        self._convert_load(load)
-        return self._convert_entity_default(load, time_set, new_freq)
-
-    def _convert_bus(self, bus: Bus) -> None:
-        """
-        Convert a Bus entity to a pandapower bus element.
-
-        Parameters
-        ----------
-        bus : Bus
-            The bus entity to convert
-        """
-        b = pp.create_bus(self.net, vn_kv=bus.nominal_voltage / 1000.0, name=bus.id)
+        b = pp.create_bus(self.net, vn_kv=bus.nominal_voltage.value / 1000.0, name=bus.id)
         self.bus_map[bus.id] = b
+        return b
 
-    def _convert_line(self, line: Line) -> None:
+    def _convert_line(self, line: Line) -> tuple[int, str]:
         """
-        Convert a Line entity to a pandapower line or switch element.
+        Create a pandapower line or switch from a Line entity.
 
-        Creates a switch if line length, resistance, or reactance is zero,
-        otherwise creates a line from parameters.
+        A switch is created when line length, resistance or reactance are zero;
+        otherwise a line with parameters is created.
 
         Parameters
         ----------
-        line : Line
-            The line entity to convert
+        line
+            The Line entity to convert.
+
+        Returns
+        -------
+        tuple[int, str]
+            (element index, kind) where kind is 'line' or 'switch'.
         """
         if line.line_length == 0 or line.reactance == 0 or line.resistance == 0:
-            pp.create_switch(
+            idx = pp.create_switch(
                 self.net,
                 bus=self.bus_map[line.from_bus],
                 element=self.bus_map[line.to_bus],
                 et="b",
             )
+            kind = "switch"
         else:
-            pp.create_line_from_parameters(
+            idx = pp.create_line_from_parameters(
                 self.net,
                 from_bus=self.bus_map[line.from_bus],
                 to_bus=self.bus_map[line.to_bus],
-                length_km=line.line_length,
-                r_ohm_per_km=line.resistance / line.line_length,
-                x_ohm_per_km=line.reactance / line.line_length,
+                length_km=line.line_length.value,
+                r_ohm_per_km=line.resistance.value / line.line_length.value,
+                x_ohm_per_km=line.reactance.value / line.line_length.value,
                 c_nf_per_km=0,
-                max_i_ka=line.max_current / 1000.0,
+                max_i_ka=line.max_current.value / 1000.0,
                 name=line.id,
             )
+            kind = "line"
+        return idx, kind
 
-    def _convert_slack(self, slack: Slack) -> None:
+    def _convert_slack(self, slack: Slack) -> int:
         """
-        Convert a Slack entity to a pandapower external grid element.
-
-        Parameters
-        ----------
-        slack : Slack
-            The slack bus entity to convert
-        """
-        pp.create_ext_grid(self.net, bus=self.bus_map[slack.bus], name=slack.id)
-
-    def _convert_pv(self, pv: PV) -> None:
-        """
-        Convert a PV entity to a pandapower static generator element.
+        Create an external grid (ext_grid) connected to the given bus.
 
         Parameters
         ----------
-        pv : PV
-            The PV entity to convert
+        slack
+            The Slack entity to convert.
+
+        Returns
+        -------
+        int
+            Index of the created ext_grid element.
         """
-        pp.create_sgen(
+        return pp.create_ext_grid(self.net, bus=self.bus_map[slack.bus], name=slack.id)
+
+    def _convert_pv(self, pv: PV) -> int:
+        """
+        Create a static generator element for a PV entity.
+
+        The static generator is initialized with p_mw equal to the PV's peak
+        power (converted to MW).
+
+        Parameters
+        ----------
+        pv
+            The PV entity to convert.
+
+        Returns
+        -------
+        int
+            Index of the created static generator.
+        """
+        return pp.create_sgen(
             self.net,
             bus=self.bus_map[pv.bus],
-            p_mw=pv.peak_power / 1000.0,
+            p_mw=pv.peak_power.value / 1000.0,
             q_mvar=0,
             name=pv.id,
         )
 
-    def _convert_wind(self, wind: Wind) -> None:
+    def _convert_wind(self, wind: Wind) -> int:
         """
-        Convert a Wind entity to a pandapower static generator element.
+        Create a static generator element for a wind entity.
 
         Parameters
         ----------
-        wind : Wind
-            The wind turbine entity to convert
+        wind
+            The Wind entity to convert.
+
+        Returns
+        -------
+        int
+            Index of the created static generator.
         """
-        pp.create_sgen(
+        return pp.create_sgen(
             self.net,
             bus=self.bus_map[wind.bus],
-            p_mw=wind.peak_power / 1000.0,
+            p_mw=wind.peak_power.value / 1000.0,
             q_mvar=0,
             name=wind.id,
         )
 
-    def _convert_battery(self, battery: Battery) -> None:
+    def _convert_battery(self, battery: Battery) -> int:
         """
-        Convert a Battery entity to a pandapower static generator element.
+        Create a static generator element representing a battery.
 
-        The battery is modeled as a static generator with controllable sign
-        (positive for discharge, negative for charge).
+        The battery is represented as a controllable sgen whose p_mw will be
+        set externally during simulation.
 
         Parameters
         ----------
-        battery : Battery
-            The battery entity to convert
-        """
-        bus_idx = self.bus_map[battery.bus]
-        pp.create_sgen(self.net, bus=bus_idx, p_mw=0.0, q_mvar=0.0, name=battery.id)
-
-    def _convert_load(self, load: Load) -> None:
-        """
-        Convert a Load entity to a pandapower load element.
-
-        Parameters
-        ----------
-        load : Load
-            The load entity to convert
-        """
-        pp.create_load(
-            self.net, bus=self.bus_map[load.bus], p_mw=load["p_kw"]/1000., q_mvar=load["q_kw"]/1000., name=load.id
-        )
-
-    def convert_entity(
-        self,
-        entity: Entity,
-        time_set: Optional[Union[int, range]] = None,
-        new_freq: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """
-        Convert an Entity and its sub-entities into numpy arrays for simulation input.
-
-        This method recursively traverses the entity hierarchy, resamples all time series
-        data to the specified frequency, and converts each quantity into a numpy array.
-        Network elements are created in the pandapower net as a side effect.
-
-        Parameters
-        ----------
-        entity : Entity
-            The root entity to convert (may have sub-entities).
-        time_set : Optional[Union[int, range]], optional
-            The number of time steps to represent in the resulting arrays.
-            If None, uses the default time set size.
-        new_freq : Optional[str], optional
-            The target frequency to resample time series data to (e.g., '15min', '1H').
+        battery
+            The Battery entity to convert.
 
         Returns
         -------
-        Dict[str, Any]
-            A flat dictionary containing numpy arrays from the entity and its descendants.
-            Keys are in the format 'entity_id.quantity_name'.
+        int
+            Index of the created sgen element.
         """
-        # Convert entity quantities
-        entity_variables = {
-            f"{entity.id}.{key}": self.convert_quantity(
-                quantity,
-                name=f"{entity.id}.{key}",
-                time_set=time_set,
-                freq=new_freq,
-            )
-            for key, quantity in entity.quantities.items()
-        }
+        bus_idx = self.bus_map[battery.bus]
+        return pp.create_sgen(
+            self.net, bus=bus_idx, p_mw=0.0, q_mvar=0.0, name=battery.id
+        )
 
-        # Recursively convert sub-entities
-        for sub_entity in entity.sub_entities:
-            entity_variables.update(self.convert_entity(sub_entity, time_set, new_freq))
+    def _convert_load(self, load: Load) -> int:
+        """
+        Create a pandapower load element from a Load entity.
 
-        return entity_variables
+        Parameters
+        ----------
+        load
+            The Load entity providing 'p_kw' and 'q_kw' quantities.
+
+        Returns
+        -------
+        int
+            Index of the created load element.
+        """
+        return pp.create_load(
+            self.net,
+            bus=self.bus_map[load.bus],
+            p_mw=load.tags["p_kw"] / 1000.0,
+            q_mvar=load.tags["q_kw"] / 1000.0,
+            name=load.id,
+        )
 
     def convert_quantity(
         self,
@@ -388,48 +426,49 @@ class PandapowerConverter(Converter):
         freq: Optional[str] = None,
     ) -> Optional[ndarray]:
         """
-        Convert a quantity to a numpy array for pandapower simulation input.
+        Convert a Quantity to a numpy array suitable for pandapower profiles.
 
-        If the quantity is empty, create a numpy array filled with NaN values.
-        If the quantity is a Parameter, return its value directly.
-        Otherwise, return the time series values resampled to the specified time set and frequency.
+        - Returns None if the quantity is empty.
+        - For Parameter instances, returns the parameter's scalar or array value.
+        - For Timeseries-like quantities, returns values resampled to the
+          requested time_set and frequency.
 
         Parameters
         ----------
-        quantity : Quantity
-            The quantity to convert
-        name : str
-            The name identifier for the quantity
-        time_set : Optional[Union[int, range]], optional
-            The time set specification. If None, uses default size.
-        freq : Optional[str], optional
-            The frequency for resampling
+        quantity
+            The Quantity to convert.
+        name
+            Human-readable identifier used for logging/debugging.
+        time_set
+            Optional time set specification for resampling.
+        freq
+            Optional frequency for resampling.
 
         Returns
         -------
-        np.ndarray
-            Numpy array containing the quantity values over time, or NaN array if empty
+        numpy.ndarray or None
+            Array of values across the time set, or None if empty.
         """
         if quantity.empty():
             return None
         if isinstance(quantity, Parameter):
-            return quantity.get_values()
+            return quantity.value
         else:
-            return quantity.get_values(time_set=time_set, freq=freq)
+            return quantity.value(time_set=time_set, freq=freq)
 
     def convert_back(self, net: pandapowerNet, model: Model) -> None:
         """
-        Convert results from a pandapower network back into the Model entities.
+        Map simulation results from a pandapower network back onto model entities.
 
-        This method updates the model's entities with results from the pandapower
-        simulation, such as power flows and voltages.
+        Updates model entities (for example, last_vm_pu or last_loading_percent)
+        with values read from the network results tables.
 
         Parameters
         ----------
-        net : pandapowerNet
+        net
             The pandapower network containing simulation results.
-        model : Model
-            The original model to update with results.
+        model
+            The Omnes model to update.
         """
         # Example: Update bus voltages in the model
         # get bus voltages and line loadings and write back
@@ -464,4 +503,3 @@ class PandapowerConverter(Converter):
                         setattr(ent, "last_loading_percent", loading)
 
         results = {"buses": bus_results, "lines": line_results, "net": self.net}
-        return results

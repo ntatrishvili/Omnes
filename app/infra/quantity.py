@@ -19,8 +19,8 @@ class Quantity(ABC):
         """Converts the quantity into a pulp-compatible format (e.g., a time series array or a value-variable)."""
         return converter.convert_quantity(self, **kwargs)
 
-    @abstractmethod
-    def get_values(self, **kwargs): ...
+    @property
+    def value(self, **kwargs): return None
 
     @abstractmethod
     def __eq__(self, other): ...
@@ -42,19 +42,20 @@ class Parameter(Quantity):
 
     def __init__(self, **kwargs: object):
         super().__init__(**kwargs)
-        self.value = kwargs.pop("value", None)
+        self._value = kwargs.pop("value", None)
 
     def __str__(self):
-        return f"{self.value}"
+        return f"{self._value}"
 
     def __eq__(self, other):
         try:
-            return float(self.value) == float(other)
+            return float(self._value) == float(other)
         except (TypeError, ValueError):
             return False
 
     def empty(self) -> bool:
-        return self.value is None
+        return self._value is None
 
-    def get_values(self, **kwargs):
-        return self.value
+    @property
+    def value(self, **kwargs):
+        return self._value

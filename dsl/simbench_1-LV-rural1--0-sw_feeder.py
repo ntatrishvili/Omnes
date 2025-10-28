@@ -25,9 +25,11 @@ def build_model_from_simbench():
     lines = pd.read_csv(join(root, "Line.csv"), sep=";")
     line_types = pd.read_csv(join(root, "LineType.csv"), sep=";")
     switches = pd.read_csv(join(root, "Switch.csv"), sep=";")
-    datetime_properties = {"datetime_format": "%d.%m.%Y %H:%M",
-                           "datetime_column": "time",
-                           "tz": "Europe/Berlin"}
+    datetime_properties = {
+        "datetime_format": "%d.%m.%Y %H:%M",
+        "datetime_column": "time",
+        "tz": "Europe/Berlin",
+    }
 
     # Try loading RES (Renewable Energy Sources)
     try:
@@ -73,9 +75,10 @@ def build_model_from_simbench():
             id=row["id"],
             from_bus=row["nodeA"],
             to_bus=row["nodeB"],
-            line_length=float(row.get("d", 100)) / 1000,
+            line_length=float(row.get("d", 100)),
             resistance=r_per_km,
             reactance=x_per_km,
+            max_current=float(row.get("loading_max", 100))
         )
         lines_omnes.append(line)
 
@@ -123,7 +126,7 @@ def build_model_from_simbench():
                         input={
                             "input_path": join(root, "RESProfile.csv"),
                             "col": row["profile"],
-                            **datetime_properties
+                            **datetime_properties,
                         },
                         tags={"source": "simbench", "sR": row["sR"], "household": node},
                     )
@@ -139,7 +142,7 @@ def build_model_from_simbench():
                         input={
                             "input_path": join(root, "RESProfile.csv"),
                             "col": row["profile"],
-                            **datetime_properties
+                            **datetime_properties,
                         },
                         tags={"source": "simbench", "sR": row["sR"], "household": node},
                     )
@@ -162,12 +165,12 @@ def build_model_from_simbench():
                         p_cons={
                             "input_path": join(root, "LoadProfile.csv"),
                             "col": f'{row["profile"]}_pload',
-                            **datetime_properties
+                            **datetime_properties,
                         },
                         q_cons={
                             "input_path": join(root, "LoadProfile.csv"),
                             "col": f'{row["profile"]}_qload',
-                            **datetime_properties
+                            **datetime_properties,
                         },
                         tags={
                             "source": "symbench",

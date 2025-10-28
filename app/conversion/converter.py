@@ -41,7 +41,7 @@ class Converter(object):
         return self._convert_entity_default(entity, time_set, new_freq)
 
     def _convert_entity_default(
-        self, entity: Entity, time_set: int = None, new_freq: str = None
+        self, entity: Entity, time_set: int = None, new_freq: str = None, **kwargs
     ):
         """
         Default entity conversion logic.

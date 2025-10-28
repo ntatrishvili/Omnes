@@ -114,7 +114,7 @@ def test_multi_dimensional_backward_compatibility(ts_multi):
     flat_array = ts_multi.to_nd()
     expected_size = 24 * 3 * 2
     assert len(flat_array) == expected_size
-    values = ts_multi.get_values()
+    values = ts_multi.value()
     assert len(values) == expected_size
 
 
@@ -246,10 +246,10 @@ def test_get_values_branches(ts_simple):
         coords={"timestamp": pd.date_range("2020-01-01", periods=4, freq="h")},
     )
     ts = TimeseriesObject(data=arr)
-    vals = ts.get_values(freq="15min", time_set=2)
+    vals = ts.value(freq="15min", time_set=2)
     assert isinstance(vals, np.ndarray)
     # time_set != self.data.sizes["timestamp"]
-    vals2 = ts.get_values(time_set=2)
+    vals2 = ts.value(time_set=2)
     assert isinstance(vals2, np.ndarray)
     # Covers infer_freq_from_two_dates and <3 timestamp branch
     arr = xr.DataArray(
@@ -297,10 +297,10 @@ def test_get_values_branches(ts_simple):
         coords={"timestamp": pd.date_range("2020-01-01", periods=4, freq="h")},
     )
     ts = TimeseriesObject(data=arr)
-    vals = ts.get_values(freq="15min", time_set=2)
+    vals = ts.value(freq="15min", time_set=2)
     assert isinstance(vals, np.ndarray)
     # time_set != self.data.sizes["timestamp"]
-    vals2 = ts.get_values(time_set=2)
+    vals2 = ts.value(time_set=2)
     assert isinstance(vals2, np.ndarray)
 
 
@@ -339,10 +339,10 @@ def test_get_values_branches(ts_simple):
         coords={"timestamp": pd.date_range("2020-01-01", periods=4, freq="h")},
     )
     ts = TimeseriesObject(data=arr)
-    vals = ts.get_values(freq="15min", time_set=2)
+    vals = ts.value(freq="15min", time_set=2)
     assert isinstance(vals, np.ndarray)
     # time_set != self.data.sizes["timestamp"]
-    vals2 = ts.get_values(time_set=2)
+    vals2 = ts.value(time_set=2)
     assert isinstance(vals2, np.ndarray)
 
 
