@@ -1,74 +1,80 @@
 from typing import Optional
 
+from app.infra.quantity import Parameter
 from app.infra.timeseries_object_factory import (
     DefaultTimeseriesFactory,
     TimeseriesFactory,
 )
-from app.model.grid_component.grid_component import GridComponent
+from app.model.grid_component.connector import Connector
 
 
-class Transformer(GridComponent):
+class Transformer(Connector):
+    """Transformer (HV/LV) model read from SimBench-like CSV.
+
+    Parameters
+    ----------
+    id : str | None
+        Optional identifier for the transformer.
+    ts_factory : TimeseriesFactory, optional
+        Factory used to create time-series objects for this component. If not
+        provided the DefaultTimeseriesFactory is used.
+    **kwargs :
+        Additional keyword arguments accepted (commonly present in SimBench
+        CSV parsing)
+        - hv_bus: identifier or name of the high-voltage bus (int or str)
+        - lv_bus: identifier or name of the low-voltage bus (int or str)
+        - nominal_power: rated power in MVA (float)
+        - nominal_voltage_hv_side: rated HV-side voltage in kV (float)
+        - nominal_voltage_lv_side: rated LV-side voltage in kV (float)
+        - type: arbitrary transformer type string
+
+        Other kwargs are forwarded to the base Connector and may be accepted
+        there as well.
+
+    Attributes
+    ----------
+    default_nominal_power : float
+        Default nominal power in MVA.
+    default_nominal_voltage_hv_side : float
+        Default nominal voltage on the high-voltage side in kV.
+    default_nominal_voltage_lv_side : float
+        Default nominal voltage on the low-voltage side in kV.
+    quantities : dict
+        Mapping of quantity names to Parameter objects created from kwargs.
     """
-    Simple representation of a transformer (HV/LV) read from SimBench-like CSV.
 
-    Attributes:
-        hv_bus: identifier/name of the high-voltage bus
-        lv_bus: identifier/name of the low-voltage bus
-        type: descriptive type string from CSV (often contains SN MVA and kV levels)
-        tappos: tap position (int)
-        auto_tap: whether automatic tap is enabled (bool)
-        auto_tap_side: which side auto tap applies to ("hv" or "lv" or None)
-        loading_max: optional maximum loading value (float)
-        substation: optional substation id/name
-        subnet: optional subnet id/name
-        volt_lvl: optional voltage level indicator from CSV
-    """
+    default_nominal_power: float = 0.25  # MVA
+    default_nominal_voltage_hv_side: float = 20.0  # kV
+    default_nominal_voltage_lv_side: float = 0.4  # kV
 
     def __init__(
         self,
         id: Optional[str] = None,
-        hv_bus: Optional[str] = None,
-        lv_bus: Optional[str] = None,
-        type: Optional[str] = None,
-        tappos: Optional[int] = 0,
-        auto_tap: Optional[bool] = False,
-        auto_tap_side: Optional[str] = None,
-        loading_max: Optional[float] = None,
-        substation: Optional[str] = None,
-        subnet: Optional[str] = None,
-        volt_lvl: Optional[str] = None,
         ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
         **kwargs,
     ):
-        super().__init__(id=id, ts_factory=ts_factory, **kwargs)
-        # Core mapping fields
-        self.hv_bus = hv_bus or kwargs.pop("nodeHV", None)
-        self.lv_bus = lv_bus or kwargs.pop("nodeLV", None)
-        self.type = type or kwargs.pop("type", None)
-        # tap & control
-        self.tappos = int(tappos) if tappos is not None else 0
-        self.auto_tap = bool(auto_tap)
-        self.auto_tap_side = auto_tap_side or kwargs.pop("autoTapSide", None)
-        # operational/meta
-        self.loading_max = (
-            float(loading_max)
-            if loading_max is not None
-            else kwargs.pop("loadingMax", None)
-        )
-        self.substation = substation or kwargs.pop("substation", None)
-        self.subnet = subnet or kwargs.pop("subnet", None)
-        self.volt_lvl = volt_lvl or kwargs.pop("voltLvl", None)
+        """Initialize a Transformer instance.
 
-        # keep CSV/raw values in tags for debugging if present
-        self.tags.update(
+        Values provided in ``kwargs`` (for example ``nominal_power``) override
+        the class defaults. Any remaining kwargs are passed to the Connector
+        base class.
+        """
+        super().__init__(id=id, ts_factory=ts_factory, **kwargs)
+        self.quantities.update(
             {
-                "type": self.type,
-                "tappos": self.tappos,
-                "auto_tap": self.auto_tap,
-                "auto_tap_side": self.auto_tap_side,
-                "loading_max": self.loading_max,
-                "substation": self.substation,
-                "subnet": self.subnet,
-                "volt_lvl": self.volt_lvl,
+                "nominal_power": Parameter(
+                    value=kwargs.pop("nominal_power", self.default_nominal_power)
+                ),
+                "nominal_voltage_hv_side": Parameter(
+                    value=kwargs.pop(
+                        "nominal_voltage_hv_side", self.default_nominal_voltage_hv_side
+                    )
+                ),
+                "nominal_voltage_lv_side": Parameter(
+                    value=kwargs.pop(
+                        "nominal_voltage_lv_side", self.default_nominal_voltage_lv_side
+                    )
+                ),
+                "type": Parameter(value=kwargs.pop("type", "")),
             }
         )

@@ -23,6 +23,9 @@ class Storage(Device):
         **kwargs
     ):
         super().__init__(id, ts_factory, **kwargs)
+        self.create_quantity("p_in", **kwargs)
+        self.create_quantity("p_out", **kwargs)
+        self.create_quantity("e_stor", **kwargs)
         self.quantities.update(
             {
                 "capacity": Parameter(

@@ -40,7 +40,5 @@ def simulate_energy_system(net):
     time_set = net.get("time_set", [])
     for t in time_set:
         set_timestep_values(net, t)
-
-        diagnose_unsupplied(net)
         # run power flow
         pp.runpp(net)

@@ -6,6 +6,7 @@ import pandas as pd
 from app.conversion.pandapower_converter import PandapowerConverter
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
+from app.model.generic_entity import GenericEntity
 from app.model.grid_component.bus import Bus, BusType
 from app.model.grid_component.line import Line
 from app.model.grid_component.transformer import Transformer
@@ -21,36 +22,23 @@ def build_model_from_simbench():
         allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
     )
     config.read("..\\config.ini")
-    root = config.get("simbench", "simbench_input")
-    nodes = pd.read_csv(join(root, "Node.csv"), sep=";")
-    slack_units = pd.read_csv(join(root, "ExternalNet.csv"), sep=";")
-    lines = pd.read_csv(join(root, "Line.csv"), sep=";")
-    line_types = pd.read_csv(join(root, "LineType.csv"), sep=";")
-    switches = pd.read_csv(join(root, "Switch.csv"), sep=";")
     datetime_properties = {
         "datetime_format": "%d.%m.%Y %H:%M",
         "datetime_column": "time",
         "tz": "Europe/Berlin",
     }
 
+    root = config.get("simbench", "simbench_input")
+    nodes = read_data_file(root, "Node.csv")
+    slack_units = read_data_file(root, "ExternalNet.csv")
+    lines = read_data_file(root, "Line.csv")
+    line_types = read_data_file(root, "LineType.csv")
+    switches = read_data_file(root, "Switch.csv")
     # Try loading RES (Renewable Energy Sources)
-    try:
-        res_units = pd.read_csv(join(root, "RES.csv"), sep=";")
-    except FileNotFoundError:
-        print("No RES.csv found – skipping renewable generation.")
-        res_units = pd.DataFrame()
-
-    try:
-        load_units = pd.read_csv(join(root, "Load.csv"), sep=";")
-    except FileNotFoundError:
-        print("No RES.csv found – skipping renewable generation.")
-        load_units = pd.DataFrame()
-
-    # Try loading Transformers
-    try:
-        transformer_units = pd.read_csv(join(root, "Transformer.csv"), sep=";")
-    except FileNotFoundError:
-        transformer_units = pd.DataFrame()
+    res_units = read_data_file(root, "RES.csv")
+    load_units = read_data_file(root, "Load.csv")
+    transformer_units = read_data_file(root, "Transformer.csv")
+    transformer_types = read_data_file(root, "TransformerType.csv")
 
     # -----------------------------
     # STEP B: CONVERT TO OMNES OBJECTS
@@ -62,7 +50,7 @@ def build_model_from_simbench():
             Slack(
                 id=row["id"],
                 bus=row["node"],
-                # voltage=row["voltLvl"],
+                volLvl=row["voltLvl"],
             )
         )
 
@@ -167,30 +155,29 @@ def build_model_from_simbench():
             node = row["node"]
             p_peak_kw = 1000 * float(row.get("pLoad", 0.0))  # SimBench uses MW
             q_peak_kw = 1000 * float(row.get("qLoad", 0.0))  # SimBench uses MW
-            if "lv" in row["id"].lower():
-                loads.append(
-                    Load(
-                        id=f"load_{row['id']}",
-                        bus=node,
-                        p_cons={
-                            "input_path": join(root, "LoadProfile.csv"),
-                            "col": f'{row["profile"]}_pload',
-                            **datetime_properties,
-                        },
-                        q_cons={
-                            "input_path": join(root, "LoadProfile.csv"),
-                            "col": f'{row["profile"]}_qload',
-                            **datetime_properties,
-                        },
-                        tags={
-                            "source": "symbench",
-                            "p_kw": p_peak_kw,
-                            "q_kw": q_peak_kw,
-                            "sR": row["sR"],
-                            "household": node,
-                        },
-                    )
+            loads.append(
+                Load(
+                    id=f"load_{row['id']}",
+                    bus=node,
+                    p_cons={
+                        "input_path": join(root, "LoadProfile.csv"),
+                        "col": f'{row["profile"]}_pload',
+                        **datetime_properties,
+                    },
+                    q_cons={
+                        "input_path": join(root, "LoadProfile.csv"),
+                        "col": f'{row["profile"]}_qload',
+                        **datetime_properties,
+                    },
+                    tags={
+                        "source": "symbench",
+                        "p_kw": p_peak_kw,
+                        "q_kw": q_peak_kw,
+                        "sR": row["sR"],
+                        "household": node,
+                    },
                 )
+            )
 
     # -----------------------------
     # Transformers
@@ -198,35 +185,22 @@ def build_model_from_simbench():
     transformers = []
     if not transformer_units.empty:
         for _, row in transformer_units.iterrows():
-            # Read fields with safe defaults
-            tappos = row.get("tappos", 0)
-            try:
-                tappos = int(tappos) if pd.notna(tappos) else 0
-            except Exception:
-                tappos = 0
-            auto_tap = False
-            at = row.get("autoTap", 0)
-            try:
-                auto_tap = bool(int(at)) if pd.notna(at) else False
-            except Exception:
-                auto_tap = False
-
+            hv_bus = row["nodeHV"]
+            lv_bus = row["nodeLV"]
+            type = row["type"]
             transformers.append(
                 Transformer(
-                    id=row["id"],
-                    hv_bus=row.get("nodeHV"),
-                    lv_bus=row.get("nodeLV"),
-                    type=row.get("type"),
-                    tappos=tappos,
-                    auto_tap=auto_tap,
-                    auto_tap_side=row.get("autoTapSide"),
-                    loading_max=row.get("loadingMax"),
-                    substation=row.get("substation"),
-                    subnet=row.get("subnet"),
-                    volt_lvl=row.get("voltLvl"),
-                    tags={"source": "simbench"},
+                    id=f"tr_{row['id']}", from_bus=hv_bus, to_bus=lv_bus, type=type
                 )
             )
+
+    # -----------------------------
+    # Transformers
+    # -----------------------------
+    transformer_type_entities = []
+    if not transformer_types.empty:
+        for _, row in transformer_types.iterrows():
+            transformer_type_entities.append(GenericEntity(**row.to_dict()))
 
     # -----------------------------
     # Build model
@@ -236,9 +210,25 @@ def build_model_from_simbench():
         time_start="2016-01-01 00:00",
         time_end="2017-01-01 00:00",
         resolution="1h",
-        entities=buses + lines_omnes + slacks + pvs + winds + loads + transformers,
+        entities=buses
+        + lines_omnes
+        + slacks
+        + pvs
+        + winds
+        + loads
+        + transformers
+        + transformer_type_entities,
     )
     return model
+
+
+def read_data_file(root, filename, sep=";"):
+    try:
+        units = pd.read_csv(join(root, filename), sep=sep)
+    except FileNotFoundError:
+        get_logger(__name__).warning(f"No {filename} found – skipping...")
+        units = pd.DataFrame()
+    return units
 
 
 if __name__ == "__main__":

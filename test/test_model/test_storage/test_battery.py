@@ -25,9 +25,9 @@ class TestBattery(unittest.TestCase):
         self.assertEqual(b.max_charge_rate, 10)
         self.assertEqual(b.capacity, 100)
         self.assertEqual(b.bus, "bus1")
-        self.assertIn("p_bess_in", b.quantities)
-        self.assertIn("p_bess_out", b.quantities)
-        self.assertIn("e_bess_stor", b.quantities)
+        self.assertIn("p_in", b.quantities)
+        self.assertIn("p_out", b.quantities)
+        self.assertIn("e_stor", b.quantities)
         self.assertEqual(str(b), "Battery 'bat1' with charging power=10 , capacity=100")
 
 

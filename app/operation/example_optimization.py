@@ -24,7 +24,7 @@ def plot_energy_flows(kwargs, time_range_to_plot=None):
         k.split(".")[0] for k in kwargs if k.startswith("load") and ".p_cons" in k
     }
     bess_names = {
-        k.split(".")[0] for k in kwargs if k.startswith("battery") and ".p_bess_in" in k
+        k.split(".")[0] for k in kwargs if k.startswith("battery") and ".p_in" in k
     }
     slack_names = {
         k.split(".")[0] for k in kwargs if k.startswith("slack") and ".p_in" in k
@@ -47,15 +47,15 @@ def plot_energy_flows(kwargs, time_range_to_plot=None):
 
     # Battery flows
     bess_in_profiles = {
-        b: np.array([pulp.value(kwargs[f"{b}.p_bess_in"][t]) for t in time_set])
+        b: np.array([pulp.value(kwargs[f"{b}.p_in"][t]) for t in time_set])
         for b in bess_names
     }
     bess_out_profiles = {
-        b: np.array([pulp.value(kwargs[f"{b}.p_bess_out"][t]) for t in time_set])
+        b: np.array([pulp.value(kwargs[f"{b}.p_out"][t]) for t in time_set])
         for b in bess_names
     }
     e_bess_profiles = {
-        b: np.array([pulp.value(kwargs[f"{b}.e_bess_stor"][t]) for t in time_set])
+        b: np.array([pulp.value(kwargs[f"{b}.e_stor"][t]) for t in time_set])
         for b in bess_names
     }
     bess_in_sum = sum(bess_in_profiles.values()) if bess_in_profiles else np.zeros(nT)
@@ -194,7 +194,7 @@ def optimize_energy_system(**kwargs):
         k.split(".")[0] for k in kwargs if k.startswith("load") and ".p_cons" in k
     }
     bess_names = {
-        k.split(".")[0] for k in kwargs if k.startswith("battery") and ".p_bess_in" in k
+        k.split(".")[0] for k in kwargs if k.startswith("battery") and ".p_in" in k
     }
     slack_names = {
         k.split(".")[0] for k in kwargs if k.startswith("slack") and ".p_in" in k
@@ -206,8 +206,8 @@ def optimize_energy_system(**kwargs):
     for t in time_set:
         total_pv = np.sum(kwargs[f"{pv}.p_out"][t] for pv in pv_names)
         total_load = np.sum(kwargs[f"{load}.p_cons"][t] for load in load_names)
-        total_bess_in = pulp.lpSum(kwargs[f"{b}.p_bess_in"][t] for b in bess_names)
-        total_bess_out = pulp.lpSum(kwargs[f"{b}.p_bess_out"][t] for b in bess_names)
+        total_bess_in = pulp.lpSum(kwargs[f"{b}.p_in"][t] for b in bess_names)
+        total_bess_out = pulp.lpSum(kwargs[f"{b}.p_out"][t] for b in bess_names)
         total_slack_in = pulp.lpSum(kwargs[f"{s}.p_in"][t] for s in slack_names)
         total_slack_out = pulp.lpSum(kwargs[f"{s}.p_out"][t] for s in slack_names)
 
@@ -221,9 +221,9 @@ def optimize_energy_system(**kwargs):
 
         # Battery constraints
         for b in bess_names:
-            p_in = kwargs[f"{b}.p_bess_in"]
-            p_out = kwargs[f"{b}.p_bess_out"]
-            e_stor = kwargs[f"{b}.e_bess_stor"]
+            p_in = kwargs[f"{b}.p_in"]
+            p_out = kwargs[f"{b}.p_out"]
+            e_stor = kwargs[f"{b}.e_stor"]
             cap = kwargs[f"{b}.capacity"]
             max_p = kwargs[f"{b}.max_charge_rate"]
 

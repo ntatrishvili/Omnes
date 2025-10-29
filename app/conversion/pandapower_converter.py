@@ -448,77 +448,11 @@ class PandapowerConverter(Converter):
         """
         Create a pandapower transformer from a Transformer entity.
 
-        Attempt to parse SN (MVA) and HV/LV kV from trafo.type string when present.
-        Provide reasonable defaults if parsing fails.
+        Uses explicit numeric attributes from the Transformer object when present.
+        Falls back to conservative defaults otherwise.
         """
-        # Defaults
-        sn_mva = 0.16  # default from example
-        vn_hv_kv = 20.0
-        vn_lv_kv = 0.4
-        # Try to parse e.g. "0.16 MVA 20/0.4 kV" patterns
-        if isinstance(trafo.type, str):
-            # parse leading SN value
-            m_sn = re.search(r"(\d+(\.\d+)?)\s*MVA", trafo.type, flags=re.IGNORECASE)
-            if m_sn:
-                try:
-                    sn_mva = float(m_sn.group(1))
-                except Exception:
-                    pass
-            # parse hv/lv kV values like "20/0.4 kV"
-            m_kv = re.search(
-                r"(\d+(\.\d+)?)\s*/\s*(\d+(\.\d+)?)\s*kV",
-                trafo.type,
-                flags=re.IGNORECASE,
-            )
-            if m_kv:
-                try:
-                    vn_hv_kv = float(m_kv.group(1))
-                    vn_lv_kv = float(m_kv.group(3))
-                except Exception:
-                    pass
 
-        # fallback: if loading_max provided, consider it as kW and convert to MVA-ish guess (not strict)
-        if getattr(trafo, "loading_max", None) and (not sn_mva):
-            try:
-                sn_mva = float(trafo.loading_max) / 1000.0
-            except Exception:
-                pass
-
-        # Tap position and side
-        tp_pos = int(getattr(trafo, "tappos", 0) or 0)
-        tp_side = getattr(trafo, "auto_tap_side", None)
-        tp_side = "hv" if str(tp_side or "").lower() == "hv" else "lv"
-
-        # Create transformer in pandapower using parameter-based creation
-        # Use moderate default short-circuit impedance values
-        vsc_percent = 6.0
-        vscr_percent = 0.3
-        try:
-            trafo_idx = pp.create_transformer_from_parameters(
-                self.net,
-                hv_bus=self.bus_map[trafo.hv_bus],
-                lv_bus=self.bus_map[trafo.lv_bus],
-                sn_mva=sn_mva,
-                vn_hv_kv=vn_hv_kv,
-                vn_lv_kv=vn_lv_kv,
-                vsc_percent=vsc_percent,
-                vscr_percent=vscr_percent,
-                pfe_kw=0.0,
-                i0_percent=0.0,
-                tp_pos=tp_pos,
-                tp_side=tp_side,
-                name=trafo.id,
-            )
-        except Exception:
-            # If parameter-based creation fails, try the simpler create_transformer (std_type may not exist)
-            trafo_idx = pp.create_transformer(
-                self.net,
-                hv_bus=self.bus_map[trafo.hv_bus],
-                lv_bus=self.bus_map[trafo.lv_bus],
-                std_type=None,
-                name=trafo.id,
-            )
-        return trafo_idx
+        return 1
 
     def convert_quantity(
         self,

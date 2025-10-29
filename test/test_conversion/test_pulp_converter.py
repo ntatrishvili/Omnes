@@ -677,8 +677,7 @@ class TestComprehensiveCoverage(unittest.TestCase):
 
         time_steps = 3
         battery_power = [pulp.LpVariable(f"battery_{t}") for t in range(time_steps)]
-        self.converter = PulpConverter()
-        self.converter.__objects = {"battery.power": battery_power}
+        self.converter._PulpConverter__objects = {"battery.power": battery_power}
 
         # Assignment: battery.power(t) = 42
         expr = AssignmentExpression(EntityReference("battery.power"), Literal(42))
