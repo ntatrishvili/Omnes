@@ -130,6 +130,7 @@ class PulpConverter(Converter):
         model: Model,
         time_set: Optional[Union[int, range]] = None,
         new_freq: Optional[str] = None,
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Convert the model to an optimization/simulation problem.

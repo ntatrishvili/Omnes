@@ -136,7 +136,7 @@ class TestPandapowerConverter(unittest.TestCase):
 
         # Load creation uses tags for p_kw/q_kw - create a load-like object with tags
         load = SimpleNamespace(
-            id="load_1", bus="bus_gen", tags={"p_kw": 2000.0, "q_kw": 500.0}
+            id="load_1", bus="bus_gen", nominal_power=SimpleNamespace(value=1000.0), tags={"p_kw": 2000.0, "q_kw": 500.0}
         )
         load_idx = self.conv._convert_load(load)
         self.assertIn(load_idx, self.conv.net.load.index)
@@ -185,7 +185,10 @@ class TestPandapowerConverter(unittest.TestCase):
             type=SimpleNamespace(value=std_name),
         )
         # Ensure std_types dict is properly initialized before calling _convert_trafo
-        if not hasattr(self.conv.net, "std_types") or "trafo" not in self.conv.net.std_types:
+        if (
+            not hasattr(self.conv.net, "std_types")
+            or "trafo" not in self.conv.net.std_types
+        ):
             self.conv.net.std_types = {"trafo": {std_name: True}}
         trafo_idx = self.conv._convert_trafo(trafo_obj)
         # Should have created an element in net.trafo

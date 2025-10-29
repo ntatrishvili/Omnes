@@ -2,6 +2,7 @@ import configparser
 from os.path import join
 
 import pandas as pd
+from pandapower.io_utils import coords_to_df
 
 from app.conversion.pandapower_converter import PandapowerConverter
 from app.model.generator.pv import PV
@@ -39,6 +40,7 @@ def build_model_from_simbench():
     load_units = read_data_file(root, "Load.csv")
     transformer_units = read_data_file(root, "Transformer.csv")
     transformer_types = read_data_file(root, "TransformerType.csv")
+    coords_df = read_data_file(root, "Coordinates.csv").set_index("id")
 
     # -----------------------------
     # STEP B: CONVERT TO OMNES OBJECTS
@@ -64,12 +66,12 @@ def build_model_from_simbench():
 
     buses = []
     for _, row in nodes.iterrows():
-        bus = Bus(
+        buses.append(Bus(
             id=row["id"],
             nominal_voltage=float(row.get("vNom", 0.4)) * 1000,
             type=BusType.PQ if row["id"] not in slack_nodes else BusType.SLACK,
-        )
-        buses.append(bus)
+            coordinates={"x":coords_df.loc[row["coordID"], "x"],"y":coords_df.loc[row["coordID"], "y"]},
+        ))
 
     # Lines
     lines_omnes = []
@@ -126,7 +128,12 @@ def build_model_from_simbench():
                             "col": row["profile"],
                             **datetime_properties,
                         },
-                        tags={"source": "simbench", "sR": row["sR"], "household": node},
+                        tags={
+                            "source": "simbench",
+                            "sR": row["sR"],
+                            "household": node,
+                            "profile": row["profile"],
+                        },
                     )
                 )
 
@@ -142,7 +149,12 @@ def build_model_from_simbench():
                             "col": row["profile"],
                             **datetime_properties,
                         },
-                        tags={"source": "simbench", "sR": row["sR"], "household": node},
+                        tags={
+                            "source": "simbench",
+                            "sR": row["sR"],
+                            "household": node,
+                            "profile": row["profile"],
+                        },
                     )
                 )
 
@@ -159,6 +171,7 @@ def build_model_from_simbench():
                 Load(
                     id=f"load_{row['id']}",
                     bus=node,
+                    nominal_power=row["sR"],
                     p_cons={
                         "input_path": join(root, "LoadProfile.csv"),
                         "col": f'{row["profile"]}_pload',
@@ -173,8 +186,8 @@ def build_model_from_simbench():
                         "source": "symbench",
                         "p_kw": p_peak_kw,
                         "q_kw": q_peak_kw,
-                        "sR": row["sR"],
                         "household": node,
+                        "profile": row["profile"],
                     },
                 )
             )
@@ -211,13 +224,13 @@ def build_model_from_simbench():
         time_end="2017-01-01 00:00",
         resolution="1h",
         entities=buses
-        + lines_omnes
-        + slacks
-        + pvs
-        + winds
-        + loads
-        + transformer_type_entities
-        + transformers,
+                 + transformer_type_entities
+                 + transformers
+                 + lines_omnes
+                 + slacks
+                 + pvs
+                 + winds
+                 + loads
     )
     return model
 
@@ -233,7 +246,7 @@ def read_data_file(root, filename, sep=";"):
 
 if __name__ == "__main__":
     init_logging(
-        level="DEBUG",
+        level="INFO",
         log_dir="logs",
         log_file="app.log",
     )

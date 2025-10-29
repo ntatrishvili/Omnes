@@ -51,7 +51,9 @@ class Converter(object):
             "Subclasses must implement '_convert_entity_default'."
         )
 
-    def convert_model(self, model: Model, time_set: int = None, new_freq: str = None):
+    def convert_model(
+        self, model: Model, time_set: int = None, new_freq: str = None, **kwargs
+    ):
         raise NotImplementedError("Subclasses must implement 'convert_model'.")
 
     def convert_quantity(

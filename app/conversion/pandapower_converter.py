@@ -31,11 +31,11 @@ from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
 from app.model.grid_component.bus import Bus
 from app.model.grid_component.line import Line
+from app.model.grid_component.transformer import Transformer
 from app.model.load.load import Load
 from app.model.model import Model
 from app.model.slack import Slack
 from app.model.storage.battery import Battery
-from app.model.grid_component.transformer import Transformer
 from utils.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -105,10 +105,11 @@ class PandapowerConverter(Converter):
         self._entity_converters[GenericEntity] = self._convert_generic_entity
 
     def convert_model(
-        self,
-        model: Model,
-        time_set: Optional[Union[int, range]] = None,
-        new_freq: Optional[str] = None,
+            self,
+            model: Model,
+            time_set: Optional[Union[int, range]] = None,
+            new_freq: Optional[str] = None,
+            **kwargs,
     ) -> pandapowerNet:
         """
         Convert a Model into a pandapower network and collect profiles.
@@ -152,11 +153,11 @@ class PandapowerConverter(Converter):
         return self.net
 
     def _convert_entity_default(
-        self,
-        entity: Entity,
-        time_set: Optional[Union[int, range]] = None,
-        new_freq: Optional[str] = None,
-        **kwargs,
+            self,
+            entity: Entity,
+            time_set: Optional[Union[int, range]] = None,
+            new_freq: Optional[str] = None,
+            **kwargs,
     ):
         """
         Default conversion routine for an entity's quantities.
@@ -179,6 +180,7 @@ class PandapowerConverter(Converter):
         entity_type = kwargs.pop("entity_type")
         idx = kwargs.pop("idx", 0)
         profile_type = kwargs.pop("profile_type", entity_type)
+        multiply = kwargs.pop("multiply", None)
         for key, quantity in entity.quantities.items():
             converted_value = self.convert_quantity(
                 quantity, name=f"{entity.id}_{key}", time_set=time_set, freq=new_freq
@@ -188,8 +190,10 @@ class PandapowerConverter(Converter):
             elif isinstance(quantity, Parameter):
                 self.net[entity_type].loc[idx, key] = converted_value
             elif isinstance(quantity, TimeseriesObject):
+                if multiply is not None and key in multiply:
+                    converted_value *= self.net[entity_type].loc[idx, multiply[key]]
                 self.net.profiles[profile_type].loc[
-                    :, f"{entity.id}_{key}"
+                :, f"{entity.id}_{key}"
                 ] = converted_value
 
     # Wrapper methods that create network elements AND extract quantities
@@ -241,6 +245,7 @@ class PandapowerConverter(Converter):
             entity_type="sgen",
             idx=idx,
             profile_type="renewables",
+            multiply={"p_out": "p_mw"},
         )
 
     def _convert_battery_entity(self, battery: Battery, time_set=None, new_freq=None):
@@ -253,17 +258,23 @@ class PandapowerConverter(Converter):
             entity_type="sgen",
             idx=idx,
             profile_type="storage",
+            multiply={"p_out": "p_mw"},
         )
 
     def _convert_load_entity(self, load: Load, time_set=None, new_freq=None):
         """Create a load element and extract quantities."""
         idx = self._convert_load(load)
         self._convert_entity_default(
-            load, time_set, new_freq, entity_type="load", idx=idx
+            load,
+            time_set,
+            new_freq,
+            entity_type="load",
+            idx=idx,
+            multiply={"p_cons": "p_mw", "q_cons": "q_mvar"},
         )
 
     def _convert_transformer_entity(
-        self, trafo: Transformer, time_set=None, new_freq=None
+            self, trafo: Transformer, time_set=None, new_freq=None
     ):
         """Create a pandapower transformer (trafo) and extract quantities (if any)."""
         idx = self._convert_transformer(trafo)
@@ -291,7 +302,7 @@ class PandapowerConverter(Converter):
             Index of the created pandapower bus.
         """
         b = pp.create_bus(
-            self.net, vn_kv=bus.nominal_voltage.value / 1000.0, name=bus.id
+            self.net, vn_kv=bus.nominal_voltage.value / 1000.0, name=bus.id, geodata=tuple(bus.coordinates.values()),
         )
         self.bus_map[bus.id] = b
         return b
@@ -446,8 +457,12 @@ class PandapowerConverter(Converter):
         return pp.create_load(
             self.net,
             bus=self.bus_map[load.bus],
+            # Default settings: constant impedance load
+            const_z_p_percent=1,
+            const_z_q_percent=1,
             p_mw=load.tags["p_kw"] / 1000.0,
             q_mvar=load.tags["q_kw"] / 1000.0,
+            sn_mva=load.nominal_power.value / 1000.0,
             name=load.id,
         )
 
@@ -462,19 +477,7 @@ class PandapowerConverter(Converter):
 
         Returns the index of the created trafo element in the pandapower net.
         """
-        return self._convert_trafo(trafo)
 
-    def _convert_trafo(self, trafo: Transformer) -> int:
-        """
-        Helper that creates a pandapower trafo element.
-
-        Logic:
-        - If trafo.type.value is a std_type that exists in the
-          converter's net std_types["trafo"] table, create the trafo using that
-          std_type.
-        - Otherwise, fall back to creating a minimal trafo with std_type=None
-          and log a warning.
-        """
         # Resolve bus indices
         hv_id = trafo.from_bus
         lv_id = trafo.to_bus
@@ -488,7 +491,7 @@ class PandapowerConverter(Converter):
 
         # Check if std_type exists in pandapower's trafo types
         if std_type_name:
-            trafo_types = getattr(self.net, "std_types", {}).get("trafo", {})
+            trafo_types = self.net.std_types["trafo"].keys()
             if std_type_name not in trafo_types:
                 logger.warning(
                     f"Transformer type '{std_type_name}' not found in pandapower std_types."
@@ -537,8 +540,8 @@ class PandapowerConverter(Converter):
             "vn_lv_kv": _param("vmLV", None),
             # map SimBench vmImp -> vk_percent (short-circuit impedance)
             "vk_percent": _param("vmImp", None),
-            # vkr_percent (resistance percent) not provided by default
-            "vkr_percent": None,
+            # vkr_percent (resistance percent) not provided by default, set to zero
+            "vkr_percent": 0.0,
             # copper and iron losses (convert names appropriately)
             "i0_percent": _param("iNoLoad", None),
             "tap_step_percent": _param("dVm", None),
@@ -547,7 +550,7 @@ class PandapowerConverter(Converter):
             "tap_min": _param("tapMin", None),
             "tap_max": _param("tapMax", None),
             "pfe_kw": _param("pFe", None),
-            "shift_degree": _param("shift_degree", 0.0),
+            "shift_degree": _param("va0", 150),
         }
         # write back (pandas DataFrame is mutable, but ensure attribute stays set)
         pp.create_std_type(self.net, trafo_type_record, std_type_name, element="trafo")
@@ -558,11 +561,11 @@ class PandapowerConverter(Converter):
         return std_type_name
 
     def convert_quantity(
-        self,
-        quantity: Quantity,
-        name: str,
-        time_set: Optional[Union[int, range]] = None,
-        freq: Optional[str] = None,
+            self,
+            quantity: Quantity,
+            name: str,
+            time_set: Optional[Union[int, range]] = None,
+            freq: Optional[str] = None,
     ) -> Optional[ndarray]:
         """
         Convert a Quantity to a numpy array suitable for pandapower profiles.

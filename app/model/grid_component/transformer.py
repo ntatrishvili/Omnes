@@ -43,7 +43,7 @@ class Transformer(Connector):
         Mapping of quantity names to Parameter objects created from kwargs.
     """
 
-    default_nominal_power: float = 0.25  # MVA
+    default_nominal_power: float = 0.16  # MVA
     default_nominal_voltage_hv_side: float = 20.0  # kV
     default_nominal_voltage_lv_side: float = 0.4  # kV
 
