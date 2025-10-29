@@ -471,70 +471,23 @@ class PandapowerConverter(Converter):
         - Otherwise, fall back to creating a minimal trafo with std_type=None.
         """
         # Resolve bus indices
-        hv_id = getattr(trafo, "from_bus", None)
-        lv_id = getattr(trafo, "to_bus", None)
-        hv_idx = self.bus_map.get(hv_id, hv_id)
-        lv_idx = self.bus_map.get(lv_id, lv_id)
+        hv_id = trafo.from_bus
+        lv_id = trafo.to_bus
+        hv_idx = self.bus_map[hv_id]
+        lv_idx = self.bus_map[lv_id]
 
-        # Extract std_type if available
-        std_type = None
-        t = trafo.quantities.get("type")
-        if t is not None:
-            std_type = getattr(t, "value", t)
+        if trafo.type.value not in self.net.std_types["trafo"]:
+            logger.warning(
+                f"Transformer type '{trafo.type.value}' not found in pandapower net."
+            )
 
-        # Check if trafo type exists in the net's trafo_type(s) table
-        trafo_type_df = getattr(self.net, "trafo_type", None) or getattr(self.net, "trafo_types", None)
-        if std_type and trafo_type_df is not None:
-            try:
-                if "std_type" in trafo_type_df.columns and std_type in trafo_type_df["std_type"].values:
-                    idx = pp.create_transformer(self.net, hv_bus=hv_idx, lv_bus=lv_idx, std_type=std_type, name=trafo.id)
-                    logger.info("Created transformer '%s' with std_type '%s'", trafo.id, std_type)
-                    return idx
-            except Exception:
-                logger.debug("Error creating transformer using std_type '%s' for %s", std_type, trafo.id)
-
-        # Numeric fallback: use explicit parameters from Transformer (sn in MVA, vn in kV)
-        def _num(qname):
-            q = trafo.quantities.get(qname)
-            if q is None:
-                return None
-            v = getattr(q, "value", q)
-            try:
-                return float(v)
-            except Exception:
-                return None
-
-        sn_mva = _num("nominal_power")
-        vn_hv_kv = _num("nominal_voltage_hv_side")
-        vn_lv_kv = _num("nominal_voltage_lv_side")
-
-        create_from_params = getattr(pp, "create_transformer_from_parameters", None)
-        if create_from_params is not None and sn_mva is not None and vn_hv_kv is not None and vn_lv_kv is not None:
-            try:
-                idx = create_from_params(
-                    self.net,
-                    hv_idx,
-                    lv_idx,
-                    sn_mva,
-                    vn_hv_kv,
-                    vn_lv_kv,
-                    None,
-                    None,
-                    name=trafo.id,
-                )
-                logger.info("Created transformer '%s' from explicit parameters", trafo.id)
-                return idx
-            except Exception:
-                logger.exception("Failed to create transformer from parameters for %s", trafo.id)
-
-        # Last resort: minimal transformer creation with std_type=None
-        try:
-            idx = pp.create_transformer(self.net, hv_bus=hv_idx, lv_bus=lv_idx, name=trafo.id, std_type=std_type)
-            logger.info("Created minimal transformer '%s' without std_type", trafo.id)
-            return idx
-        except Exception:
-            logger.exception("Failed to create transformer element for entity %s", trafo.id)
-            raise
+        return pp.create_transformer(
+            self.net,
+            hv_bus=hv_idx,
+            lv_bus=lv_idx,
+            std_type=trafo.type.value,
+            name=trafo.id,
+        )
 
     def _convert_generic_entity(self, entity, time_set=None, new_freq=None):
         """
@@ -550,6 +503,7 @@ class PandapowerConverter(Converter):
         appends a row to the network's trafo_type (or trafo_types) table. The
         function returns the std_type name created (string).
         """
+
         # Helper to extract parameter value from the entity.quantities mapping
         def _param(name, default=None):
             q = entity.quantities.get(name)
@@ -580,9 +534,11 @@ class PandapowerConverter(Converter):
             "tap_neutral": _param("tapNeutr", None),
             "tap_min": _param("tapMin", None),
             "tap_max": _param("tapMax", None),
+            "pfe_kw": _param("pFe", None),
+            "shift_degree": _param("shift_degree", 0.0),
         }
         # write back (pandas DataFrame is mutable, but ensure attribute stays set)
-        pp.create_std_type(self.net, std_type_name, trafo_type_record, element="trafo")
+        pp.create_std_type(self.net, trafo_type_record, std_type_name, element="trafo")
 
         logger.info(f"Created trafo type '{std_type_name}'")
 
@@ -640,6 +596,7 @@ class PandapowerConverter(Converter):
             The pandapower network containing simulation results.
         model
             The Omnes model to update.
+        """
         # get bus voltages and line loadings and write back
         bus_results = {}
         for bus_id, bus_idx in self.bus_map.items():

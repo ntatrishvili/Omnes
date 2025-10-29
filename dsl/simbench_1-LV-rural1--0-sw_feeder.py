@@ -216,8 +216,8 @@ def build_model_from_simbench():
         + pvs
         + winds
         + loads
-        + transformers
-        + transformer_type_entities,
+        + transformer_type_entities
+        + transformers,
     )
     return model
 
