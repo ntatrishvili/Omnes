@@ -1,8 +1,10 @@
-# TODO: Plotting function goes here
 import pandapower as pp
 import pandas as pd
 
+from utils.logging_setup import get_logger
 
+
+logger = get_logger(__name__)
 def set_timestep_values(net: pp.pandapowerNet, timestep_idx: int):
     """
     For each load/sgens set p_mw according to the model time-series values (kW -> MW).
@@ -16,48 +18,67 @@ def set_timestep_values(net: pp.pandapowerNet, timestep_idx: int):
     # loads
     for idx, row in net.load.iterrows():
         load_name = f"{row['name']}"
-        net.load.at[idx, "p_mw"] = net.profiles["load"][f"{load_name}_p_cons"][
-            timestep_idx
-        ]
-        net.load.at[idx, "q_mvar"] = net.profiles["load"][f"{load_name}_q_cons"][
-            timestep_idx
-        ]
+        net.load.at[idx, "p_mw"] = net.profiles["load"].loc[timestep_idx, f"{load_name}_p_cons"]
+        net.load.at[idx, "q_mvar"] = net.profiles["load"].loc[timestep_idx, f"{load_name}_q_cons"]
 
     # sgens (pv, wind, battery)
     for idx, row in net.sgen.iterrows():
         pv_name = f"{row['name']}"
-        net.sgen.at[idx, "p_mw"] = net.profiles["renewables"][f"{pv_name}_p_out"][
-            timestep_idx
-        ]
-
-    net.load.to_csv("load_debug.csv")
-    net.sgen.to_csv("sgen_debug.csv")
-    net.bus.to_csv("bus_debug.csv")
-    net.line.to_csv("line_debug.csv")
-
+        net.sgen.at[idx, "p_mw"] = net.profiles["renewables"].loc[timestep_idx, f"{pv_name}_p_out"]
+        net.sgen.at[idx, "q_mvar"] = 0
 
 def collect_results(net, results, time_idx):
     # loads
     for bus_idx, row in net.res_bus.iterrows():
-        results.at[time_idx, bus_idx] = row["vm_pu"]
+        for quantity in ["vm_pu", "va_degree", "p_mw", "q_mvar"]:
+            results.at[time_idx, f"{bus_idx}_{quantity}"] = row[quantity]
 
     # sgens (pv, wind, battery)
+    for line_idx, row in net.res_line.iterrows():
+        results.at[time_idx, f"{line_idx}_i_ka"] = row["i_ka"]
+
+
+def init_results_frame(net, time_set):
+    columns = []
+    for bus_idx, row in net.bus.iterrows():
+        columns.append(f"{bus_idx}_vm_pu")
+        columns.append(f"{bus_idx}_va_degree")
+        columns.append(f"{bus_idx}_p_mw")
+        columns.append(f"{bus_idx}_q_mvar")
+
+        # sgens (pv, wind, battery)
     for line_idx, row in net.line.iterrows():
-        results.at[time_idx, line_idx] = row["i_ka"]
+        columns.append(f"{line_idx}_i_ka")
+
+    return pd.DataFrame(
+        index=time_set, columns=columns
+    )
 
 
 def simulate_energy_system(net):
     time_set = net.get("time_set", [])
-    results = pd.DataFrame(
-        index=time_set, columns=net.bus.index.tolist() + net.line.index.tolist()
-    )
+    results = init_results_frame(net, time_set)
+
+    # inspect trafo
+    print(net.trafo.loc[0, ["vn_hv_kv", "vn_lv_kv", "sn_mva", "vk_percent", "vkr_percent"]])
+
+    # inspect HV / LV bus nominal voltages that trafo connects to
+    hv_bus = int(net.trafo.loc[0, "hv_bus"])
+    lv_bus = int(net.trafo.loc[0, "lv_bus"])
+    print("hv bus vn_kv:", net.bus.at[hv_bus, "vn_kv"])
+    print("lv bus vn_kv:", net.bus.at[lv_bus, "vn_kv"])
+
+    # inspect typical line impedances (compare magnitudes)
+    print(net.line[["name", "r_ohm_per_km", "x_ohm_per_km", "length_km"]])
+
     for t in time_set:
         set_timestep_values(net, t)
         try:
-            # run power flow
-            pp.runpp(net)
+            pp.runpp(net, algorithm='bfsw', init='flat')
+            if t%100 == 0:
+                logger.info(f"Step: {t}.")
             collect_results(net, results, t)
-        except:
-            pass
+        except pp.LoadflowNotConverged:
+            logger.info(f"Power flow did not converge at {t}.")
 
     results.to_csv("energy_system_power_flow_results.csv")

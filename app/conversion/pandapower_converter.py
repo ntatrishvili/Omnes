@@ -325,10 +325,11 @@ class PandapowerConverter(Converter):
             (element index, kind) where kind is 'line' or 'switch'.
         """
         # Handle both plain attributes and wrapped (with .value) attributes
-        length = getattr(line.line_length, "value", line.line_length)
-        resistance = getattr(line.resistance, "value", line.resistance)
-        reactance = getattr(line.reactance, "value", line.reactance)
-        max_current = getattr(line.max_current, "value", line.max_current)
+        length = line.line_length.value
+        resistance = line.resistance.value
+        reactance = line.reactance.value
+        capacitance = line.capacitance.value
+        max_current = line.max_current.value
 
         if length == 0 or reactance == 0 or resistance == 0:
             idx = pp.create_switch(
@@ -346,10 +347,10 @@ class PandapowerConverter(Converter):
                 from_bus=self.bus_map[line.from_bus],
                 to_bus=self.bus_map[line.to_bus],
                 length_km=length,
-                r_ohm_per_km=resistance / length,
-                x_ohm_per_km=reactance / length,
-                c_nf_per_km=0,
-                max_i_ka=max_current / 1000.0,
+                r_ohm_per_km=resistance,
+                x_ohm_per_km=reactance,
+                c_nf_per_km=capacitance,
+                max_i_ka=max_current,
                 name=line.id,
             )
             kind = "line"
@@ -503,6 +504,7 @@ class PandapowerConverter(Converter):
             self.net,
             hv_bus=hv_idx,
             lv_bus=lv_idx,
+            sn_mva = trafo.nominal_power.value / 1000.0,
             std_type=std_type_name,
             name=trafo.id,
         )
@@ -541,7 +543,7 @@ class PandapowerConverter(Converter):
             # map SimBench vmImp -> vk_percent (short-circuit impedance)
             "vk_percent": _param("vmImp", None),
             # vkr_percent (resistance percent) not provided by default, set to zero
-            "vkr_percent": 0.0,
+            "vkr_percent": 0.8,
             # copper and iron losses (convert names appropriately)
             "i0_percent": _param("iNoLoad", None),
             "tap_step_percent": _param("dVm", None),

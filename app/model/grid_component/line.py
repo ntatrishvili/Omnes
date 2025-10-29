@@ -36,6 +36,7 @@ class Line(Connector):
                 "resistance": Parameter(
                     value=kwargs.pop("resistance", self.default_resistance)
                 ),
+                "capacitance": Parameter(value=kwargs.pop("capacitance", self.default_resistance))
             }
         )
 

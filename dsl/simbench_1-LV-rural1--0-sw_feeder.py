@@ -68,7 +68,7 @@ def build_model_from_simbench():
     for _, row in nodes.iterrows():
         buses.append(Bus(
             id=row["id"],
-            nominal_voltage=float(row.get("vNom", 0.4)) * 1000,
+            nominal_voltage=float(row["vmR"])*1000,
             type=BusType.PQ if row["id"] not in slack_nodes else BusType.SLACK,
             coordinates={"x":coords_df.loc[row["coordID"], "x"],"y":coords_df.loc[row["coordID"], "y"]},
         ))
@@ -80,17 +80,19 @@ def build_model_from_simbench():
         if not lt.empty:
             r_per_km = float(lt.iloc[0]["r"])
             x_per_km = float(lt.iloc[0]["x"])
+            b_per_km = float(lt.iloc[0]["b"])
         else:
-            r_per_km, x_per_km = 0.1, 0.08
+            r_per_km, x_per_km, b_per_km = 0.1, 0.08, 60
 
         line = Line(
             id=row["id"],
             from_bus=row["nodeA"],
             to_bus=row["nodeB"],
-            line_length=float(row.get("d", 100)),
+            line_length=float(row["length"]),
             resistance=r_per_km,
             reactance=x_per_km,
-            max_current=float(row.get("loading_max", 100)),
+            capacitance= b_per_km,
+            max_current=float(row["loadingMax"]),
         )
         lines_omnes.append(line)
 
@@ -169,7 +171,7 @@ def build_model_from_simbench():
             q_peak_kw = 1000 * float(row.get("qLoad", 0.0))  # SimBench uses MW
             loads.append(
                 Load(
-                    id=f"load_{row['id']}",
+                    id=f"{row['id']}",
                     bus=node,
                     nominal_power=row["sR"],
                     p_cons={
