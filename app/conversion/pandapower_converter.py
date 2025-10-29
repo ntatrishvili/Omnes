@@ -313,13 +313,20 @@ class PandapowerConverter(Converter):
         tuple[int, str]
             (element index, kind) where kind is 'line' or 'switch'.
         """
-        if line.line_length == 0 or line.reactance == 0 or line.resistance == 0:
+        # Handle both plain attributes and wrapped (with .value) attributes
+        length = getattr(line.line_length, "value", line.line_length)
+        resistance = getattr(line.resistance, "value", line.resistance)
+        reactance = getattr(line.reactance, "value", line.reactance)
+        max_current = getattr(line.max_current, "value", line.max_current)
+
+        if length == 0 or reactance == 0 or resistance == 0:
             idx = pp.create_switch(
                 self.net,
                 bus=self.bus_map[line.from_bus],
                 element=self.bus_map[line.to_bus],
                 et="b",
                 type="CB",
+                name=line.id,
             )
             kind = "switch"
         else:
@@ -327,11 +334,11 @@ class PandapowerConverter(Converter):
                 self.net,
                 from_bus=self.bus_map[line.from_bus],
                 to_bus=self.bus_map[line.to_bus],
-                length_km=line.line_length.value,
-                r_ohm_per_km=line.resistance.value / line.line_length.value,
-                x_ohm_per_km=line.reactance.value / line.line_length.value,
+                length_km=length,
+                r_ohm_per_km=resistance / length,
+                x_ohm_per_km=reactance / length,
                 c_nf_per_km=0,
-                max_i_ka=line.max_current.value / 1000.0,
+                max_i_ka=max_current / 1000.0,
                 name=line.id,
             )
             kind = "line"
@@ -462,13 +469,11 @@ class PandapowerConverter(Converter):
         Helper that creates a pandapower trafo element.
 
         Logic:
-        - If trafo.quantities['type'] contains a std_type that exists in the
-          converter's net trafo_type(s) table, create the trafo using that
+        - If trafo.type.value is a std_type that exists in the
+          converter's net std_types["trafo"] table, create the trafo using that
           std_type.
-        - Else, if numeric parameters (nominal_power, nominal_voltage_hv_side,
-          nominal_voltage_lv_side) are present and pandapower provides
-          create_transformer_from_parameters, use it.
-        - Otherwise, fall back to creating a minimal trafo with std_type=None.
+        - Otherwise, fall back to creating a minimal trafo with std_type=None
+          and log a warning.
         """
         # Resolve bus indices
         hv_id = trafo.from_bus
@@ -476,16 +481,26 @@ class PandapowerConverter(Converter):
         hv_idx = self.bus_map[hv_id]
         lv_idx = self.bus_map[lv_id]
 
-        if trafo.type.value not in self.net.std_types["trafo"]:
-            logger.warning(
-                f"Transformer type '{trafo.type.value}' not found in pandapower net."
-            )
+        # Resolve std_type: try to extract from trafo.type.value
+        std_type_name = None
+        if hasattr(trafo, "type") and hasattr(trafo.type, "value"):
+            std_type_name = trafo.type.value
 
+        # Check if std_type exists in pandapower's trafo types
+        if std_type_name:
+            trafo_types = getattr(self.net, "std_types", {}).get("trafo", {})
+            if std_type_name not in trafo_types:
+                logger.warning(
+                    f"Transformer type '{std_type_name}' not found in pandapower std_types."
+                )
+                std_type_name = None
+
+        # Create transformer, using std_type if available
         return pp.create_transformer(
             self.net,
             hv_bus=hv_idx,
             lv_bus=lv_idx,
-            std_type=trafo.type.value,
+            std_type=std_type_name,
             name=trafo.id,
         )
 
@@ -526,9 +541,6 @@ class PandapowerConverter(Converter):
             "vkr_percent": None,
             # copper and iron losses (convert names appropriately)
             "i0_percent": _param("iNoLoad", None),
-            "va0": _param("va0", None),
-            "tapable": _param("tapable", False),
-            "tap_side": _param("tapside", None),
             "tap_step_percent": _param("dVm", None),
             "tap_step_degree": _param("dVa", None),
             "tap_neutral": _param("tapNeutr", None),
