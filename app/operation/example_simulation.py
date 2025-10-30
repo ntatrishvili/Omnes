@@ -19,155 +19,236 @@ import configparser
 from os.path import join
 
 import pandapower as pp
-import pandas as pd
 
 from utils.logging_setup import get_logger
 
-# python
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import networkx as nx
 import matplotlib as mpl
+from typing import List, Optional
 
 
-def visualize_power_flow_results(
+def visualize_high_voltage_day(
     net,
-    results_csv=None,
-    results_df=None,
-    timestep=None,
-    buses=None,
-    lines=None,
-    figsize=(14, 8),
+    results_csv: Optional[str] = None,
+    results_df: Optional[pd.DataFrame] = None,
+    branches: Optional[List[List[int]]] = None,
+    figsize=(16, 10),
     cmap="viridis",
 ):
     """
-    Visualize a network snapshot and time series from a results CSV.
+    Visualize network at timestep with highest voltage and show branch profiles + day time-series.
 
     Parameters
     ----------
     net : pandapowerNet
-        The pandapower network (used to build topology and node positions).
-    results_csv : str
-        Path to the CSV produced by simulate_energy_system (index = timesteps).
-    timestep : int or label, optional
-        Which timestep row to visualize. If None uses last row in CSV.
-    buses : list of bus indices, optional
-        If provided, time series subplot will show these bus voltages.
-    lines : list of line indices, optional
-        If provided, only these lines are drawn; otherwise all net.line rows are used.
+        Pandapower network (used for topology and node positions).
+    results_csv : str, optional
+        Path to `energy_system_power_flow_results.csv`. Either this or results_df must be provided.
+    results_df : pd.DataFrame, optional
+        Results DataFrame (index = timesteps). If provided, used instead of reading CSV.
+    branches : list of list of int, optional
+        Predefined branches (each branch is ordered list of bus indices). If None the function tries to detect
+        up to three main branches automatically.
     figsize : tuple
         Figure size.
     cmap : str
-        Matplotlib colormap for voltages.
+        Colormap for node voltages.
     """
-    # load results
     if results_df is None and results_csv is None:
-        raise ValueError("results_df or results_csv must be provided.")
+        raise ValueError("Provide results_df or results_csv")
 
-    if results_df is None:
-        df = pd.read_csv(results_csv, index_col=0)
-    else:
-        df = results_df
+    # load results
+    df = results_df if results_df is not None else pd.read_csv(results_csv, index_col=0)
 
-    if timestep is None:
-        timestep = df.index[-1]
+    # identify vm_pu columns and line current columns
+    vm_cols = sorted(
+        [c for c in df.columns if c.endswith("_vm_pu")],
+        key=lambda s: int(s.split("_")[0]),
+    )
+    i_cols = sorted(
+        [c for c in df.columns if c.endswith("_i_ka")],
+        key=lambda s: int(s.split("_")[0]),
+    )
 
-    # Prepare node positions
+    if not vm_cols:
+        raise RuntimeError("No vm_pu columns found in results")
+
+    # compute per-timestep maximum bus voltage
+    vm_df = df[vm_cols].astype(float)
+    max_vm_per_t = vm_df.max(axis=1)
+    # find the timestep with the highest maximum voltage
+    peak_idx = max_vm_per_t.idxmax()
+
+    # attempt to interpret index as datetime to get the full day
+    try:
+        parsed_index = pd.to_datetime(df.index, errors="coerce")
+        if parsed_index.notna().sum() > 0:
+            df_dt = df.copy()
+            df_dt.index = parsed_index
+            peak_ts = parsed_index[df.index.get_indexer([peak_idx])[0]]
+            peak_date = peak_ts.date()
+            # select all rows with same date
+            day_mask = df_dt.index.date == peak_date
+            day_df = df_dt.loc[day_mask]
+        else:
+            raise ValueError
+    except Exception:
+        # fallback: assume hourly integer timesteps, group by day = t // 24
+        numeric_idx = pd.to_numeric(df.index, errors="coerce")
+        if numeric_idx.isna().all():
+            # cannot parse index -> use single timestep only
+            peak_ts = peak_idx
+            day_df = df.loc[[peak_idx]]
+        else:
+            day_number = int(numeric_idx[df.index.get_indexer([peak_idx])[0]] // 24)
+            start = day_number * 24
+            end = start + 24
+            day_mask = (numeric_idx >= start) & (numeric_idx < end)
+            day_df = df.loc[day_mask]
+
+    # prepare positions for network layout (prefer stored coords)
     pos = {}
     if "x" in net.bus.columns and "y" in net.bus.columns:
-        for idx, row in net.bus.iterrows():
-            pos[idx] = (row["x"], row["y"])
+        for idx, r in net.bus.iterrows():
+            pos[idx] = (r["x"], r["y"])
     elif (
         hasattr(net, "bus_geodata")
         and "x" in net.bus_geodata.columns
         and "y" in net.bus_geodata.columns
     ):
-        for idx, row in net.bus_geodata.iterrows():
-            pos[idx] = (row["x"], row["y"])
+        for idx, r in net.bus_geodata.iterrows():
+            pos[idx] = (r["x"], r["y"])
     else:
-        # fallback layout
         G_tmp = nx.Graph()
         G_tmp.add_nodes_from(net.bus.index.tolist())
         pos = nx.circular_layout(G_tmp)
 
-    # Build graph and collect edge currents
+    # build topology graph from net.line (and line with from_bus/to_bus)
     G = nx.Graph()
-    for b_idx in net.bus.index:
-        G.add_node(b_idx)
+    G.add_nodes_from(net.bus.index.tolist())
+    for idx, row in net.line.iterrows():
+        u = int(row["from_bus"])
+        v = int(row["to_bus"])
+        G.add_edge(u, v, key=idx)
 
+    # determine branches if not provided: find root (ext_grid.bus if present) then longest root->leaf paths
+    if branches is None:
+        # choose root as ext_grid bus if available, else pick bus with highest degree
+        root = None
+        if (
+            hasattr(net, "ext_grid")
+            and not net.ext_grid.empty
+            and "bus" in net.ext_grid.columns
+        ):
+            root = int(net.ext_grid.iloc[0]["bus"])
+        if root is None:
+            degrees = dict(G.degree())
+            # prefer node with degree > 1 and smallest index
+            root = min(degrees, key=lambda k: (-degrees[k], k))
+
+        leaves = [n for n, d in G.degree() if d == 1 and n != root]
+        # compute root->leaf paths and sort by length
+        paths = []
+        for leaf in leaves:
+            try:
+                path = nx.shortest_path(G, source=root, target=leaf)
+                paths.append(path)
+            except nx.NetworkXNoPath:
+                continue
+        paths.sort(key=lambda p: len(p), reverse=True)
+        # take up to 3 longest distinct paths
+        branches = []
+        added_sets = []
+        for p in paths:
+            s = frozenset(p)
+            if any(s <= other for other in added_sets):
+                continue
+            branches.append(p)
+            added_sets.append(s)
+            if len(branches) >= 3:
+                break
+
+    # collect vm_pu at peak timestep for node coloring
+    peak_vm = {}
+    # peak_idx may be datetime or original label; use df.loc
+    peak_row = df.loc[peak_idx]
+    for c in vm_cols:
+        bus = int(c.split("_")[0])
+        peak_vm[bus] = float(peak_row[c]) if pd.notna(peak_row[c]) else np.nan
+
+    # collect edge currents at peak timestep
     edge_currents = {}
     for idx, row in net.line.iterrows():
-        if lines is not None and idx not in lines:
-            continue
-        from_b = int(row["from_bus"])
-        to_b = int(row["to_bus"])
-        G.add_edge(from_b, to_b, key=idx)
+        u = int(row["from_bus"])
+        v = int(row["to_bus"])
         col_name = f"{idx}_i_ka"
-        i_val = df.at[timestep, col_name] if col_name in df.columns else np.nan
-        edge_currents[(from_b, to_b, idx)] = i_val
+        i_val = (
+            float(peak_row[col_name])
+            if col_name in df.columns and pd.notna(peak_row[col_name])
+            else np.nan
+        )
+        edge_currents[(u, v, idx)] = i_val
 
-    # Node voltages for the snapshot
-    node_v = []
-    node_list = list(G.nodes())
-    for n in node_list:
-        col = f"{n}_vm_pu"
-        node_v.append(df.at[timestep, col] if col in df.columns else np.nan)
-    node_v = np.array(node_v, dtype=float)
-
-    # Plotting
-    fig, (ax_net, ax_ts) = plt.subplots(
-        1, 2, figsize=figsize, gridspec_kw={"width_ratios": [2, 1]}
+    # plotting layout: 2x2 (top row two panels, bottom full width)
+    fig = plt.figure(figsize=figsize)
+    gs = fig.add_gridspec(
+        2, 2, height_ratios=[1.0, 1.0], width_ratios=[1.3, 1.0], hspace=0.28, wspace=0.3
     )
+    ax_net = fig.add_subplot(gs[0, 0])
+    ax_branch = fig.add_subplot(gs[0, 1])
+    ax_ts = fig.add_subplot(gs[1, :])
 
     # Draw edges with widths proportional to current
-    all_currents = np.array(
+    currents = np.array(
         [v for v in edge_currents.values() if not np.isnan(v)], dtype=float
     )
-    if all_currents.size:
-        cur_min, cur_max = all_currents.min(), all_currents.max()
+    if currents.size:
+        cur_min, cur_max = currents.min(), currents.max()
     else:
         cur_min, cur_max = 0.0, 1.0
 
-    # map each edge to a width and color
     widths = []
     edge_colors = []
     for u, v, idx in edge_currents:
         val = edge_currents[(u, v, idx)]
         if np.isnan(val):
-            widths.append(0.5)
-            edge_colors.append("gray")
+            widths.append(0.6)
+            edge_colors.append("lightgray")
         else:
-            # scale widths between 0.5 and 6
-            if cur_max > cur_min:
-                w = 0.5 + 5.5 * ((val - cur_min) / (cur_max - cur_min))
-            else:
-                w = 1.5
-            widths.append(w)
-            edge_colors.append(
-                plt.cm.plasma(
-                    (val - cur_min) / (cur_max - cur_min) if cur_max > cur_min else 0.5
-                )
+            w = (
+                0.6 + 5.4 * ((val - cur_min) / (cur_max - cur_min))
+                if cur_max > cur_min
+                else 1.5
             )
+            widths.append(w)
+            cmap_obj = plt.cm.plasma
+            normed = (val - cur_min) / (cur_max - cur_min) if cur_max > cur_min else 0.5
+            edge_colors.append(cmap_obj(normed))
 
     nx.draw_networkx_edges(
-        G, pos=pos, ax=ax_net, edge_color=edge_colors, width=widths, alpha=0.8
+        G, pos=pos, ax=ax_net, edge_color=edge_colors, width=widths, alpha=0.85
     )
 
-    # Draw nodes colored by vm_pu
-    vmin = np.nanmin(node_v) if np.isfinite(node_v).any() else 0.9
-    vmax = np.nanmax(node_v) if np.isfinite(node_v).any() else 1.1
-    nodes = nx.draw_networkx_nodes(
+    # node colors by peak vm
+    node_list = list(G.nodes())
+    node_vals = [peak_vm.get(n, np.nan) for n in node_list]
+    vmin = np.nanmin(node_vals) if np.isfinite(node_vals).any() else 0.9
+    vmax = np.nanmax(node_vals) if np.isfinite(node_vals).any() else 1.1
+    nodes_drawn = nx.draw_networkx_nodes(
         G,
         pos=pos,
+        nodelist=node_list,
         node_size=300,
-        node_color=node_v,
+        node_color=node_vals,
         cmap=plt.get_cmap(cmap),
         vmin=vmin,
         vmax=vmax,
         ax=ax_net,
     )
-    # labels: prefer net.bus.name if available
+
     labels = {}
     if "name" in net.bus.columns:
         for n in node_list:
@@ -177,39 +258,52 @@ def visualize_power_flow_results(
             labels[n] = str(n)
     nx.draw_networkx_labels(G, pos=pos, labels=labels, font_size=8, ax=ax_net)
 
-    # Colorbar for node voltages
     sm = mpl.cm.ScalarMappable(
         cmap=plt.get_cmap(cmap), norm=mpl.colors.Normalize(vmin=vmin, vmax=vmax)
     )
     sm.set_array([])
-    cbar = fig.colorbar(sm, ax=ax_net, fraction=0.046, pad=0.04)
+    cbar = fig.colorbar(sm, ax=ax_net, fraction=0.046, pad=0.02)
     cbar.set_label("Voltage [pu]")
 
-    # Edge current legend (min/max)
     ax_net.set_title(
-        f"Network snapshot at timestep {timestep}\n(node color = vm_pu, edge width = i_ka)"
+        f"Network snapshot at peak timestep {peak_idx}\n(node color = vm_pu, edge width = i_ka)"
     )
 
-    # Time series subplot: voltages for selected buses (default: first 6 buses)
-    if buses is None:
-        buses = list(net.bus.index[:6])
-    ts_df = df.copy()
-    ts_v = {}
-    for b in buses:
-        col = f"{b}_vm_pu"
-        if col in ts_df.columns:
-            ts_v[b] = ts_df[col].astype(float)
-    if ts_v:
-        for b, series in ts_v.items():
-            ax_ts.plot(series.index, series.values, label=str(b))
-        ax_ts.set_xlabel("Timestep")
-        ax_ts.set_ylabel("Voltage [pu]")
-        ax_ts.set_title("Bus voltages over time")
-        ax_ts.legend(fontsize="small")
-        ax_ts.grid(True)
-    else:
-        ax_ts.text(0.5, 0.5, "No bus vm_pu time series found", ha="center", va="center")
-        ax_ts.set_axis_off()
+    # Branch spatial profiles (vm along node-order)
+    for i, branch in enumerate(branches):
+        branch_v = [peak_vm.get(b, np.nan) for b in branch]
+        x = list(range(len(branch)))
+        ax_branch.plot(x, branch_v, marker="o", label=f"Branch {i+1}: root→leaf")
+        for xi, b in zip(x, branch):
+            ax_branch.text(
+                xi, branch_v[xi], str(b), fontsize=8, ha="center", va="bottom"
+            )
+    ax_branch.set_xlabel("Node order along branch (root → leaf)")
+    ax_branch.set_ylabel("Voltage [pu]")
+    ax_branch.set_title("Voltage profile along main branches (at peak timestep)")
+    ax_branch.grid(True)
+    ax_branch.legend(fontsize="small")
+
+    # Time series for the day containing the peak: vm for each bus
+    # Determine vm columns for day_df
+    day_vm = day_df[[c for c in day_df.columns if c.endswith("_vm_pu")]].astype(float)
+    # use parsed datetime index if available
+    try:
+        time_index = pd.to_datetime(day_df.index)
+    except Exception:
+        time_index = day_df.index
+
+    # plot each bus time series (keep light colors for many lines)
+    for c in day_vm.columns:
+        bus = int(c.split("_")[0])
+        ax_ts.plot(time_index, day_vm[c].values, label=str(bus), alpha=0.7, linewidth=1)
+    ax_ts.set_xlabel("Time")
+    ax_ts.set_ylabel("Voltage [pu]")
+    ax_ts.set_title(f"Voltage time-series for day of peak (peak timestep: {peak_idx})")
+    ax_ts.grid(True)
+    # place legend only if not too many lines
+    if len(day_vm.columns) <= 12:
+        ax_ts.legend(title="bus", fontsize="small", ncol=2)
 
     plt.tight_layout()
     plt.show()
@@ -262,9 +356,11 @@ def set_timestep_values(net: pp.pandapowerNet, timestep_idx: int):
 
     # sgens (pv, wind, battery)
     for idx, row in net.sgen.iterrows():
-        pv_name = f"{row['name']}"
+        name = f"{row['name']}"
+        if name == "battery":
+            continue
         net.sgen.at[idx, "p_mw"] = net.profiles["renewables"].loc[
-            timestep_idx, f"{pv_name}_p_out"
+            timestep_idx, f"{name}_p_out"
         ]
         net.sgen.at[idx, "q_mvar"] = 0
 
@@ -428,4 +524,4 @@ def simulate_energy_system(net):
     results.to_csv(
         join(config.get("path", "output"), "energy_system_power_flow_results.csv")
     )
-    visualize_power_flow_results(net, results_df=results, buses=net.bus.index.tolist())
+    visualize_high_voltage_day(net, results_df=results)

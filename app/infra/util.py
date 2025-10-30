@@ -55,7 +55,7 @@ class TimesetBuilder:
         time_end = kwargs.pop("time_end", None)
         # TODO: Huge hack, how to handle?
         if time_start is None and time_end is None:
-            time_start = "2019-01-01"
+            time_start = "1970-01-01"
         number_of_time_steps = kwargs.pop("number_of_time_steps", None)
         resolution = kwargs.pop("resolution", None)
         dates = date_range(

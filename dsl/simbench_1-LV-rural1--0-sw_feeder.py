@@ -4,6 +4,7 @@ from os.path import join
 import pandas as pd
 
 from app.conversion.pandapower_converter import PandapowerConverter
+from app.conversion.pulp_converter import PulpConverter
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
 from app.model.generic_entity import GenericEntity
@@ -13,6 +14,8 @@ from app.model.grid_component.transformer import Transformer
 from app.model.load.load import Load
 from app.model.model import Model
 from app.model.slack import Slack
+from app.model.storage.battery import Battery
+from app.operation.example_optimization import optimize_energy_system
 from app.operation.example_simulation import simulate_energy_system
 from utils.logging_setup import get_logger, init_logging
 
@@ -121,17 +124,18 @@ def build_model_from_simbench():
         for _, row in res_units.iterrows():
             tech = str(row.get("type", "")).lower()
             node = row["node"]
-            p_peak_kw = 1000 * float(row.get("pRES", 0.0))  # SimBench uses MW
+            p_peak_kw = float(row.get("pRES", 0.0))  # SimBench uses MW
 
             if "pv" in tech or "solar" in tech:
                 pvs.append(
                     PV(
                         id=row["id"],
                         bus=node,
-                        peak_power=p_peak_kw / 1000,  # convert to kW for Omnes
+                        peak_power=p_peak_kw,  # convert to kW for Omnes
                         p_out={
                             "input_path": join(root, "RESProfile.csv"),
                             "col": row["profile"],
+                            "scale": p_peak_kw,
                             **datetime_properties,
                         },
                         tags={
@@ -148,11 +152,12 @@ def build_model_from_simbench():
                     Wind(
                         id=row["id"],
                         bus=node,
-                        peak_power=p_peak_kw / 1000,
+                        peak_power=p_peak_kw,
                         efficiency=0.95,
                         p_out={
                             "input_path": join(root, "RESProfile.csv"),
                             "col": row["profile"],
+                            "scale": p_peak_kw,
                             **datetime_properties,
                         },
                         tags={
@@ -181,17 +186,17 @@ def build_model_from_simbench():
                     p_cons={
                         "input_path": join(root, "LoadProfile.csv"),
                         "col": f'{row["profile"]}_pload',
+                        "scale": p_peak_kw,
                         **datetime_properties,
                     },
                     q_cons={
                         "input_path": join(root, "LoadProfile.csv"),
                         "col": f'{row["profile"]}_qload',
+                        "scale": q_peak_kw,
                         **datetime_properties,
                     },
                     tags={
                         "source": "symbench",
-                        "p_kw": p_peak_kw,
-                        "q_kw": q_peak_kw,
                         "household": node,
                         "profile": row["profile"],
                     },
@@ -222,15 +227,25 @@ def build_model_from_simbench():
             transformer_type_entities.append(GenericEntity(**row.to_dict()))
 
     # -----------------------------
-    # Build model
+    # The battery
     # -----------------------------
+    battery = Battery(
+        "battery",
+        bus=buses[0].id,
+        capacity=50,
+        max_charge_rate=10,
+        max_discharge_rate=10,
+    )
+    # -----------------------------
+    # Build model
     model = Model(
         id="SimBench_Rural1_Community",
         time_start="2016-01-01 00:00",
         time_end="2017-01-01 00:00",
         resolution="1h",
         time_kwargs={"inclusive": "left"},
-        entities=buses
+        entities=[battery]
+        + buses
         + transformer_type_entities
         + transformers
         + lines_omnes
@@ -239,6 +254,7 @@ def build_model_from_simbench():
         + winds
         + loads,
     )
+    # -----------------------------
     return model
 
 
@@ -261,8 +277,16 @@ if __name__ == "__main__":
     log.info("Logging initialized")
     model = build_model_from_simbench()
     log.info("Model built successfully")
+
+    problem = PulpConverter().convert_model(model)
+    log.info("Model converted to optimization problem successfully")
+
+    log.info("Starting optimization")
+    optimize_energy_system(**problem)
+    log.info("Optimization completed")
+
     net = PandapowerConverter().convert_model(model)
-    log.info("Model converted successfully")
+    log.info("Model converted to pandapower net successfully")
 
     log.info("Starting simulation")
     simulate_energy_system(net)

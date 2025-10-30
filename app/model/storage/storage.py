@@ -12,9 +12,9 @@ class Storage(Device):
     default_capacity: Optional[float] = None
     default_max_charge_rate: Optional[float] = None
     default_max_discharge_rate: Optional[float] = None
-    default_charge_efficiency: Optional[float] = None
-    default_discharge_efficiency: Optional[float] = None
-    default_storage_efficiency: Optional[float] = None
+    default_charge_efficiency: Optional[float] = 1.0
+    default_discharge_efficiency: Optional[float] = 1.0
+    default_storage_efficiency: Optional[float] = 1.0
 
     def __init__(
         self,

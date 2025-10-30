@@ -1,9 +1,5 @@
-import time
-
 import numpy as np
 import pulp
-from pulp import LpStatusOptimal
-import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
@@ -36,14 +32,14 @@ def plot_energy_flows(kwargs, time_range_to_plot=None):
         pv: np.array([pulp.value(kwargs[f"{pv}.p_out"][t]) for t in time_set])
         for pv in pv_names
     }
-    pv_sum = sum(pv_profiles.values())
+    pv_sum = np.sum(pv_prof for pv_prof in pv_profiles.values())
 
     # Loads
     load_profiles = {
         ld: np.array([pulp.value(kwargs[f"{ld}.p_cons"][t]) for t in time_set])
         for ld in load_names
     }
-    load_sum = sum(load_profiles.values())
+    load_sum = np.sum(load_prof for load_prof in load_profiles.values())
 
     # Battery flows
     bess_in_profiles = {

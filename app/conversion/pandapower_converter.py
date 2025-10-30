@@ -180,7 +180,6 @@ class PandapowerConverter(Converter):
         entity_type = kwargs.pop("entity_type")
         idx = kwargs.pop("idx", 0)
         profile_type = kwargs.pop("profile_type", entity_type)
-        multiply = kwargs.pop("multiply", None)
         for key, quantity in entity.quantities.items():
             converted_value = self.convert_quantity(
                 quantity, name=f"{entity.id}_{key}", time_set=time_set, freq=new_freq
@@ -190,8 +189,6 @@ class PandapowerConverter(Converter):
             elif isinstance(quantity, Parameter):
                 self.net[entity_type].loc[idx, key] = converted_value
             elif isinstance(quantity, TimeseriesObject):
-                if multiply is not None and key in multiply:
-                    converted_value *= self.net[entity_type].loc[idx, multiply[key]]
                 self.net.profiles[profile_type].loc[
                     :, f"{entity.id}_{key}"
                 ] = converted_value
@@ -233,7 +230,6 @@ class PandapowerConverter(Converter):
             entity_type="sgen",
             idx=idx,
             profile_type="renewables",
-            multiply={"p_out": "p_mw"},
         )
 
     def _convert_wind_entity(self, wind: Wind, time_set=None, new_freq=None):
@@ -246,7 +242,6 @@ class PandapowerConverter(Converter):
             entity_type="sgen",
             idx=idx,
             profile_type="renewables",
-            multiply={"p_out": "p_mw"},
         )
 
     def _convert_battery_entity(self, battery: Battery, time_set=None, new_freq=None):
@@ -259,7 +254,6 @@ class PandapowerConverter(Converter):
             entity_type="sgen",
             idx=idx,
             profile_type="storage",
-            multiply={"p_out": "p_mw"},
         )
 
     def _convert_load_entity(self, load: Load, time_set=None, new_freq=None):
@@ -271,7 +265,6 @@ class PandapowerConverter(Converter):
             new_freq,
             entity_type="load",
             idx=idx,
-            multiply={"p_cons": "p_mw", "q_cons": "q_mvar"},
         )
 
     def _convert_transformer_entity(

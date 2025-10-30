@@ -79,6 +79,7 @@ class TimeseriesObject(Quantity):
             "data": kwargs.pop("data", None),
             "input_path": kwargs.pop("input_path", None),
             "col": kwargs.pop("col", None),
+            "scale": kwargs.pop("scale", 1.0),
             "datetime_column": kwargs.pop("datetime_column", None),
             "datetime_format": kwargs.pop("datetime_format", None),
             "tz": kwargs.pop("tz", None),
@@ -107,7 +108,7 @@ class TimeseriesObject(Quantity):
                 datatime_column=params.get("datetime_column", None),
                 datetime_format=params.get("datetime_format", None),
                 tz=params.get("tz", None),
-            )
+            ) * params.get("scale", 1.0)
             return self._dataframe_to_xarray(df_data, params["attrs"])
         else:
             return xr.DataArray(data=[], dims=["timestamp"], attrs=params["attrs"])

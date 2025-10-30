@@ -206,13 +206,13 @@ class PulpConverter(Converter):
         Union[List[pulp.LpVariable], Any]
             Either a list of PuLP variables (for empty quantities) or the quantity values
         """
-        if quantity.empty():
+        if isinstance(quantity, Parameter):
+            return quantity.value
+        elif quantity.empty():
             normalized_time_set = validate_and_normalize_time_set(
                 time_set, self.DEFAULT_TIME_SET_SIZE
             )
             return create_empty_pulp_var(name, len(normalized_time_set))
-        if isinstance(quantity, Parameter):
-            return quantity.value()
         else:
             return quantity.value(time_set=time_set, freq=freq)
 

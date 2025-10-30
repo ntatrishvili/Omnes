@@ -46,12 +46,11 @@ class TestPulpConverter(unittest.TestCase):
         """Test converting parameter quantity"""
         mock_parameter = Mock(spec=Parameter)
         mock_parameter.empty.return_value = False
-        mock_parameter.value.return_value = 42
+        mock_parameter.value = 42
 
         result = self.converter.convert_quantity(mock_parameter, "test_name")
 
         self.assertEqual(result, 42)
-        mock_parameter.value.assert_called_once()
 
     def test_convert_quantity_regular(self):
         """Test converting regular quantity"""
