@@ -349,10 +349,10 @@ def set_timestep_values(net: pp.pandapowerNet, timestep_idx: int):
         load_name = f"{row['name']}"
         net.load.at[idx, "p_mw"] = net.profiles["load"].loc[
             timestep_idx, f"{load_name}_p_cons"
-        ]
+        ] / 1000.0
         net.load.at[idx, "q_mvar"] = net.profiles["load"].loc[
             timestep_idx, f"{load_name}_q_cons"
-        ]
+        ] / 1000.0
 
     # sgens (pv, wind, battery)
     for idx, row in net.sgen.iterrows():

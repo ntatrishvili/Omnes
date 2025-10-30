@@ -124,7 +124,7 @@ def build_model_from_simbench():
         for _, row in res_units.iterrows():
             tech = str(row.get("type", "")).lower()
             node = row["node"]
-            p_peak_kw = float(row.get("pRES", 0.0))  # SimBench uses MW
+            p_peak_kw = float(row.get("pRES", 0.0)) * 1000  # SimBench uses MW
 
             if "pv" in tech or "solar" in tech:
                 pvs.append(
@@ -278,7 +278,7 @@ if __name__ == "__main__":
     model = build_model_from_simbench()
     log.info("Model built successfully")
 
-    problem = PulpConverter().convert_model(model)
+    problem = PulpConverter().convert_model(model, skip_entities=(Bus, Line, Transformer))
     log.info("Model converted to optimization problem successfully")
 
     log.info("Starting optimization")

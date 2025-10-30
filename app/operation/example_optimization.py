@@ -8,23 +8,12 @@ from utils.logging_setup import get_logger
 log = get_logger(__name__)
 
 
-def plot_energy_flows(kwargs, time_range_to_plot=None):
+def plot_energy_flows(kwargs, pv_names, load_names, bess_names, slack_names, time_range_to_plot=None):
     time_set = kwargs["time_set"]
     nT = len(time_set)
     if time_range_to_plot is None:
         time_range_to_plot = range(nT)
 
-    # Identify all components automatically
-    pv_names = {k.split(".")[0] for k in kwargs if k.startswith("pv") and ".p_out" in k}
-    load_names = {
-        k.split(".")[0] for k in kwargs if k.startswith("load") and ".p_cons" in k
-    }
-    bess_names = {
-        k.split(".")[0] for k in kwargs if k.startswith("battery") and ".p_in" in k
-    }
-    slack_names = {
-        k.split(".")[0] for k in kwargs if k.startswith("slack") and ".p_in" in k
-    }
 
     # --- Extract and sum all variables ---
     # PV production
@@ -32,14 +21,14 @@ def plot_energy_flows(kwargs, time_range_to_plot=None):
         pv: np.array([pulp.value(kwargs[f"{pv}.p_out"][t]) for t in time_set])
         for pv in pv_names
     }
-    pv_sum = np.sum(pv_prof for pv_prof in pv_profiles.values())
+    pv_sum = sum(pv_profiles.values())
 
     # Loads
     load_profiles = {
         ld: np.array([pulp.value(kwargs[f"{ld}.p_cons"][t]) for t in time_set])
         for ld in load_names
     }
-    load_sum = np.sum(load_prof for load_prof in load_profiles.values())
+    load_sum = sum(load_profiles.values())
 
     # Battery flows
     bess_in_profiles = {
@@ -185,16 +174,21 @@ def optimize_energy_system(**kwargs):
     time_set = kwargs["time_set"]
 
     # Automatically detect all components
-    pv_names = {k.split(".")[0] for k in kwargs if k.startswith("pv") and ".p_out" in k}
+    # TODO: improve understanding of component types, we need more automatic indicators
+    pv_names = {k.replace(".p_out", "") for k in kwargs if ("pv" in k.lower() or "sgen" in k.lower()) and ".p_out" in k}
+    log.info(f"Detected PV entities: {pv_names}")
     load_names = {
-        k.split(".")[0] for k in kwargs if k.startswith("load") and ".p_cons" in k
+        k.replace(".p_cons", "") for k in kwargs if "load" in k.lower() and ".p_cons" in k
     }
+    log.info(f"Detected load entities: {load_names}")
     bess_names = {
-        k.split(".")[0] for k in kwargs if k.startswith("battery") and ".p_in" in k
+        k.replace(".p_in", "") for k in kwargs if "battery" in k.lower() and ".p_in" in k
     }
+    log.info(f"Detected batteries: {bess_names}")
     slack_names = {
-        k.split(".")[0] for k in kwargs if k.startswith("slack") and ".p_in" in k
+        k.replace(".p_in", "") for k in kwargs if ("slack" in k.lower() or "grid" in k.lower()) and ".p_in" in k
     }
+    log.info(f"Detected slack entities: {slack_names}")
 
     prob = pulp.LpProblem("CSCopt", pulp.LpMinimize)
 
@@ -245,7 +239,7 @@ def optimize_energy_system(**kwargs):
     if pulp.LpStatus[status] != "Optimal":
         raise RuntimeError(f"Optimization failed: {pulp.LpStatus[status]}")
 
-    plot_energy_flows(kwargs, time_range_to_plot=range(11040, 11136))
+    plot_energy_flows(kwargs, pv_names, load_names, bess_names, slack_names, time_range_to_plot=range(11040, 11136))
 
     return {
         "status": pulp.LpStatus[status],

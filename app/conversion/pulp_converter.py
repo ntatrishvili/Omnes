@@ -162,8 +162,11 @@ class PulpConverter(Converter):
         )
 
         # Convert all entities
+        skip_entities = kwargs.get("skip_entities", set())
         model_variables = {}
         for entity in model.entities:
+            if type(entity) in skip_entities:
+                continue
             model_variables.update(
                 entity.convert(effective_time_set, effective_freq, self)
             )

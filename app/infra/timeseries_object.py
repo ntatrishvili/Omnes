@@ -311,14 +311,14 @@ class TimeseriesObject(Quantity):
         self,
         new_freq,
         method=None,
-        agg="sum",
+        agg="mean",
         in_place=False,
     ) -> "TimeseriesObject":
         """Resample to new frequency.
 
         :param str new_freq: New frequency (e.g. '15min')
         :param str|None method: Resampling method (optional)
-        :param str agg: Aggregation function (default 'sum')
+        :param str agg: Aggregation function (default 'sum'), others like 'mean', 'max', etc., only for downsampling
         :param bool in_place: Modify in place (default False)
         :returns TimeseriesObject: Resampled TimeseriesObject
         :raises ValueError: If frequency cannot be inferred or method unsupported
