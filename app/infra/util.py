@@ -48,19 +48,22 @@ def flatten(nested_list):
 
 class TimesetBuilder:
     @classmethod
-    def create(cls, **kwargs):
-        time_start = kwargs.get("time_start", None)
-        time_end = kwargs.get("time_end", None)
+    def create(cls, time_kwargs=None, **kwargs):
+        if time_kwargs is None:
+            time_kwargs = {}
+        time_start = kwargs.pop("time_start", None)
+        time_end = kwargs.pop("time_end", None)
         # TODO: Huge hack, how to handle?
         if time_start is None and time_end is None:
             time_start = "2019-01-01"
-        number_of_time_steps = kwargs.get("number_of_time_steps", None)
-        resolution = kwargs.get("resolution", None)
+        number_of_time_steps = kwargs.pop("number_of_time_steps", None)
+        resolution = kwargs.pop("resolution", None)
         dates = date_range(
             start=time_start,
             end=time_end,
             freq=resolution,
             periods=number_of_time_steps,
+            **time_kwargs,
         )
         number_of_time_steps = dates.shape[0]
         log.info(f"Created timeset with {number_of_time_steps} time steps")

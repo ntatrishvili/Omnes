@@ -35,8 +35,10 @@ class Model:
         Initialize the model with an optional name
         """
         self.id: str = id if id is not None else secrets.token_hex(16)
-        self.time_set: TimeSet = timeset_builder.create(**kwargs)
-        self.entities: list[Entity] = kwargs.get("entities", [])
+        self.time_set: TimeSet = timeset_builder.create(
+            kwargs.pop("time_kwargs", {}), **kwargs
+        )
+        self.entities: list[Entity] = kwargs.pop("entities", [])
 
     def add_entity(self, entity: Entity):
         self.entities.append(entity)

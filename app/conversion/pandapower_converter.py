@@ -105,11 +105,11 @@ class PandapowerConverter(Converter):
         self._entity_converters[GenericEntity] = self._convert_generic_entity
 
     def convert_model(
-            self,
-            model: Model,
-            time_set: Optional[Union[int, range]] = None,
-            new_freq: Optional[str] = None,
-            **kwargs,
+        self,
+        model: Model,
+        time_set: Optional[Union[int, range]] = None,
+        new_freq: Optional[str] = None,
+        **kwargs,
     ) -> pandapowerNet:
         """
         Convert a Model into a pandapower network and collect profiles.
@@ -153,11 +153,11 @@ class PandapowerConverter(Converter):
         return self.net
 
     def _convert_entity_default(
-            self,
-            entity: Entity,
-            time_set: Optional[Union[int, range]] = None,
-            new_freq: Optional[str] = None,
-            **kwargs,
+        self,
+        entity: Entity,
+        time_set: Optional[Union[int, range]] = None,
+        new_freq: Optional[str] = None,
+        **kwargs,
     ):
         """
         Default conversion routine for an entity's quantities.
@@ -193,7 +193,7 @@ class PandapowerConverter(Converter):
                 if multiply is not None and key in multiply:
                     converted_value *= self.net[entity_type].loc[idx, multiply[key]]
                 self.net.profiles[profile_type].loc[
-                :, f"{entity.id}_{key}"
+                    :, f"{entity.id}_{key}"
                 ] = converted_value
 
     # Wrapper methods that create network elements AND extract quantities
@@ -233,6 +233,7 @@ class PandapowerConverter(Converter):
             entity_type="sgen",
             idx=idx,
             profile_type="renewables",
+            multiply={"p_out": "p_mw"},
         )
 
     def _convert_wind_entity(self, wind: Wind, time_set=None, new_freq=None):
@@ -274,7 +275,7 @@ class PandapowerConverter(Converter):
         )
 
     def _convert_transformer_entity(
-            self, trafo: Transformer, time_set=None, new_freq=None
+        self, trafo: Transformer, time_set=None, new_freq=None
     ):
         """Create a pandapower transformer (trafo) and extract quantities (if any)."""
         idx = self._convert_transformer(trafo)
@@ -302,7 +303,10 @@ class PandapowerConverter(Converter):
             Index of the created pandapower bus.
         """
         b = pp.create_bus(
-            self.net, vn_kv=bus.nominal_voltage.value / 1000.0, name=bus.id, geodata=tuple(bus.coordinates.values()),
+            self.net,
+            vn_kv=bus.nominal_voltage.value / 1000.0,
+            name=bus.id,
+            geodata=tuple(bus.coordinates.values()),
         )
         self.bus_map[bus.id] = b
         return b
@@ -504,7 +508,7 @@ class PandapowerConverter(Converter):
             self.net,
             hv_bus=hv_idx,
             lv_bus=lv_idx,
-            sn_mva = trafo.nominal_power.value / 1000.0,
+            sn_mva=trafo.nominal_power.value / 1000.0,
             std_type=std_type_name,
             name=trafo.id,
         )
@@ -563,11 +567,11 @@ class PandapowerConverter(Converter):
         return std_type_name
 
     def convert_quantity(
-            self,
-            quantity: Quantity,
-            name: str,
-            time_set: Optional[Union[int, range]] = None,
-            freq: Optional[str] = None,
+        self,
+        quantity: Quantity,
+        name: str,
+        time_set: Optional[Union[int, range]] = None,
+        freq: Optional[str] = None,
     ) -> Optional[ndarray]:
         """
         Convert a Quantity to a numpy array suitable for pandapower profiles.

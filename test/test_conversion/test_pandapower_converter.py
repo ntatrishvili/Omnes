@@ -57,7 +57,11 @@ class TestPandapowerConverter(unittest.TestCase):
 
     def test_bus_creation_and_map(self):
         # Create a dummy bus with nominal_voltage.value used by _convert_bus
-        bus = SimpleNamespace(id="bus_A", nominal_voltage=SimpleNamespace(value=400000))
+        bus = SimpleNamespace(
+            id="bus_A",
+            nominal_voltage=SimpleNamespace(value=400000),
+            coordinates={"x": 11.1, "y": 42.1},
+        )
         idx = self.conv._convert_bus(bus)
         # bus_map updated and bus exists in net
         self.assertIn("bus_A", self.conv.bus_map)
@@ -68,24 +72,35 @@ class TestPandapowerConverter(unittest.TestCase):
 
     def test_line_and_switch_creation(self):
         # prepare two buses
-        b1 = SimpleNamespace(id="b1", nominal_voltage=SimpleNamespace(value=400000))
-        b2 = SimpleNamespace(id="b2", nominal_voltage=SimpleNamespace(value=400000))
+        b1 = SimpleNamespace(
+            id="b1",
+            nominal_voltage=SimpleNamespace(value=400000),
+            coordinates={"x": 11.1, "y": 42.1},
+        )
+        b2 = SimpleNamespace(
+            id="b2",
+            nominal_voltage=SimpleNamespace(value=400000),
+            coordinates={"x": 11.1, "y": 42.1},
+        )
         self.conv._convert_bus(b1)
         self.conv._convert_bus(b2)
 
         # Create a line object with wrapped numeric attributes where needed
         class LineObj:
-            def __init__(self, id, from_bus, to_bus, length, r, x, max_i):
+            def __init__(self, id, from_bus, to_bus, length, r, x, max_i, c):
                 self.id = id
                 self.from_bus = from_bus
                 self.to_bus = to_bus
                 # Wrap resistance and reactance with .value for _convert_line
-                self.line_length = length
+                self.line_length = SimpleNamespace(value=length)
                 self.resistance = SimpleNamespace(value=r)
                 self.reactance = SimpleNamespace(value=x)
                 self.max_current = SimpleNamespace(value=max_i)
+                self.capacitance = SimpleNamespace(value=c)
 
-        line = LineObj("line_1", "b1", "b2", length=0.5, r=0.1, x=0.08, max_i=100.0)
+        line = LineObj(
+            "line_1", "b1", "b2", length=0.5, r=0.1, x=0.08, max_i=100.0, c=0.07
+        )
         idx, kind = self.conv._convert_line(line)
         self.assertEqual(kind, "line")
         # check created line name present
@@ -93,7 +108,7 @@ class TestPandapowerConverter(unittest.TestCase):
         self.assertEqual(self.conv.net.line.at[idx, "name"], "line_1")
 
         # Create a switch-like line (length 0 -> switch)
-        sw = LineObj("switch_1", "b1", "b2", length=0, r=0, x=0, max_i=10.0)
+        sw = LineObj("switch_1", "b1", "b2", length=0, r=0, x=0, max_i=10.0, c=0)
         idx_sw, kind_sw = self.conv._convert_line(sw)
         self.assertEqual(kind_sw, "switch")
         # pandapower stores switches in net.switch
@@ -102,7 +117,9 @@ class TestPandapowerConverter(unittest.TestCase):
     def test_slack_and_generators_and_load(self):
         # create bus and use it
         bus = SimpleNamespace(
-            id="bus_gen", nominal_voltage=SimpleNamespace(value=400000)
+            id="bus_gen",
+            nominal_voltage=SimpleNamespace(value=400000),
+            coordinates={"x": 11.1, "y": 42.1},
         )
         self.conv._convert_bus(bus)
 
@@ -136,7 +153,10 @@ class TestPandapowerConverter(unittest.TestCase):
 
         # Load creation uses tags for p_kw/q_kw - create a load-like object with tags
         load = SimpleNamespace(
-            id="load_1", bus="bus_gen", nominal_power=SimpleNamespace(value=1000.0), tags={"p_kw": 2000.0, "q_kw": 500.0}
+            id="load_1",
+            bus="bus_gen",
+            nominal_power=SimpleNamespace(value=1000.0),
+            tags={"p_kw": 2000.0, "q_kw": 500.0},
         )
         load_idx = self.conv._convert_load(load)
         self.assertIn(load_idx, self.conv.net.load.index)
@@ -165,15 +185,26 @@ class TestPandapowerConverter(unittest.TestCase):
             "tapNeutr": ParamLike(-2),
             "tapMin": ParamLike(0),
             "tapMax": ParamLike(2),
+            "nominal_power": ParamLike(0.16),
         }
-        entity = SimpleNamespace(quantities=quantities, id="TYP_001_ent")
+        entity = SimpleNamespace(
+            quantities=quantities, id="TYP_001_ent", nominal_power=0.16
+        )
         std_name = self.conv._convert_generic_entity(entity)
         # std_name should be returned as a string
         self.assertIsInstance(std_name, str)
 
         # Now build two buses and create transformer referencing the std_type
-        hv = SimpleNamespace(id="HV1", nominal_voltage=SimpleNamespace(value=20000))
-        lv = SimpleNamespace(id="LV1", nominal_voltage=SimpleNamespace(value=400))
+        hv = SimpleNamespace(
+            id="HV1",
+            nominal_voltage=SimpleNamespace(value=20000),
+            coordinates={"x": 11.1, "y": 42.1},
+        )
+        lv = SimpleNamespace(
+            id="LV1",
+            nominal_voltage=SimpleNamespace(value=400),
+            coordinates={"x": 11.1, "y": 42.1},
+        )
         self.conv._convert_bus(hv)
         self.conv._convert_bus(lv)
 
@@ -183,6 +214,7 @@ class TestPandapowerConverter(unittest.TestCase):
             from_bus="HV1",
             to_bus="LV1",
             type=SimpleNamespace(value=std_name),
+            nominal_power=SimpleNamespace(value=0.16),
         )
         # Ensure std_types dict is properly initialized before calling _convert_trafo
         if (
@@ -190,7 +222,7 @@ class TestPandapowerConverter(unittest.TestCase):
             or "trafo" not in self.conv.net.std_types
         ):
             self.conv.net.std_types = {"trafo": {std_name: True}}
-        trafo_idx = self.conv._convert_trafo(trafo_obj)
+        trafo_idx = self.conv._convert_transformer(trafo_obj)
         # Should have created an element in net.trafo
         self.assertTrue(
             hasattr(self.conv.net, "trafo") and trafo_idx in self.conv.net.trafo.index
@@ -209,7 +241,9 @@ class TestPandapowerConverter(unittest.TestCase):
             def convert(self, time_set, freq, converter):
                 # create a bus for demonstration by calling converter API
                 b = SimpleNamespace(
-                    id=self.id, nominal_voltage=SimpleNamespace(value=400000)
+                    id=self.id,
+                    nominal_voltage=SimpleNamespace(value=400000),
+                    coordinates={"x": 11.1, "y": 42.1},
                 )
                 converter._convert_bus(b)
 

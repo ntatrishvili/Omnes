@@ -2,7 +2,6 @@ import configparser
 from os.path import join
 
 import pandas as pd
-from pandapower.io_utils import coords_to_df
 
 from app.conversion.pandapower_converter import PandapowerConverter
 from app.model.generator.pv import PV
@@ -66,12 +65,17 @@ def build_model_from_simbench():
 
     buses = []
     for _, row in nodes.iterrows():
-        buses.append(Bus(
-            id=row["id"],
-            nominal_voltage=float(row["vmR"])*1000,
-            type=BusType.PQ if row["id"] not in slack_nodes else BusType.SLACK,
-            coordinates={"x":coords_df.loc[row["coordID"], "x"],"y":coords_df.loc[row["coordID"], "y"]},
-        ))
+        buses.append(
+            Bus(
+                id=row["id"],
+                nominal_voltage=float(row["vmR"]) * 1000,
+                type=BusType.PQ if row["id"] not in slack_nodes else BusType.SLACK,
+                coordinates={
+                    "x": coords_df.loc[row["coordID"], "x"],
+                    "y": coords_df.loc[row["coordID"], "y"],
+                },
+            )
+        )
 
     # Lines
     lines_omnes = []
@@ -91,7 +95,7 @@ def build_model_from_simbench():
             line_length=float(row["length"]),
             resistance=r_per_km,
             reactance=x_per_km,
-            capacitance= b_per_km,
+            capacitance=b_per_km,
             max_current=float(row["loadingMax"]),
         )
         lines_omnes.append(line)
@@ -225,14 +229,15 @@ def build_model_from_simbench():
         time_start="2016-01-01 00:00",
         time_end="2017-01-01 00:00",
         resolution="1h",
+        time_kwargs={"inclusive": "left"},
         entities=buses
-                 + transformer_type_entities
-                 + transformers
-                 + lines_omnes
-                 + slacks
-                 + pvs
-                 + winds
-                 + loads
+        + transformer_type_entities
+        + transformers
+        + lines_omnes
+        + slacks
+        + pvs
+        + winds
+        + loads,
     )
     return model
 

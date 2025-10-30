@@ -516,7 +516,9 @@ class TestComprehensiveCoverage(unittest.TestCase):
 
         # Create a dummy timeset builder for testing
         class DummyTimesetBuilder(TimesetBuilder):
-            def create(self, **kwargs):
+            def create(self, time_kwargs=None, **kwargs):
+                if time_kwargs is None:
+                    time_kwargs = {}
                 import pandas as pd
 
                 from app.infra.util import TimeSet
@@ -528,6 +530,7 @@ class TestComprehensiveCoverage(unittest.TestCase):
                     resolution="1H",
                     number_of_time_steps=5,
                     time_points=dates,
+                    **time_kwargs,
                 )
 
         dummy_builder = DummyTimesetBuilder()

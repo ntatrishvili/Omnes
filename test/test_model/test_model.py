@@ -6,7 +6,7 @@ from app.model.model import Model
 
 
 class DummyTimesetBuilder(TimesetBuilder):
-    def create(self, **kwargs): ...
+    def create(self, time_kwargs=None, **kwargs): ...
 
 
 class TestModel(unittest.TestCase):
