@@ -140,7 +140,7 @@ class PandapowerConverter(Converter):
         self.bus_map = {}
 
         # Convert all entities to model variables
-        for entity in model.entities:
+        for _, entity in model.entities.items():
             logger.info(f"Converting entity '{entity.id}'")
             entity.convert(effective_time_set, effective_freq, self)
 
@@ -458,8 +458,8 @@ class PandapowerConverter(Converter):
             # Default settings: constant impedance load
             const_z_p_percent=1,
             const_z_q_percent=1,
-            p_mw=load.tags["p_kw"] / 1000.0,
-            q_mvar=load.tags["q_kw"] / 1000.0,
+            p_mw=load.nominal_power.value / 1000.0,
+            q_mvar=0.0,
             sn_mva=load.nominal_power.value / 1000.0,
             name=load.id,
         )
@@ -622,7 +622,7 @@ class PandapowerConverter(Converter):
             bus_results[bus_id] = {"vm_pu": vm_pu}
             # store back to Omnes bus object if you want
             # to find the omnibus entity
-            for ent in self.model.entities:
+            for _, ent in self.model.entities.items():
                 if getattr(ent, "id", None) == bus_id:
                     setattr(ent, "last_vm_pu", vm_pu)
 
@@ -638,7 +638,7 @@ class PandapowerConverter(Converter):
                 )
                 line_results[name] = {"loading_percent": loading}
                 # save back to model line entity
-                for ent in self.model.entities:
+                for _, ent in self.model.entities.items():
                     if getattr(ent, "id", None) == name:
                         setattr(ent, "last_loading_percent", loading)
 

@@ -38,10 +38,27 @@ class Model:
         self.time_set: TimeSet = timeset_builder.create(
             kwargs.pop("time_kwargs", {}), **kwargs
         )
-        self.entities: list[Entity] = kwargs.pop("entities", [])
+        ent_list = kwargs.pop("entities", [])
+        self.entities: dict[str, Entity] = {e.id: e for e in ent_list}
 
     def add_entity(self, entity: Entity):
-        self.entities.append(entity)
+        self.entities[entity.id] = entity
+
+    def __getitem__(self, id):
+        if id in self.entities:
+            return self.entities[id]
+        else:
+            for _, entity in self.entities.items():
+                if id not in entity:
+                    continue
+                return entity[id]
+        raise KeyError(f"Entity with id '{id}' not found in model '{self.id}'")
+
+    def set(self, items_to_set):
+        for item_id, item in items_to_set.items():
+            if "." in item_id:
+                entity_id, quantity_id = item_id.split(".")
+                self[entity_id].quantities[quantity_id].set_value(item)
 
     @property
     def number_of_time_steps(self):
@@ -100,7 +117,7 @@ class Model:
         """
         String representation of the model
         """
-        return "\n".join([str(entity) for entity in self.entities])
+        return "\n".join([str(entity) for _, entity in self.entities.items()])
 
     @frequency.setter
     def frequency(self, value):

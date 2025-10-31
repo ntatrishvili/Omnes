@@ -110,7 +110,7 @@ class PulpConverter(Converter):
         }
 
         # Recursively convert sub-entities
-        for sub_entity in entity.sub_entities:
+        for _, sub_entity in entity.sub_entities.items():
             entity_variables.update(self.convert_entity(sub_entity, time_set, new_freq))
 
         # Convert relations to constraints
@@ -164,7 +164,7 @@ class PulpConverter(Converter):
         # Convert all entities
         skip_entities = kwargs.get("skip_entities", set())
         model_variables = {}
-        for entity in model.entities:
+        for _, entity in model.entities.items():
             if type(entity) in skip_entities:
                 continue
             model_variables.update(

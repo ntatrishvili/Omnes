@@ -216,9 +216,9 @@ def test_infer_freq_from_two_dates_error():
     # Should raise if no timestamp coord
     arr = xr.DataArray([1, 2], dims=["not_timestamp"])
     with pytest.raises(ValueError):
-        from app.infra.timeseries_object import infer_freq_from_two_dates
+        from app.infra.timeseries_object import _infer_freq_from_two_dates
 
-        infer_freq_from_two_dates(arr)
+        _infer_freq_from_two_dates(arr)
 
 
 def test_initialize_data_array_branches():

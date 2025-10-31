@@ -244,8 +244,8 @@ def build_model_from_simbench():
         time_end="2017-01-01 00:00",
         resolution="1h",
         time_kwargs={"inclusive": "left"},
-        entities=[battery]
-        + buses
+        entities=buses
+        + [battery]
         + transformer_type_entities
         + transformers
         + lines_omnes
@@ -278,13 +278,17 @@ if __name__ == "__main__":
     model = build_model_from_simbench()
     log.info("Model built successfully")
 
-    problem = PulpConverter().convert_model(model, skip_entities=(Bus, Line, Transformer))
+    problem = PulpConverter().convert_model(
+        model, skip_entities=(Bus, Line, Transformer)
+    )
     log.info("Model converted to optimization problem successfully")
-
     log.info("Starting optimization")
     optimize_energy_system(**problem)
     log.info("Optimization completed")
 
+    # TODO: turn these into 'convert-back' functionalities inside the converters
+    model.set({"battery.p_in": problem["battery.p_in"]})
+    model.set({"battery.p_out": problem["battery.out"]})
     net = PandapowerConverter().convert_model(model)
     log.info("Model converted to pandapower net successfully")
 

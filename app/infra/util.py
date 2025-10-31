@@ -46,6 +46,64 @@ def flatten(nested_list):
     return flattened
 
 
+def try_convert(value, sample):
+    import numbers
+    import json
+
+    # If no sample type to infer, accept the value as-is
+    if sample is None:
+        return value
+
+    target_type = type(sample)
+
+    # already correct type
+    if isinstance(value, target_type):
+        return value
+
+    # Numeric types (int, float, np.*)
+    if issubclass(target_type, numbers.Number):
+        try:
+            return target_type(value)
+        except Exception:
+            # try cleaning common numeric string formats
+            if isinstance(value, str):
+                cleaned = value.replace(",", "").strip()
+                return target_type(cleaned)
+            raise
+
+    # Boolean handling from common strings
+    if target_type is bool:
+        if isinstance(value, str):
+            s = value.strip().lower()
+            if s in ("true", "1", "yes", "y", "t"):
+                return True
+            if s in ("false", "0", "no", "n", "f"):
+                return False
+        return bool(value)
+
+    # Sequence / mapping conversions
+    if target_type in (list, tuple, dict, str):
+        try:
+            return target_type(value)
+        except Exception:
+            # try JSON decode for strings to list/dict
+            if isinstance(value, str) and target_type in (list, dict):
+                try:
+                    parsed = json.loads(value)
+                    # if parsed already matching expected structure, return converted
+                    if isinstance(parsed, (list, dict)):
+                        return target_type(parsed)
+                except Exception:
+                    pass
+            raise
+
+    # Fallback: try to call the type on the value
+    try:
+        return target_type(value)
+    except Exception:
+        raise
+
+
 class TimesetBuilder:
     @classmethod
     def create(cls, time_kwargs=None, **kwargs):

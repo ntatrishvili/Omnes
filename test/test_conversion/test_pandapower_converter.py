@@ -162,7 +162,7 @@ class TestPandapowerConverter(unittest.TestCase):
         self.assertIn(load_idx, self.conv.net.load.index)
         self.assertEqual(self.conv.net.load.at[load_idx, "name"], "load_1")
         # p_mw should be p_kw/1000
-        self.assertAlmostEqual(self.conv.net.load.at[load_idx, "p_mw"], 2.0)
+        self.assertAlmostEqual(self.conv.net.load.at[load_idx, "p_mw"], 1.0)
 
     def test_generic_trafo_type_and_transformer_creation(self):
         # Create Parameter-like objects that have .value attributes
@@ -235,7 +235,7 @@ class TestPandapowerConverter(unittest.TestCase):
             def __init__(self, id):
                 self.id = id
                 self.quantities = {}
-                self.sub_entities = []
+                self.sub_entities = {}
                 self.relations = []
 
             def convert(self, time_set, freq, converter):
@@ -248,7 +248,7 @@ class TestPandapowerConverter(unittest.TestCase):
                 converter._convert_bus(b)
 
         model_like = SimpleNamespace(
-            entities=[SimpleEntity("m1"), SimpleEntity("m2")],
+            entities={"m1": SimpleEntity("m1"), "m2": SimpleEntity("m2")},
             time_start="2020-01-01",
             time_end="2020-01-02",
             number_of_time_steps=8740,

@@ -1,20 +1,32 @@
+import configparser
+from os.path import join
+
 import numpy as np
 import pulp
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+from pandas import Timestamp, Timedelta
 
 from utils.logging_setup import get_logger
 
 log = get_logger(__name__)
 
 
-def plot_energy_flows(kwargs, pv_names, load_names, bess_names, slack_names, time_range_to_plot=None):
+def plot_energy_flows(
+    kwargs,
+    pv_names,
+    load_names,
+    bess_names,
+    slack_names,
+    time_range_to_plot=None,
+    output_path=None,
+):
     time_set = kwargs["time_set"]
     nT = len(time_set)
     if time_range_to_plot is None:
         time_range_to_plot = range(nT)
 
-
+    ax, twin_ax = None, None
     # --- Extract and sum all variables ---
     # PV production
     pv_profiles = {
@@ -79,34 +91,41 @@ def plot_energy_flows(kwargs, pv_names, load_names, bess_names, slack_names, tim
     )
 
     # --- Plot PVs ---
+    bottom_pv = np.zeros_like(time_set, dtype=float)
     for color, (pv, p) in zip(colors_pv, pv_profiles.items()):
-        plt.plot(
+        plt.bar(
             time_range_to_plot,
-            p[time_range_to_plot],
+            -p[time_range_to_plot],
             color=color,
-            lw=1.5,
-            label=f"{pv} (PV)",
+            width=1.0,
+            label=f"{pv.replace('LVL1.101 ', '')} (PV)",
+            bottom=bottom_pv[time_range_to_plot],
         )
+        bottom_pv[time_range_to_plot] -= p[time_range_to_plot]
     plt.plot(
-        time_range_to_plot, pv_sum[time_range_to_plot], "r", lw=2.5, label="Total PV"
+        time_range_to_plot, -pv_sum[time_range_to_plot], "r", lw=2.5, label="Total PV"
     )
 
     # --- Plot loads ---
+    bottom_loads = np.zeros_like(time_set, dtype=float)
     for color, (ld, p) in zip(colors_load, load_profiles.items()):
-        plt.plot(
+        plt.bar(
             time_range_to_plot,
             p[time_range_to_plot],
             color=color,
-            lw=1.5,
-            linestyle="--",
-            label=f"{ld} (Load)",
+            width=1.0,
+            label=f"{ld.replace('LVL1.101 ', '')}",
+            bottom=bottom_loads[time_range_to_plot],
         )
+        bottom_loads[time_range_to_plot] += p[time_range_to_plot]
+
     plt.plot(
         time_range_to_plot,
         load_sum[time_range_to_plot],
-        "g--",
-        lw=2.5,
+        "--",
+        lw=2.8,
         label="Total Load",
+        color=colors_load[0],
     )
 
     # --- Plot battery charge/discharge ---
@@ -119,6 +138,7 @@ def plot_energy_flows(kwargs, pv_names, load_names, bess_names, slack_names, tim
             color=color,
             width=1.0,
             label=f"{b} charge",
+            edgecolor="darkgrey",
             bottom=bottom_charge[time_range_to_plot],
         )
         bottom_charge[time_range_to_plot] += p_in[time_range_to_plot]
@@ -130,44 +150,99 @@ def plot_energy_flows(kwargs, pv_names, load_names, bess_names, slack_names, tim
             width=1.0,
             alpha=0.7,
             label=f"{b} discharge",
+            edgecolor="darkgrey",
             bottom=bottom_discharge[time_range_to_plot],
         )
         bottom_discharge[time_range_to_plot] -= p_out[time_range_to_plot]
 
+        # --- Slack ---
+        slack_p = slack_in_sum - slack_out_sum
+        slack_in = slack_p.copy()
+        slack_in[slack_in > 0] = 0
+        slack_out = slack_p.copy()
+        slack_out[slack_out < 0] = 0
+        plt.plot(
+            time_range_to_plot,
+            slack_in[time_range_to_plot],
+            "k:",
+            lw=1.5,
+            label="Slack export",
+        )
+        plt.plot(
+            time_range_to_plot,
+            slack_out[time_range_to_plot],
+            "k--",
+            lw=1.5,
+            label="Slack import",
+        )
+
     # --- Plot stored energy (averaged scaling) ---
     if e_bess_profiles:
+        ax = plt.gca()
+        twin_ax = ax.twinx()
+        color = "b"
+
         e_sum = sum(e_bess_profiles.values())
-        plt.step(
+        twin_ax.step(
             time_range_to_plot,
-            e_sum[time_range_to_plot] / 8,
+            e_sum[time_range_to_plot],
             "b",
             alpha=0.8,
             lw=2,
-            label="Stored energy / 8",
+            where="mid",
+            label="Stored energy",
         )
+        # color the y-axis (ticks, label, spine) to match the step color
+        twin_ax.set_ylabel("Stored energy [kWh]", color=color)
+        twin_ax.yaxis.label.set_color(color)
+        twin_ax.tick_params(axis="y", colors=color)
+        twin_ax.spines["right"].set_color(color)
+        ax.set_ylabel("Power [kWh]")
 
-    # --- Slack ---
-    plt.plot(
-        time_range_to_plot,
-        slack_in_sum[time_range_to_plot],
-        "k:",
-        lw=1.5,
-        label="Slack import",
-    )
-    plt.plot(
-        time_range_to_plot,
-        -slack_out_sum[time_range_to_plot],
-        "k--",
-        lw=1.5,
-        label="Slack export",
-    )
-
-    plt.ylabel("Power / Energy (kWh)")
+    # plt.ylabel("Energy flows (kWh)")
     plt.xlabel("Time (quarter-hours)")
     plt.title("Energy System Operation Overview")
-    plt.legend(loc="best", fontsize=9, ncol=2)
+    # merge legends from main axis and twin axis
+    if ax or twin_ax:
+        handles1, labels1 = ax.get_legend_handles_labels()
+        handles2, labels2 = twin_ax.get_legend_handles_labels()
+        if handles1 or handles2:
+            ax.legend(
+                handles1 + handles2, labels1 + labels2, loc="best", fontsize=9, ncol=2
+            )
+    else:
+        plt.legend(loc="best", fontsize=9, ncol=2)
+
+    x_hours = np.array(list(time_range_to_plot), dtype=int)
+    # choose base date (year can be parameterized); ordinal hours count from Jan 1 00:00
+    base_year = 2016
+    base = Timestamp(year=base_year, month=1, day=1)
+    # choose tick spacing depending on total span
+    span_hours = x_hours.max() - x_hours.min() if x_hours.size else 0
+    if span_hours <= 24:
+        tick_step = 2
+    elif span_hours <= 72:
+        tick_step = 3
+    elif span_hours <= 24 * 14:
+        tick_step = 6
+    else:
+        tick_step = 24
+
+    # pick tick positions from the numeric x-axis (matching plotted x positions)
+    tick_idx = np.arange(x_hours.min(), x_hours.max() + 1, tick_step, dtype=int)
+
+    # build labels from base date + hours
+    tick_labels = [(base + Timedelta(hours=int(h))).strftime("%H:00") for h in tick_idx]
+
+    # set ticks and labels
+    ax.set_xticks(tick_idx)
+    ax.set_xticklabels(tick_labels, rotation=45, ha="right")
+
+    # add the date as x-axis label (use the day of the first plotted hour)
+    start_date = (base + Timedelta(hours=int(x_hours.min()))).date()
+    plt.xlabel(f"Time (hours) — date: {start_date:%Y-%m-%d}")
     plt.tight_layout()
-    plt.show()
+    plt.savefig(join(output_path, "energy_system_operation.png"))
 
 
 def optimize_energy_system(**kwargs):
@@ -175,18 +250,28 @@ def optimize_energy_system(**kwargs):
 
     # Automatically detect all components
     # TODO: improve understanding of component types, we need more automatic indicators
-    pv_names = {k.replace(".p_out", "") for k in kwargs if ("pv" in k.lower() or "sgen" in k.lower()) and ".p_out" in k}
+    pv_names = {
+        k.replace(".p_out", "")
+        for k in kwargs
+        if ("pv" in k.lower() or "sgen" in k.lower()) and ".p_out" in k
+    }
     log.info(f"Detected PV entities: {pv_names}")
     load_names = {
-        k.replace(".p_cons", "") for k in kwargs if "load" in k.lower() and ".p_cons" in k
+        k.replace(".p_cons", "")
+        for k in kwargs
+        if "load" in k.lower() and ".p_cons" in k
     }
     log.info(f"Detected load entities: {load_names}")
     bess_names = {
-        k.replace(".p_in", "") for k in kwargs if "battery" in k.lower() and ".p_in" in k
+        k.replace(".p_in", "")
+        for k in kwargs
+        if "battery" in k.lower() and ".p_in" in k
     }
     log.info(f"Detected batteries: {bess_names}")
     slack_names = {
-        k.replace(".p_in", "") for k in kwargs if ("slack" in k.lower() or "grid" in k.lower()) and ".p_in" in k
+        k.replace(".p_in", "")
+        for k in kwargs
+        if ("slack" in k.lower() or "grid" in k.lower()) and ".p_in" in k
     }
     log.info(f"Detected slack entities: {slack_names}")
 
@@ -239,7 +324,20 @@ def optimize_energy_system(**kwargs):
     if pulp.LpStatus[status] != "Optimal":
         raise RuntimeError(f"Optimization failed: {pulp.LpStatus[status]}")
 
-    plot_energy_flows(kwargs, pv_names, load_names, bess_names, slack_names, time_range_to_plot=range(11040, 11136))
+    days = [200, 201]
+    config = configparser.ConfigParser(
+        allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
+    )
+    config.read("..\\config.ini")
+    plot_energy_flows(
+        kwargs,
+        pv_names,
+        load_names,
+        bess_names,
+        slack_names,
+        time_range_to_plot=range(24 * days[0], 24 * days[1]),
+        output_path=config.get("path", "output"),
+    )
 
     return {
         "status": pulp.LpStatus[status],

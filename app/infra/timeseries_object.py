@@ -7,7 +7,7 @@ import xarray as xr
 from app.infra.quantity import Quantity
 
 
-def infer_freq_from_two_dates(data: xr.DataArray) -> str:
+def _infer_freq_from_two_dates(data: xr.DataArray) -> str:
     """Infer timeseries frequency from first two timestamps.
 
     :param xr.DataArray data: DataArray with 'timestamp' coordinate
@@ -61,6 +61,11 @@ class TimeseriesObject(Quantity):
         self.data = self._initialize_data_array(params)
 
         self.freq = self._initialize_frequency(params["freq"])
+
+    def set(self, value, **kwargs):
+        kwargs["data"] = value
+        self.data = self._initialize_data_array(kwargs)
+        self.freq = self._initialize_frequency(kwargs["freq"])
 
     def _extract_init_parameters(self, kwargs):
         """Extract and prepare initialization parameters.
@@ -134,7 +139,7 @@ class TimeseriesObject(Quantity):
         :returns str: Inferred frequency string
         """
         if self.data.sizes.get("timestamp", 0) < 3:
-            return infer_freq_from_two_dates(self.data)
+            return _infer_freq_from_two_dates(self.data)
         # Use xarray's infer_freq directly on the timestamp coordinate
         freq = xr.infer_freq(self.data.coords["timestamp"].values)
         return self.normalize_freq(freq)
@@ -495,7 +500,7 @@ class TimeseriesObject(Quantity):
         # get the underlying data without triggering __getattr__
         data = object.__getattribute__(self, "data")
 
-        # if there's no underlying object or it's another TimeseriesObject, do not delegate
+        # if there's no underlying object, or it's another TimeseriesObject, do not delegate
         if data is None or isinstance(data, TimeseriesObject):
             raise AttributeError(f"'TimeseriesObject' object has no attribute '{name}'")
 

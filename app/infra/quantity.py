@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+from app.infra.util import try_convert
+
 
 class Direction:
     IN = "in"
@@ -24,6 +26,13 @@ class Quantity(ABC):
     def convert(self, converter, **kwargs):
         """Converts the quantity into a pulp-compatible format (e.g., a time series array or a value-variable)."""
         return converter.convert_quantity(self, **kwargs)
+
+    def set(self, value, **kwargs):
+        """Sets the value of the quantity, if applicable."""
+        ...
+
+    def set_value(self, value, **kwargs):
+        return self.set(value, **kwargs)
 
     @property
     def value(self, **kwargs):
@@ -62,6 +71,28 @@ class Parameter(Quantity):
 
     def empty(self) -> bool:
         return self._value is None
+
+    def set(self, value, **kwargs):
+        """
+        Set the parameter's value after checking type compatibility.
+
+        - If current `_value` is None: accept `value` and store it.
+        - Otherwise attempt to convert `value` to the type of `_value`.
+        - On failure raise `TypeError`.
+        """
+        # if current value is not set, accept whatever is provided
+        if self._value is None:
+            self._value = value
+            return
+
+        try:
+            converted = try_convert(value, self._value)
+        except Exception:
+            raise TypeError(
+                f"Cannot convert provided value ({value!r}) to type {type(self._value).__name__}"
+            )
+
+        self._value = converted
 
     @property
     def value(self, **kwargs):

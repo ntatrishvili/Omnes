@@ -539,7 +539,7 @@ class TestComprehensiveCoverage(unittest.TestCase):
         from app.infra.timeseries_object import TimeseriesObject
 
         entity.quantities["power"] = TimeseriesObject(name="power", data=[])
-        model.entities = [entity]
+        model.entities = {entity.id: entity}
 
         # Test convert_model with default parameters
         result = self.converter.convert_model(model)

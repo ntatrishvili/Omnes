@@ -24,7 +24,7 @@ class TestEntity(unittest.TestCase):
         parent = Entity(id="parent", ts_factory=self.ts_factory)
         child = Entity(id="child", ts_factory=self.ts_factory)
         parent.add_sub_entity(child)
-        self.assertIn(child, parent.sub_entities)
+        self.assertIn("child", parent.sub_entities)
         self.assertEqual(child.parent, parent)
         self.assertEqual(child.parent_id, parent.id)
 
