@@ -1,8 +1,9 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Iterable
 
 import numpy as np
 import pandas as pd
 import xarray as xr
+from pandas import DataFrame
 
 from app.infra.quantity import Quantity
 
@@ -64,8 +65,17 @@ class TimeseriesObject(Quantity):
 
     def set(self, value, **kwargs):
         kwargs["data"] = value
-        self.data = self._initialize_data_array(kwargs)
-        self.freq = self._initialize_frequency(kwargs["freq"])
+        params = self._extract_init_parameters(kwargs)
+        self.data = self._initialize_data_array(params)
+        self.freq = self._initialize_frequency(params.get("freq", None))
+
+    def _convert_time_set_to_params(self, time_set, kwargs):
+        return {
+            "data": kwargs.pop("data", None),
+            "tz": kwargs.pop("tz", time_set.tz),
+            "freq": kwargs.pop("freq", time_set.resolution),
+            "coords": kwargs.pop("coords", time_set.time_points),
+        }
 
     def _extract_init_parameters(self, kwargs):
         """Extract and prepare initialization parameters.
@@ -74,6 +84,10 @@ class TimeseriesObject(Quantity):
         :returns dict: Processed parameters
         """
         attrs = kwargs.pop("attrs", {})
+        time_set = kwargs.pop("time_set", None)
+
+        if time_set is not None:
+            return self._convert_time_set_to_params(time_set, kwargs)
 
         # Add remaining kwargs as metadata attributes
         for key, value in kwargs.items():
@@ -106,6 +120,10 @@ class TimeseriesObject(Quantity):
             return data
         elif isinstance(params["data"], pd.DataFrame):
             return self._dataframe_to_xarray(params["data"], params["attrs"])
+        elif isinstance(params["data"], Iterable):
+            return self._dataframe_to_xarray(
+                DataFrame(params["data"], index=params["coords"], columns=["timestamp"])
+            )
         elif params["input_path"] is not None and params["col"] is not None:
             df_data = self._read_csv_to_dataframe(
                 params["input_path"],

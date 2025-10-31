@@ -58,7 +58,11 @@ class Model:
         for item_id, item in items_to_set.items():
             if "." in item_id:
                 entity_id, quantity_id = item_id.split(".")
-                self[entity_id].quantities[quantity_id].set_value(item)
+                self[entity_id].quantities[quantity_id].set_value(
+                    item, time_set=self.time_set
+                )
+            else:
+                self.add_entity(item)
 
     @property
     def number_of_time_steps(self):

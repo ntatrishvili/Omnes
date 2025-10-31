@@ -111,6 +111,7 @@ class TimesetBuilder:
             time_kwargs = {}
         time_start = kwargs.pop("time_start", None)
         time_end = kwargs.pop("time_end", None)
+        tz = kwargs.pop("tz", None)
         # TODO: Huge hack, how to handle?
         if time_start is None and time_end is None:
             time_start = "1970-01-01"
@@ -126,13 +127,18 @@ class TimesetBuilder:
         number_of_time_steps = dates.shape[0]
         log.info(f"Created timeset with {number_of_time_steps} time steps")
         resolution = dates.freq
-        return TimeSet(time_start, time_end, resolution, number_of_time_steps, dates)
+        return TimeSet(
+            time_start, time_end, resolution, number_of_time_steps, dates, tz
+        )
 
 
 class TimeSet:
-    def __init__(self, start, end, resolution, number_of_time_steps, time_points):
+    def __init__(
+        self, start, end, resolution, number_of_time_steps, time_points, tz=None
+    ):
         self.start = start
         self.end = end
         self.resolution = resolution
         self.number_of_time_steps = number_of_time_steps
         self.time_points = time_points
+        self.tz = tz

@@ -279,19 +279,30 @@ if __name__ == "__main__":
     log.info("Model built successfully")
 
     problem = PulpConverter().convert_model(
-        model, skip_entities=(Bus, Line, Transformer)
+        model, skip_entities=(Bus, Line, Transformer, GenericEntity)
     )
     log.info("Model converted to optimization problem successfully")
     log.info("Starting optimization")
-    optimize_energy_system(**problem)
+    problem = optimize_energy_system(**problem)
     log.info("Optimization completed")
 
     # TODO: turn these into 'convert-back' functionalities inside the converters
     model.set({"battery.p_in": problem["battery.p_in"]})
-    model.set({"battery.p_out": problem["battery.out"]})
+    model.set({"battery.p_out": problem["battery.p_out"]})
+
     net = PandapowerConverter().convert_model(model)
     log.info("Model converted to pandapower net successfully")
 
-    log.info("Starting simulation")
-    simulate_energy_system(net)
-    log.info("Simulation completed")
+    for battery_bus, scenario in zip(
+        [-1, 4, 1, 13, 5, 3],
+        ["No battery", "Feeder", "Branch 1 end", "Branch 2 end", "Branch 3 end", "Branch 4 end"],
+    ):
+        if battery_bus == -1:
+            net.sgen.loc[net.sgen.name.str.contains("battery"), "in_service"] = False
+        else:
+            net.sgen.loc[net.sgen.name.str.contains("battery"), "bus"] = net.bus.loc[
+                net.bus.name == f"LV1.101 Bus {battery_bus}"
+            ].index[0]
+        log.info(f"Starting simulation for scenario {scenario}")
+        simulate_energy_system(net)
+        log.info("Simulation completed")

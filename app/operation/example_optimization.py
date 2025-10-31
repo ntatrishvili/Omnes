@@ -339,7 +339,20 @@ def optimize_energy_system(**kwargs):
         output_path=config.get("path", "output"),
     )
 
+    for b in bess_names:
+        for name in ["p_in", "p_out", "e_stor"]:
+            kwargs[f"{b}.{name}"] = np.array(
+                [pulp.value(kwargs[f"{b}.{name}"][t]) for t in time_set]
+            )
+
+    for s in slack_names:
+        for name in ["p_in", "p_out"]:
+            kwargs[f"{s}.{name}"] = np.array(
+                [pulp.value(kwargs[f"{s}.{name}"][t]) for t in time_set]
+            )
+
     return {
         "status": pulp.LpStatus[status],
         "objective": pulp.value(prob.objective),
+        **kwargs,
     }
