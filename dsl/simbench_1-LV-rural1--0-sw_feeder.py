@@ -20,7 +20,7 @@ from app.operation.example_simulation import simulate_energy_system
 from utils.logging_setup import get_logger, init_logging
 
 
-def build_model_from_simbench():
+def build_model_from_simbench(**kwargs):
     config = configparser.ConfigParser(
         allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
     )
@@ -68,6 +68,8 @@ def build_model_from_simbench():
 
     buses = []
     for _, row in nodes.iterrows():
+        if row["type"] != "busbar" and "MV" not in row["id"]:
+            continue
         buses.append(
             Bus(
                 id=row["id"],
@@ -135,7 +137,7 @@ def build_model_from_simbench():
                         p_out={
                             "input_path": join(root, "RESProfile.csv"),
                             "col": row["profile"],
-                            "scale": p_peak_kw,
+                            "scale": p_peak_kw * kwargs.get("pv_scale", 1.0),
                             **datetime_properties,
                         },
                         tags={
@@ -232,9 +234,9 @@ def build_model_from_simbench():
     battery = Battery(
         "battery",
         bus=buses[0].id,
-        capacity=50,
-        max_charge_rate=10,
-        max_discharge_rate=10,
+        capacity=kwargs.get("bess_size", 50.0),  # in kWh
+        max_charge_rate=kwargs.get("charge_rate", 10),
+        max_discharge_rate=kwargs.get("charge_rate", 10),
     )
     # -----------------------------
     # Build model
@@ -274,8 +276,11 @@ if __name__ == "__main__":
         log_file="app.log",
     )
     log = get_logger(__name__)
+
+    pv_scale = 1.5  # scale PV sizes
+    bess_size = 50.0  # in kWh
     log.info("Logging initialized")
-    model = build_model_from_simbench()
+    model = build_model_from_simbench(pv_scale=pv_scale, bess_size=bess_size)
     log.info("Model built successfully")
 
     problem = PulpConverter().convert_model(
@@ -299,10 +304,13 @@ if __name__ == "__main__":
     ):
         if battery_bus == -1:
             net.sgen.loc[net.sgen.name.str.contains("battery"), "in_service"] = False
+            print(net.sgen)
         else:
+            net.sgen.loc[net.sgen.name.str.contains("battery"), "in_service"] = True
             net.sgen.loc[net.sgen.name.str.contains("battery"), "bus"] = net.bus.loc[
                 net.bus.name == f"LV1.101 Bus {battery_bus}"
             ].index[0]
+            print(net.sgen)
         log.info(f"Starting simulation for scenario {scenario}")
-        simulate_energy_system(net)
+        simulate_energy_system(net, scenario=scenario)
         log.info("Simulation completed")

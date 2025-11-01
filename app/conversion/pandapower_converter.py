@@ -331,8 +331,8 @@ class PandapowerConverter(Converter):
         if length == 0 or reactance == 0 or resistance == 0:
             idx = pp.create_switch(
                 self.net,
-                bus=self.bus_map[line.from_bus],
-                element=self.bus_map[line.to_bus],
+                bus=self.bus_map[line.from_bus.split("_")[0]],
+                element=self.bus_map[line.to_bus.split("_")[0]],
                 et="b",
                 type="CB",
                 name=line.id,
@@ -341,8 +341,8 @@ class PandapowerConverter(Converter):
         else:
             idx = pp.create_line_from_parameters(
                 self.net,
-                from_bus=self.bus_map[line.from_bus],
-                to_bus=self.bus_map[line.to_bus],
+                from_bus=self.bus_map[line.from_bus.split("_")[0]],
+                to_bus=self.bus_map[line.to_bus.split("_")[0]],
                 length_km=length,
                 r_ohm_per_km=resistance,
                 x_ohm_per_km=reactance,
@@ -435,7 +435,7 @@ class PandapowerConverter(Converter):
         """
         bus_idx = self.bus_map[battery.bus]
         return pp.create_sgen(
-            self.net, bus=bus_idx, p_mw=0.0, q_mvar=0.0, name=battery.id
+            self.net, bus=bus_idx, p_mw=battery.max_charge_rate.value/1000.0, q_mvar=0.0, name=battery.id
         )
 
     def _convert_load(self, load: Load) -> int:

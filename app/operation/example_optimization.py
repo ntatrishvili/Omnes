@@ -240,7 +240,7 @@ def plot_energy_flows(
 
     # add the date as x-axis label (use the day of the first plotted hour)
     start_date = (base + Timedelta(hours=int(x_hours.min()))).date()
-    plt.xlabel(f"Time (hours) — date: {start_date:%Y-%m-%d}")
+    ax.xlabel(f"Time (hours) — date: {start_date:%Y-%m-%d}")
     plt.tight_layout()
     plt.savefig(join(output_path, "energy_system_operation.png"))
 
@@ -324,7 +324,7 @@ def optimize_energy_system(**kwargs):
     if pulp.LpStatus[status] != "Optimal":
         raise RuntimeError(f"Optimization failed: {pulp.LpStatus[status]}")
 
-    days = [200, 201]
+    days = [136, 137]
     config = configparser.ConfigParser(
         allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
     )
