@@ -1,13 +1,13 @@
 import json
+from collections import defaultdict
 from os.path import join
 
-import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-from matplotlib.legend_handler import HandlerTuple
-import pandas as pd
 import networkx as nx
-from collections import defaultdict
+import numpy as np
+import pandas as pd
+from matplotlib.legend_handler import HandlerTuple
+from matplotlib.lines import Line2D
 
 from utils.configuration import Config
 
@@ -40,15 +40,11 @@ def elegant_draw_network(
                 if coords and len(coords) >= 2:
                     return pd.Series([coords[0], coords[1]])
             except Exception:
-                pass
-            return pd.Series([np.nan, np.nan])
+                return pd.Series([np.nan, np.nan])
 
-        try:
-            xy = net.bus["geo"].apply(_extract_geo)
-            xy.columns = ["x", "y"]
-            net.bus[["x", "y"]] = xy
-        except Exception:
-            pass
+        xy = net.bus["geo"].apply(_extract_geo)
+        xy.columns = ["x", "y"]
+        net.bus[["x", "y"]] = xy
 
     # Build bus_coords mapping only for canonical bus indices (net.bus.index)
     bus_coords = {}
@@ -59,15 +55,7 @@ def elegant_draw_network(
             bus_coords[idx] = None
         else:
             bus_coords[idx] = (float(x), float(y))
-        # register string and int variants for lookup convenience
-        try:
             bus_coords[str(idx)] = bus_coords[idx]
-        except Exception:
-            pass
-        try:
-            bus_coords[int(idx)] = bus_coords[idx]
-        except Exception:
-            pass
 
     # build name->index map so elements referencing bus names are resolved
     name_to_idx = {}
@@ -98,26 +86,16 @@ def elegant_draw_network(
         if key in bus_coords and bus_coords[key] is not None:
             return bus_coords[key]
         # if key matches a bus name
-        try:
-            ks = str(key)
-            if ks in name_to_idx:
-                return bus_coords.get(name_to_idx[ks])
-        except Exception:
-            pass
+        ks = str(key)
+        if ks in name_to_idx:
+            return bus_coords.get(name_to_idx[ks])
         # try integer conversion
-        try:
-            k2 = int(key)
-            if k2 in bus_coords and bus_coords[k2] is not None:
-                return bus_coords[k2]
-        except Exception:
-            pass
-        # try string form of the key
-        try:
-            k3 = str(key)
-            if k3 in bus_coords and bus_coords[k3] is not None:
-                return bus_coords[k3]
-        except Exception:
-            pass
+        k2 = int(key)
+        if k2 in bus_coords and bus_coords[k2] is not None:
+            return bus_coords[k2]
+        k3 = str(key)
+        if k3 in bus_coords and bus_coords[k3] is not None:
+            return bus_coords[k3]
         return None
 
     # Prepare axis
@@ -221,26 +199,17 @@ def elegant_draw_network(
         if key in net.bus.index:
             return key
         # if key is a bus name
-        try:
-            ks = str(key)
-            if ks in name_to_idx:
-                return name_to_idx[ks]
-        except Exception:
-            pass
+        ks = str(key)
+        if ks in name_to_idx:
+            return name_to_idx[ks]
         # try int conversion
-        try:
-            k2 = int(key)
-            if k2 in net.bus.index:
-                return k2
-        except Exception:
-            pass
+        k2 = int(key)
+        if k2 in net.bus.index:
+            return k2
         # try string conversion
-        try:
-            k3 = str(key)
-            if k3 in net.bus.index:
-                return k3
-        except Exception:
-            pass
+        k3 = str(key)
+        if k3 in net.bus.index:
+            return k3
         # fallback: try to find any variant present in bus_coords that maps back to a canonical index
         for cand in (key, str(key)):
             if cand in bus_coords:
