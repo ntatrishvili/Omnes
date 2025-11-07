@@ -1,4 +1,3 @@
-import configparser
 from os.path import join
 
 import numpy as np
@@ -7,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from pandas import Timestamp, Timedelta
 
+from utils.configuration import Config
 from utils.logging_setup import get_logger
 
 log = get_logger(__name__)
@@ -328,10 +328,7 @@ def optimize_energy_system(**kwargs):
         raise RuntimeError(f"Optimization failed: {pulp.LpStatus[status]}")
 
     days = [136, 137]
-    config = configparser.ConfigParser(
-        allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
-    )
-    config.read("..\\config.ini")
+    config = Config()
     plot_energy_flows(
         kwargs,
         pv_names,

@@ -13,7 +13,6 @@ class Battery(Storage):
     default_contributes_to = "electric_power_balance"
 
     def __init__(
-
         self,
         id: Optional[str] = None,
         ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),

@@ -1,6 +1,6 @@
-import configparser
 import json
 
+from utils.configuration import Config
 from utils.logging_setup import init_logging, get_logger
 from app.conversion.pulp_converter import PulpConverter
 from app.model.model import Model
@@ -9,8 +9,7 @@ from app.operation.example_optimization import optimize_energy_system
 
 
 def read_model():
-    config = configparser.ConfigParser()
-    config.read("config.ini")
+    config = Config()
     freq = config.get("time", "frequency")
     time_set = config.getint("time", "time_set")
 

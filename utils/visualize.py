@@ -1,4 +1,3 @@
-import configparser
 import json
 from os.path import join
 
@@ -10,11 +9,8 @@ import pandas as pd
 import networkx as nx
 from collections import defaultdict
 
+from utils.configuration import Config
 
-config = configparser.ConfigParser(
-    allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
-)
-config.read("..\\config.ini")
 
 def elegant_draw_network(
     net,
@@ -31,7 +27,10 @@ def elegant_draw_network(
     show=True,
 ):
     # Try to extract geo coordinates into x/y if geo column exists
-    if "geo" in net.bus.columns and ("x" not in net.bus.columns or "y" not in net.bus.columns):
+    if "geo" in net.bus.columns and (
+        "x" not in net.bus.columns or "y" not in net.bus.columns
+    ):
+
         def _extract_geo(g):
             if pd.isna(g):
                 return pd.Series([np.nan, np.nan])
@@ -142,14 +141,23 @@ def elegant_draw_network(
         p2 = _pos(r.lv_bus)
         if p1 is None or p2 is None:
             continue
-        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color="#444444", lw=2.0, linestyle=(0, (3, 2)), zorder=2)
+        ax.plot(
+            [p1[0], p2[0]],
+            [p1[1], p2[1]],
+            color="#444444",
+            lw=2.0,
+            linestyle=(0, (3, 2)),
+            zorder=2,
+        )
 
     # Draw ext_grid
     for _, r in net.ext_grid.iterrows():
         p = _pos(r.bus)
         if p is None:
             continue
-        ax.scatter(p[0], p[1], marker="*", color="gold", s=220, zorder=6, edgecolors="k")
+        ax.scatter(
+            p[0], p[1], marker="*", color="gold", s=220, zorder=6, edgecolors="k"
+        )
 
     # Compute spans for offsets
     xs_vals = compute_spans(bus_coords, net, 0)
@@ -171,7 +179,9 @@ def elegant_draw_network(
         xs.append(pos[0])
         ys.append(pos[1])
 
-    ax.scatter(xs, ys, s=bus_marker_size, facecolor="#f0f0f0", edgecolor="#444444", zorder=5)
+    ax.scatter(
+        xs, ys, s=bus_marker_size, facecolor="#f0f0f0", edgecolor="#444444", zorder=5
+    )
 
     if annotate:
         # increase label offset a bit for visibility
@@ -189,8 +199,16 @@ def elegant_draw_network(
                 lab = str(net.bus.at[idx, annotate_label])
             else:
                 lab = str(idx)
-            ax.text(x + label_offset, y + label_offset, lab.replace("LV1.101 ", ""), fontsize=label_fontsize, ha="left", va="bottom", zorder=12,
-                    bbox=dict(facecolor="white", alpha=0.85, edgecolor="none", pad=0.2))
+            ax.text(
+                x + label_offset,
+                y + label_offset,
+                lab.replace("LV1.101 ", ""),
+                fontsize=label_fontsize,
+                ha="left",
+                va="bottom",
+                zorder=12,
+                bbox=dict(facecolor="white", alpha=0.85, edgecolor="none", pad=0.2),
+            )
 
     # Collect elements per bus and draw them around the bus so they don't overlap
     elems = defaultdict(list)
@@ -268,7 +286,12 @@ def elegant_draw_network(
         for typ, _ in items_sorted:
             counts[typ] += 1
         r = max(0.0001 * avg_span, 0.0000025)
-        base_angles = {"sgen": np.pi / 2.0, "load": -np.pi / 2.0, "storage": np.pi, "switch": np.pi / 4.0}
+        base_angles = {
+            "sgen": np.pi / 2.0,
+            "load": -np.pi / 2.0,
+            "storage": np.pi,
+            "switch": np.pi / 4.0,
+        }
         drawn = defaultdict(int)
         for typ, robj in items_sorted:
             idx = drawn[typ]
@@ -284,28 +307,109 @@ def elegant_draw_network(
             # x_plot = x0
             # y_plot = y0
             if typ == "sgen":
-                ax.scatter(x_plot, y_plot, marker="o", s=sgen_size, facecolor="#88ccee", edgecolor="#2b6f8f", zorder=14)
+                ax.scatter(
+                    x_plot,
+                    y_plot,
+                    marker="o",
+                    s=sgen_size,
+                    facecolor="#88ccee",
+                    edgecolor="#2b6f8f",
+                    zorder=14,
+                )
                 dx = 0.00005 * avg_span
-                ax.plot([x_plot - dx, x_plot + dx], [y_plot, y_plot], color="#2b6f8f", lw=1.2, zorder=15)
+                ax.plot(
+                    [x_plot - dx, x_plot + dx],
+                    [y_plot, y_plot],
+                    color="#2b6f8f",
+                    lw=1.2,
+                    zorder=15,
+                )
             elif typ == "load":
-                ax.scatter(x_plot, y_plot, marker="v", s=load_size, facecolor="#ffffff", edgecolor="#cc4444", zorder=14)
+                ax.scatter(
+                    x_plot,
+                    y_plot,
+                    marker="v",
+                    s=load_size,
+                    facecolor="#ffffff",
+                    edgecolor="#cc4444",
+                    zorder=14,
+                )
             elif typ == "storage":
-                ax.scatter(x_plot, y_plot, marker="P", s=120, facecolor="#b3e6b3", edgecolor="#2d8f2d", zorder=13)
-            #elif typ == "switch":
+                ax.scatter(
+                    x_plot,
+                    y_plot,
+                    marker="P",
+                    s=120,
+                    facecolor="#b3e6b3",
+                    edgecolor="#2d8f2d",
+                    zorder=13,
+                )
+            # elif typ == "switch":
             #    ax.scatter(x_plot, y_plot, marker="s", s=40, facecolor="#444444", edgecolor="#222222", zorder=12)
 
     # legend (unchanged)
-    pv_circle = Line2D([0], [0], marker="o", color="w", markerfacecolor="#88ccee", markeredgecolor="#2b6f8f", markersize=8, linestyle="None")
+    pv_circle = Line2D(
+        [0],
+        [0],
+        marker="o",
+        color="w",
+        markerfacecolor="#88ccee",
+        markeredgecolor="#2b6f8f",
+        markersize=8,
+        linestyle="None",
+    )
     pv_hline = Line2D([-0.2, 0.2], [0, 0], color="#2b6f8f", linewidth=1)
     pv_proxy = (pv_circle, pv_hline)
-    load_proxy = Line2D([0], [0], marker="v", color="#cc4444", markerfacecolor="#ffffff", markeredgecolor="#cc4444", markersize=8, linestyle="None")
-    bus_proxy = Line2D([0], [0], marker="o", color="w", markerfacecolor="#f0f0f0", markeredgecolor="#444444", markersize=8, linestyle="None")
-    extgrid_proxy = Line2D([0], [0], marker="*", color="gold", markerfacecolor="gold", markersize=10, linestyle="None")
-    stor_proxy = Line2D([0], [0], marker="P", color="w", markerfacecolor="#b3e6b3", markeredgecolor="#2d8f2d", markersize=8, linestyle="None")
+    load_proxy = Line2D(
+        [0],
+        [0],
+        marker="v",
+        color="#cc4444",
+        markerfacecolor="#ffffff",
+        markeredgecolor="#cc4444",
+        markersize=8,
+        linestyle="None",
+    )
+    bus_proxy = Line2D(
+        [0],
+        [0],
+        marker="o",
+        color="w",
+        markerfacecolor="#f0f0f0",
+        markeredgecolor="#444444",
+        markersize=8,
+        linestyle="None",
+    )
+    extgrid_proxy = Line2D(
+        [0],
+        [0],
+        marker="*",
+        color="gold",
+        markerfacecolor="gold",
+        markersize=10,
+        linestyle="None",
+    )
+    stor_proxy = Line2D(
+        [0],
+        [0],
+        marker="P",
+        color="w",
+        markerfacecolor="#b3e6b3",
+        markeredgecolor="#2d8f2d",
+        markersize=8,
+        linestyle="None",
+    )
 
     legend_handles = [pv_proxy, load_proxy, bus_proxy, extgrid_proxy, stor_proxy]
     legend_labels = ["PV", "Load", "Bus", "External grid", "Storage"]
-    ax.legend(legend_handles, legend_labels, loc=legend_loc, framealpha=0.95, fontsize="small", handler_map={tuple: HandlerTuple()})
+    ax.legend(
+        legend_handles,
+        legend_labels,
+        loc=legend_loc,
+        framealpha=0.95,
+        fontsize="small",
+        handler_map={tuple: HandlerTuple()},
+    )
 
     # finalize
     ax.set_aspect("equal", adjustable="box")
@@ -332,11 +436,14 @@ def elegant_draw_network(
 
 
 def compute_spans(bus_coords, net, idx):
-    xs_vals = [p[idx] for k, p in bus_coords.items() if p is not None and (k in net.bus.index)]
+    xs_vals = [
+        p[idx] for k, p in bus_coords.items() if p is not None and (k in net.bus.index)
+    ]
     return xs_vals
 
 
 if __name__ == "__main__":
     import simbench
+
     net = simbench.get_simbench_net("1-LV-rural1--0-sw")
-    elegant_draw_network(net, output_path=config.get("path", "output"))
+    elegant_draw_network(net, output_path=Config().get("path", "output"))

@@ -15,19 +15,18 @@ This sign convention is common in pandapower but should be verified for
 consistency with your specific use case.
 """
 
-import configparser
 from copy import copy
 
 import pandapower as pp
 import simbench
 from matplotlib.lines import Line2D
+from matplotlib.patches import PathPatch, Patch
 from pandas import read_csv
-from matplotlib.patches import PathPatch, Patch, Arrow
+
+from utils.configuration import Config
 from utils.logging_setup import get_logger
 
-
 logger = get_logger(__name__)
-
 
 import json
 import numpy as np
@@ -42,10 +41,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List, Union, Tuple
 
-config = configparser.ConfigParser(
-    allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
-)
-config.read("..\\..\\config.ini")
 
 def plot_branch_voltage_heatmaps(
     results: List[Union[str, pd.DataFrame]],
@@ -88,11 +83,23 @@ def plot_branch_voltage_heatmaps(
         elif isinstance(res, pd.DataFrame):
             df = res.copy()
         else:
-            raise ValueError("Each item of results must be a filepath or a pandas DataFrame")
+            raise ValueError(
+                "Each item of results must be a filepath or a pandas DataFrame"
+            )
 
         # filter branch buses and aggregate
-        branch_bus_indices = net.bus[net.bus.name.str.split(" ").str[-1].astype(int).isin(branch_buses)].index.astype(str).tolist()
-        df_branch = df[[c for c in df.columns if "vm_pu" in c and c.split("_")[0] in branch_bus_indices]]
+        branch_bus_indices = (
+            net.bus[net.bus.name.str.split(" ").str[-1].astype(int).isin(branch_buses)]
+            .index.astype(str)
+            .tolist()
+        )
+        df_branch = df[
+            [
+                c
+                for c in df.columns
+                if "vm_pu" in c and c.split("_")[0] in branch_bus_indices
+            ]
+        ]
         if df_branch.empty:
             # leave NaNs if nothing found
             continue
@@ -110,7 +117,7 @@ def plot_branch_voltage_heatmaps(
 
     # prepare scenario names
     if scenario_names is None:
-        scenario_names = [f"S{i+1}" for i in range(n_scenarios)]
+        scenario_names = [f"S{i + 1}" for i in range(n_scenarios)]
     if len(scenario_names) != n_scenarios:
         raise ValueError("Length of scenario_names must match number of results")
 
@@ -125,7 +132,15 @@ def plot_branch_voltage_heatmaps(
         if np.isnan(vmin) or np.isnan(vmax):
             vmin, vmax = 0.0, 1.0
         # im = ax.imshow(data, cmap=cmap, aspect="equal", origin="lower", vmin=vmin, vmax=vmax)
-        im = ax.imshow(data, cmap=cmap, aspect="equal", origin="lower", vmin=vmin, vmax=vmax, interpolation="nearest")
+        im = ax.imshow(
+            data,
+            cmap=cmap,
+            aspect="equal",
+            origin="lower",
+            vmin=vmin,
+            vmax=vmax,
+            interpolation="nearest",
+        )
         im.set_zorder(1)
 
         # --- grid between heatmap cells ---
@@ -133,7 +148,14 @@ def plot_branch_voltage_heatmaps(
         ax.set_xticks(np.arange(-0.5, n_buses, 1), minor=True)
         ax.set_yticks(np.arange(-0.5, n_scenarios, 1), minor=True)
         # draw minor grid (cell separators)
-        ax.grid(which="minor", color="lightgrey", linestyle="-", linewidth=0.6, zorder=2, alpha=0.9)
+        ax.grid(
+            which="minor",
+            color="lightgrey",
+            linestyle="-",
+            linewidth=0.6,
+            zorder=2,
+            alpha=0.9,
+        )
         # keep major ticks for labels, disable their grid lines
         ax.grid(which="major", visible=False)
         # ensure ticks align with cells
@@ -153,7 +175,9 @@ def plot_branch_voltage_heatmaps(
 
         # x ticks for busbars on bottom subplot only
         ax.set_xticks(np.arange(n_buses))
-        ax.set_xticklabels([f"{name}" for bus, name in zip(branch_buses, bus_names)], rotation=90)
+        ax.set_xticklabels(
+            [f"{name}" for bus, name in zip(branch_buses, bus_names)], rotation=90
+        )
         ax.set_xlabel("Buses")
 
     plt.suptitle("Node voltages")
@@ -164,7 +188,9 @@ def plot_branch_voltage_heatmaps(
     return fig, axes
 
 
-def fit_network_axis(ax, net, padx=0.05, pady=0.05, min_span=1e-6, ymargin=0, xmargin=0):
+def fit_network_axis(
+    ax, net, padx=0.05, pady=0.05, min_span=1e-6, ymargin=0, xmargin=0
+):
     """
     Tighten `ax` limits to the extents of net.bus['x','y'] with a fractional padding.
     - pad: fraction of span to add on each side (0.05 = 5%)
@@ -188,7 +214,9 @@ def fit_network_axis(ax, net, padx=0.05, pady=0.05, min_span=1e-6, ymargin=0, xm
     ax.margins(xmargin, ymargin)
 
 
-def annotate_buses(ax, net, label="name", fontsize=15, offset=(0.0, 0.0), bbox=True, filter_fn=None):
+def annotate_buses(
+    ax, net, label="name", fontsize=15, offset=(0.0, 0.0), bbox=True, filter_fn=None
+):
     """
     Annotate buses on a matplotlib axis created by pandapower.simple_plot.
 
@@ -208,12 +236,20 @@ def annotate_buses(ax, net, label="name", fontsize=15, offset=(0.0, 0.0), bbox=T
         if pd.isna(x) or pd.isna(y):
             continue
         if label == "name":
-            txt = row.get("name", str(idx)).replace("LV1.101 Bus ", "").replace("MV1.101 Bus 4", "MV grid")
+            txt = (
+                row.get("name", str(idx))
+                .replace("LV1.101 Bus ", "")
+                .replace("MV1.101 Bus 4", "MV grid")
+            )
         elif label == "index":
             txt = str(idx)
         else:
             txt = str(row.get(label, ""))
-        bbox_kw = dict(facecolor="white", alpha=0.7, edgecolor="none", pad=0.2) if bbox else None
+        bbox_kw = (
+            dict(facecolor="white", alpha=0.7, edgecolor="none", pad=0.2)
+            if bbox
+            else None
+        )
         ax.text(
             x + offset[0],
             y + offset[1],
@@ -224,6 +260,7 @@ def annotate_buses(ax, net, label="name", fontsize=15, offset=(0.0, 0.0), bbox=T
             zorder=20,
             bbox=bbox_kw,
         )
+
 
 def draw_battery_icon(ax, x, y, size=0.02, color="blue"):
     """
@@ -257,10 +294,19 @@ def draw_battery_icon(ax, x, y, size=0.02, color="blue"):
     ]
     codes = [Path.MOVETO] + [Path.LINETO] * (len(verts) - 2) + [Path.CLOSEPOLY]
     path = Path(verts, codes)
-    patch = PathPatch(path, facecolor=color, edgecolor="black", lw=1.0, zorder=30, alpha=0.9)
+    patch = PathPatch(
+        path, facecolor=color, edgecolor="black", lw=1.0, zorder=30, alpha=0.9
+    )
     ax.add_patch(patch)
     # small inner terminal line for contrast
-    ax.plot([x + w * 0.45, x + w * 0.6], [y + h * 0.5, y + h * 0.6], color="black", lw=1.0, zorder=31)
+    ax.plot(
+        [x + w * 0.45, x + w * 0.6],
+        [y + h * 0.5, y + h * 0.6],
+        color="black",
+        lw=1.0,
+        zorder=31,
+    )
+
 
 def visualize_high_voltage_day(
     net,
@@ -272,7 +318,7 @@ def visualize_high_voltage_day(
     base_year: int = 2016,
     output_path: Optional[str] = None,
     scenario: Optional[str] = None,
-    trafo = 4
+    trafo=4,
 ):
     """Visualize network snapshot at the highest voltage timestep."""
 
@@ -377,7 +423,11 @@ def visualize_high_voltage_day(
         {"vm_pu": [peak_vm.get(i, np.nan) for i in net.bus.index]}, index=net.bus.index
     )
     net.res_line = pd.DataFrame(
-        {"loading_percent": [edge_currents.get(i, np.nan)*1000 for i in net.line.index]},
+        {
+            "loading_percent": [
+                edge_currents.get(i, np.nan) * 1000 for i in net.line.index
+            ]
+        },
         index=net.line.index,
     )
 
@@ -416,39 +466,68 @@ def visualize_high_voltage_day(
 
     # --- Create a small legend inside the network axes using proxy artists ---
     # PV proxy: circle + horizontal line (tuple), handled by HandlerTuple
-    pv_circle = Line2D([0], [0], marker="o", color="w",
-                       markerfacecolor="white", markeredgecolor="k",
-                       markersize=8, linestyle="None")
+    pv_circle = Line2D(
+        [0],
+        [0],
+        marker="o",
+        color="w",
+        markerfacecolor="white",
+        markeredgecolor="k",
+        markersize=8,
+        linestyle="None",
+    )
     pv_hline = Line2D([-0.2, 0.2], [0, 0], color="k", linewidth=1)
 
     pv_proxy = (pv_circle, pv_hline)
 
     # Load proxy: down-pointing triangle
-    load_proxy = Line2D([0], [0], marker="v", color="k",
-                        markerfacecolor="white", markeredgecolor="k",
-                        markersize=8, linestyle="None")
+    load_proxy = Line2D(
+        [0],
+        [0],
+        marker="v",
+        color="k",
+        markerfacecolor="white",
+        markeredgecolor="k",
+        markersize=8,
+        linestyle="None",
+    )
 
     battery_proxy = Patch(facecolor="blue", edgecolor="k")
-    extgrid_proxy = Line2D([0], [0], marker="s", color="gold", markerfacecolor="gold", markersize=8, linestyle="None")
+    extgrid_proxy = Line2D(
+        [0],
+        [0],
+        marker="s",
+        color="gold",
+        markerfacecolor="gold",
+        markersize=8,
+        linestyle="None",
+    )
 
     legend_handles = [pv_proxy, load_proxy, battery_proxy, extgrid_proxy]
     legend_labels = ["PV", "Load", "Battery", "External grid"]
-    ax_net.legend(legend_handles, legend_labels, loc="lower right", framealpha=0.9, fontsize="small")
-
-    ax_net.set_title(
-        f"Node color=Voltage [pu], Edge color=Current [A]"
+    ax_net.legend(
+        legend_handles,
+        legend_labels,
+        loc="lower right",
+        framealpha=0.9,
+        fontsize="small",
     )
+
+    ax_net.set_title(f"Node color=Voltage [pu], Edge color=Current [A]")
     ax_net.set_xlabel("Longitude")
     ax_net.set_ylabel("Latitude")
 
     from mpl_toolkits.axes_grid1 import make_axes_locatable
+
     sm = mpl.cm.ScalarMappable(cmap=cmap_obj, norm=norm)
     sm.set_array([])
     divider = make_axes_locatable(ax_net)
     cax1 = divider.append_axes("right", size="3%", pad=0.09)
     cax2 = divider.append_axes("right", size="3%", pad=0.82)
     fig.colorbar(sm, cax=cax1, label="Voltage [pu]")
-    cm = mpl.cm.ScalarMappable(cmap=edge_cmap, norm=mpl.colors.Normalize(vmin=cmin, vmax=cmax))
+    cm = mpl.cm.ScalarMappable(
+        cmap=edge_cmap, norm=mpl.colors.Normalize(vmin=cmin, vmax=cmax)
+    )
     cm.set_array([])
     fig.colorbar(cm, cax=cax2, label="Current [A]")
 
@@ -476,7 +555,7 @@ def visualize_high_voltage_day(
             markeredgewidth=0.5,
             markersize=10,
             color=c,
-            label=f"Branch {i+1}",
+            label=f"Branch {i + 1}",
         )
         ax_branch.scatter(
             range(len(idxs))[-1],
@@ -505,7 +584,9 @@ def visualize_high_voltage_day(
             )
 
         for j, name in enumerate(branch):
-            ax_branch.text(j, vals[j]+0.0001, name, fontsize=12, ha="center", va="bottom")
+            ax_branch.text(
+                j, vals[j] + 0.0001, name, fontsize=12, ha="center", va="bottom"
+            )
 
     ax_branch.set_title("Voltage profile along branches")
     ax_branch.set_xlabel("Node order")
@@ -519,13 +600,17 @@ def visualize_high_voltage_day(
         day_vm = day_df[[c for c in day_df.columns if c.endswith("_vm_pu")]].astype(
             float
         )
-        for i, branch in enumerate(branches+[[trafo]]):
+        for i, branch in enumerate(branches + [[trafo]]):
             last_name = branch[-1]
             last_idx = bus_name_to_index.get(f"LV1.101 Bus {last_name}")
             if last_idx is not None:
                 col = f"{last_idx}_vm_pu"
                 if col in day_vm.columns:
-                    postfix = f"(branch {i + 1} end)" if i != len(branches) else "(transformer)"
+                    postfix = (
+                        f"(branch {i + 1} end)"
+                        if i != len(branches)
+                        else "(transformer)"
+                    )
                     ax_ts.plot(
                         time_index,
                         day_vm[col],
@@ -547,7 +632,9 @@ def visualize_high_voltage_day(
     ax_ts.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
     fig.autofmt_xdate(rotation=45)
     title_text = f"Scenario: {scenario}" if scenario else "Scenario: default"
-    fig.suptitle(f"Network snapshot at {peak_ts:%Y-%m-%d %H:00}\n{title_text}", fontsize=16)
+    fig.suptitle(
+        f"Network snapshot at {peak_ts:%Y-%m-%d %H:00}\n{title_text}", fontsize=16
+    )
     plt.tight_layout()
 
     if output_path:
@@ -605,9 +692,9 @@ def set_timestep_values(net: pp.pandapowerNet, timestep_idx: int):
         name = f"{row['name']}"
         if name == "battery":
             net.sgen.at[idx, "p_mw"] = (
-                    (net.profiles["storage"].loc[timestep_idx, f"{name}_p_out"]
-                     - net.profiles["storage"].loc[timestep_idx, f"{name}_p_in"]) / 1000.0
-            )
+                net.profiles["storage"].loc[timestep_idx, f"{name}_p_out"]
+                - net.profiles["storage"].loc[timestep_idx, f"{name}_p_in"]
+            ) / 1000.0
         else:
             net.sgen.at[idx, "p_mw"] = (
                 net.profiles["renewables"].loc[timestep_idx, f"{name}_p_out"] / 1000.0
@@ -770,7 +857,7 @@ def simulate_energy_system(net, **kwargs):
     scenario = kwargs.get("scenario", "default")
     results.to_csv(
         join(
-            config.get("path", "output"),
+            Config().get("path", "output"),
             f"energy_system_power_flow_results{scenario}.csv",
         )
     )
@@ -779,33 +866,54 @@ def simulate_energy_system(net, **kwargs):
         results_df=results,
         branches=[[4, 1], [4, 2, 9, 13], [4, 7, 12, 14, 6, 5], [4, 8, 11, 10, 3]],
         scenario=scenario,
-        output_path=config.get("path", "output"),
+        output_path=Config().get("path", "output"),
     )
 
 
 if __name__ == "__main__":
     net = simbench.get_simbench_net("1-LV-rural1--0-sw")
-    scenarios = ["No battery", "Feeder", "Branch 1 end", "Branch 2 end", "Branch 3 end", "Branch 4 end"]
+    scenarios = [
+        "No battery",
+        "Feeder",
+        "Branch 1 end",
+        "Branch 2 end",
+        "Branch 3 end",
+        "Branch 4 end",
+    ]
     buses = [None, 4, 1, 13, 5, 3]
     results = []
     for sc, bess_bus in zip(scenarios, buses):
         res_df = read_csv(
             join(
-                config.get("path", "output"), f"energy_system_power_flow_results{sc}.csv"
-            ))
+                Config().get("path", "output"),
+                f"energy_system_power_flow_results{sc}.csv",
+            )
+        )
 
         pnet = copy(net)
         if bess_bus is not None:
-            pp.create_sgen(pnet, bus=net.bus.loc[net.bus.name.str.contains(f"{bess_bus}")].index[0], p_mw=0.0, q_mvar=0.0, name="battery")
+            pp.create_sgen(
+                pnet,
+                bus=net.bus.loc[net.bus.name.str.contains(f"{bess_bus}")].index[0],
+                p_mw=0.0,
+                q_mvar=0.0,
+                name="battery",
+            )
         visualize_high_voltage_day(
             pnet,
             results_df=res_df,
             branches=[[4, 1], [4, 2, 9, 13], [4, 7, 12, 14, 6, 5], [4, 8, 11, 10, 3]],
-            scenario = sc,
-            output_path=config.get("path", "output"),
+            scenario=sc,
+            output_path=Config().get("path", "output"),
         )
         results.append(res_df)
     branch_buses = [4, 1, 13, 5, 3]
     bus_names = ["feeder", "branch 1", "branch 2", "branch 3", "branch 4"]
-    plot_branch_voltage_heatmaps(results, branch_buses, bus_names, scenarios, cmap="RdYlBu_r",
-                                 savepath=config.get("path", "output"))
+    plot_branch_voltage_heatmaps(
+        results,
+        branch_buses,
+        bus_names,
+        scenarios,
+        cmap="RdYlBu_r",
+        savepath=Config().get("path", "output"),
+    )
