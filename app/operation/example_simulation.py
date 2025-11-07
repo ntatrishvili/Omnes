@@ -108,7 +108,7 @@ def plot_branch_voltage_heatmaps(
         for j, bus in enumerate(branch_bus_indices):
             try:
                 s = df_branch[f"{bus}_vm_pu"]
-            except:
+            except KeyError:
                 continue
             max2_arr[i, j] = s.max(skipna=True)
             max_arr[i, j] = s.quantile(0.95)
