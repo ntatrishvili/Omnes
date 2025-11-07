@@ -18,13 +18,14 @@ from app.model.storage.battery import Battery
 from app.operation.example_optimization import optimize_energy_system
 from app.operation.example_simulation import simulate_energy_system
 from utils.logging_setup import get_logger, init_logging
+from utils.visualize import elegant_draw_network
 
+config = configparser.ConfigParser(
+    allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
+)
+config.read("..\\config.ini")
 
 def build_model_from_simbench(**kwargs):
-    config = configparser.ConfigParser(
-        allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
-    )
-    config.read("..\\config.ini")
     datetime_properties = {
         "datetime_format": "%d.%m.%Y %H:%M",
         "datetime_column": "time",
@@ -68,7 +69,7 @@ def build_model_from_simbench(**kwargs):
 
     buses = []
     for _, row in nodes.iterrows():
-        if row["type"] != "busbar" and "MV" not in row["id"]:
+        if row["type"] != "busbar":
             continue
         buses.append(
             Bus(
@@ -278,7 +279,7 @@ if __name__ == "__main__":
     log = get_logger(__name__)
 
     pv_scale = 1.5  # scale PV sizes
-    bess_size = 50.0  # in kWh
+    bess_size = 100.0  # in kWh
     log.info("Logging initialized")
     model = build_model_from_simbench(pv_scale=pv_scale, bess_size=bess_size)
     log.info("Model built successfully")
@@ -296,6 +297,7 @@ if __name__ == "__main__":
     model.set({"battery.p_out": problem["battery.p_out"]})
 
     net = PandapowerConverter().convert_model(model)
+    elegant_draw_network(net, output_path=config.get("path", "output"))
     log.info("Model converted to pandapower net successfully")
 
     for battery_bus, scenario in zip(

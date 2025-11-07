@@ -34,6 +34,7 @@ def plot_energy_flows(
         for pv in pv_names
     }
     pv_sum = sum(pv_profiles.values())
+    print("PV total production:", pv_sum.max())
 
     # Loads
     load_profiles = {
@@ -41,6 +42,7 @@ def plot_energy_flows(
         for ld in load_names
     }
     load_sum = sum(load_profiles.values())
+    print("Total load:", load_sum.max())
 
     # Battery flows
     bess_in_profiles = {
@@ -98,7 +100,7 @@ def plot_energy_flows(
             -p[time_range_to_plot],
             color=color,
             width=1.0,
-            label=f"{pv.replace('LVL1.101 ', '')} (PV)",
+            label=f"{pv.replace('LV1.101 ', '')} (PV)",
             bottom=bottom_pv[time_range_to_plot],
         )
         bottom_pv[time_range_to_plot] -= p[time_range_to_plot]
@@ -114,7 +116,7 @@ def plot_energy_flows(
             p[time_range_to_plot],
             color=color,
             width=1.0,
-            label=f"{ld.replace('LVL1.101 ', '')}",
+            label=f"{ld.replace('LV1.101 ', '')}",
             bottom=bottom_loads[time_range_to_plot],
         )
         bottom_loads[time_range_to_plot] += p[time_range_to_plot]
@@ -240,7 +242,8 @@ def plot_energy_flows(
 
     # add the date as x-axis label (use the day of the first plotted hour)
     start_date = (base + Timedelta(hours=int(x_hours.min()))).date()
-    ax.xlabel(f"Time (hours) — date: {start_date:%Y-%m-%d}")
+    ax.set_ylabel(f"Power [kW]")
+    ax.set_xlabel(f"Time (hours) — date: {start_date:%Y-%m-%d}")
     plt.tight_layout()
     plt.savefig(join(output_path, "energy_system_operation.png"))
 

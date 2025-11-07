@@ -16,6 +16,8 @@ consistency with your specific use case.
 """
 
 import configparser
+from copy import copy
+
 import pandapower as pp
 import simbench
 from matplotlib.lines import Line2D
@@ -40,12 +42,18 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List, Union, Tuple
 
+config = configparser.ConfigParser(
+    allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
+)
+config.read("..\\..\\config.ini")
+
 def plot_branch_voltage_heatmaps(
     results: List[Union[str, pd.DataFrame]],
     branch_buses: List,
+    bus_names: List[str],
     scenario_names: List[str] = None,
     cmap: str = "Greys",
-    figsize: Tuple[float, float] = (5.5, 10),
+    figsize: Tuple[float, float] = (12, 3.5),
     savepath: str = None,
 ) -> Tuple[plt.Figure, np.ndarray]:
     """
@@ -69,6 +77,7 @@ def plot_branch_voltage_heatmaps(
 
     # arrays to store per-scenario statistics
     max_arr = np.full((n_scenarios, n_buses), np.nan, dtype=float)
+    max2_arr = np.full((n_scenarios, n_buses), np.nan, dtype=float)
     mean_arr = np.full((n_scenarios, n_buses), np.nan, dtype=float)
     min_arr = np.full((n_scenarios, n_buses), np.nan, dtype=float)
 
@@ -94,9 +103,10 @@ def plot_branch_voltage_heatmaps(
                 s = df_branch[f"{bus}_vm_pu"]
             except:
                 continue
-            max_arr[i, j] = s.max(skipna=True)
-            mean_arr[i, j] = s.mean(skipna=True)
-            min_arr[i, j] = s.min(skipna=True)
+            max2_arr[i, j] = s.max(skipna=True)
+            max_arr[i, j] = s.quantile(0.95)
+            min_arr[i, j] = s.std(skipna=True)
+            mean_arr[i, j] = s.median(skipna=True)
 
     # prepare scenario names
     if scenario_names is None:
@@ -105,15 +115,15 @@ def plot_branch_voltage_heatmaps(
         raise ValueError("Length of scenario_names must match number of results")
 
     # plotting
-    fig, axes = plt.subplots(3, 1, figsize=figsize, sharex=True)
-    titles = ["Node voltages - maximum values", "Node voltages - average values", "Node voltages - minimum values"]
-    data_list = [max_arr, mean_arr, min_arr]
-    vmin = np.nanmin(min_arr)
-    vmax = np.nanmax(max_arr)
+    fig, axes = plt.subplots(1, 4, figsize=figsize, sharex=True, sharey=True)
+    titles = ["Maximum", "95% quantile", "Median", "Std. deviation"]
+    data_list = [max2_arr, max_arr, mean_arr, min_arr]
     # fallback if all NaN
-    if np.isnan(vmin) or np.isnan(vmax):
-        vmin, vmax = 0.0, 1.0
     for ax, data, title in zip(axes, data_list, titles):
+        vmin = np.nanmin(data)
+        vmax = np.nanmax(data)
+        if np.isnan(vmin) or np.isnan(vmax):
+            vmin, vmax = 0.0, 1.0
         # im = ax.imshow(data, cmap=cmap, aspect="equal", origin="lower", vmin=vmin, vmax=vmax)
         im = ax.imshow(data, cmap=cmap, aspect="equal", origin="lower", vmin=vmin, vmax=vmax, interpolation="nearest")
         im.set_zorder(1)
@@ -136,24 +146,25 @@ def plot_branch_voltage_heatmaps(
         ax.set_yticks(np.arange(n_scenarios))
         ax.set_yticklabels(scenario_names)
         # add colorbar on the right of each subplot
-        cbar = fig.colorbar(im, ax=ax, orientation="vertical", pad=0.02)
+        cbar = fig.colorbar(im, ax=ax, orientation="vertical", pad=0.06, fraction=0.05)
         # nice formatting for colorbar label (optional)
         cbar.ax.tick_params(labelsize=8)
         cbar.ax.set_ylabel("Voltage [pu]")
 
-    # x ticks for busbars on bottom subplot only
-    axes[-1].set_xticks(np.arange(n_buses))
-    axes[-1].set_xticklabels(branch_buses)
-    axes[-1].set_xlabel("Buses")
+        # x ticks for busbars on bottom subplot only
+        ax.set_xticks(np.arange(n_buses))
+        ax.set_xticklabels([f"{name}" for bus, name in zip(branch_buses, bus_names)], rotation=90)
+        ax.set_xlabel("Buses")
 
+    plt.suptitle("Node voltages")
     plt.tight_layout()
     if savepath:
-        plt.savefig(join(savepath, "ranch_voltages.png"), dpi=400, bbox_inches="tight")
+        plt.savefig(join(savepath, "branch_voltages.png"), dpi=400, bbox_inches="tight")
     plt.show()
     return fig, axes
 
 
-def fit_network_axis(ax, net, pad=0.05, min_span=1e-6):
+def fit_network_axis(ax, net, padx=0.05, pady=0.05, min_span=1e-6, ymargin=0, xmargin=0):
     """
     Tighten `ax` limits to the extents of net.bus['x','y'] with a fractional padding.
     - pad: fraction of span to add on each side (0.05 = 5%)
@@ -168,13 +179,13 @@ def fit_network_axis(ax, net, pad=0.05, min_span=1e-6):
     y_min, y_max = coords["y"].min(), coords["y"].max()
     x_span = max(x_max - x_min, min_span)
     y_span = max(y_max - y_min, min_span)
-    pad_x = x_span * pad
-    pad_y = y_span * pad
+    pad_x = x_span * padx
+    pad_y = y_span * pady
     ax.set_xlim(x_min - pad_x, x_max + pad_x)
     ax.set_ylim(y_min - pad_y, y_max + pad_y)
     ax.set_aspect("equal", adjustable="box")
     ax.autoscale(enable=False)
-    ax.margins(0)
+    ax.margins(xmargin, ymargin)
 
 
 def annotate_buses(ax, net, label="name", fontsize=15, offset=(0.0, 0.0), bbox=True, filter_fn=None):
@@ -214,7 +225,7 @@ def annotate_buses(ax, net, label="name", fontsize=15, offset=(0.0, 0.0), bbox=T
             bbox=bbox_kw,
         )
 
-def draw_battery_icon(ax, x, y, size=0.02, color="red"):
+def draw_battery_icon(ax, x, y, size=0.02, color="blue"):
     """
     Draw a stylized battery centered at (x, y).
     - size: fractional size relative to axis span (0.02 = 2% of axis span)
@@ -371,8 +382,11 @@ def visualize_high_voltage_day(
     )
 
     # Base plot
+    pnet = copy(net)
+    batteries = pnet.sgen[pnet.sgen["name"] == "battery"]
+    pnet.sgen.drop(batteries.index, inplace=True)
     pplot.simple_plot(
-        net,
+        pnet,
         ax=ax_net,
         bus_size=3.0,
         ext_grid_size=2,
@@ -385,9 +399,11 @@ def visualize_high_voltage_day(
         load_size=3.0,
         sgen_size=3.0,
     )
+
+    fit_network_axis(ax_net, net, padx=0.08, pady=0.17)
     annotate_buses(ax_net, net, label="name", fontsize=12, offset=(0.00025, -0.0001))
+
     # --- Overlay elements (battery) ---
-    batteries = net.sgen.loc[net.sgen["name"] == "battery"]
     battery_buses = net.bus.loc[batteries["bus"]]
     for i, row in batteries.iterrows():
         if not row.get("in_service", True):
@@ -396,7 +412,7 @@ def visualize_high_voltage_day(
             x, y = net.bus.loc[row["bus"], ["x", "y"]]
         except Exception:
             continue
-        draw_battery_icon(ax_net, x, y, size=0.04, color="blue")
+        draw_battery_icon(ax_net, x, y, size=0.07, color="blue")
 
     # --- Create a small legend inside the network axes using proxy artists ---
     # PV proxy: circle + horizontal line (tuple), handled by HandlerTuple
@@ -429,7 +445,7 @@ def visualize_high_voltage_day(
     sm = mpl.cm.ScalarMappable(cmap=cmap_obj, norm=norm)
     sm.set_array([])
     divider = make_axes_locatable(ax_net)
-    cax1 = divider.append_axes("right", size="3%", pad=0.05)
+    cax1 = divider.append_axes("right", size="3%", pad=0.09)
     cax2 = divider.append_axes("right", size="3%", pad=0.82)
     fig.colorbar(sm, cax=cax1, label="Voltage [pu]")
     cm = mpl.cm.ScalarMappable(cmap=edge_cmap, norm=mpl.colors.Normalize(vmin=cmin, vmax=cmax))
@@ -473,7 +489,7 @@ def visualize_high_voltage_day(
             label=None,
         )
         bess_idx = [j for j, i in enumerate(idxs) if i in battery_buses.index]
-        if bess_idx:
+        if bess_idx and scenario != "No battery":
             x_positions = bess_idx
             y_positions = [vals[j] for j in bess_idx]
             ax_branch.scatter(
@@ -513,9 +529,13 @@ def visualize_high_voltage_day(
                     ax_ts.plot(
                         time_index,
                         day_vm[col],
+                        marker=markers[i % len(markers)],
+                        markeredgecolor="darkgrey",
+                        markeredgewidth=0.5,
+                        markersize=7,
                         label=f"Bus {last_name} {postfix}",
                         color=highlight_colors[i % len(highlight_colors)],
-                        lw=1.5,
+                        lw=1.8,
                     )
     ax_ts.set_title("Voltage time series (day of peak timestep)")
     ax_ts.set_xlabel(f"Time [hours]\n{peak_ts:%Y-%m-%d}")
@@ -721,10 +741,6 @@ def simulate_energy_system(net, **kwargs):
     AttributeError
         If net does not have a 'time_set' attribute or if profiles are missing.
     """
-    config = configparser.ConfigParser(
-        allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
-    )
-    config.read("..\\config.ini")
     time_set = net.get("time_set", [])
     results = init_results_frame(net, time_set)
 
@@ -768,31 +784,28 @@ def simulate_energy_system(net, **kwargs):
 
 
 if __name__ == "__main__":
-    config = configparser.ConfigParser(
-        allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
-    )
-    config.read("..\\..\\config.ini")
-    results = read_csv(
-        join(
-            config.get("path", "output"), "energy_system_power_flow_resultsdefault.csv"
-        )
-    )
     net = simbench.get_simbench_net("1-LV-rural1--0-sw")
-    pp.create_sgen(net, bus=10, p_mw=0.0, q_mvar=0.0, name="battery")
-    visualize_high_voltage_day(
-        net,
-        results_df=results,
-        branches=[[4, 8, 11, 10, 3], [4, 7, 12, 14, 6, 5], [4, 2, 9, 13], [4, 1]],
-    )
-
     scenarios = ["No battery", "Feeder", "Branch 1 end", "Branch 2 end", "Branch 3 end", "Branch 4 end"]
+    buses = [None, 4, 1, 13, 5, 3]
     results = []
-    for sc in scenarios:
-        results.append(read_csv(
+    for sc, bess_bus in zip(scenarios, buses):
+        res_df = read_csv(
             join(
                 config.get("path", "output"), f"energy_system_power_flow_results{sc}.csv"
-            )
-        ))
-    branch_buses = [4, 7, 12, 14, 6, 5]
-    plot_branch_voltage_heatmaps(results, branch_buses, scenarios, cmap="RdYlBu_r",
+            ))
+
+        pnet = copy(net)
+        if bess_bus is not None:
+            pp.create_sgen(pnet, bus=net.bus.loc[net.bus.name.str.contains(f"{bess_bus}")].index[0], p_mw=0.0, q_mvar=0.0, name="battery")
+        visualize_high_voltage_day(
+            pnet,
+            results_df=res_df,
+            branches=[[4, 1], [4, 2, 9, 13], [4, 7, 12, 14, 6, 5], [4, 8, 11, 10, 3]],
+            scenario = sc,
+            output_path=config.get("path", "output"),
+        )
+        results.append(res_df)
+    branch_buses = [4, 1, 13, 5, 3]
+    bus_names = ["feeder", "branch 1", "branch 2", "branch 3", "branch 4"]
+    plot_branch_voltage_heatmaps(results, branch_buses, bus_names, scenarios, cmap="RdYlBu_r",
                                  savepath=config.get("path", "output"))
