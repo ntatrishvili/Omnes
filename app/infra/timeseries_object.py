@@ -290,7 +290,7 @@ class TimeseriesObject(Quantity):
             data=TimeseriesObject._read_csv_to_dataframe(
                 input_path,
                 col,
-                datatime_column=time_col,
+                datetime_column=time_col,
                 datetime_format=datetime_format,
             )
         )
