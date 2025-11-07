@@ -57,7 +57,6 @@ def plot_energy_flows(
         b: np.array([pulp.value(kwargs[f"{b}.e_stor"][t]) for t in time_set])
         for b in bess_names
     }
-    bess_in_sum = sum(bess_in_profiles.values()) if bess_in_profiles else np.zeros(nT)
     bess_out_sum = (
         sum(bess_out_profiles.values()) if bess_out_profiles else np.zeros(nT)
     )
