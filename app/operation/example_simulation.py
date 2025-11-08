@@ -458,10 +458,9 @@ def visualize_high_voltage_day(
     for i, row in batteries.iterrows():
         if not row.get("in_service", True):
             continue
-        try:
-            x, y = net.bus.loc[row["bus"], ["x", "y"]]
-        except Exception:
+        if row["bus"] not in net.bus:
             continue
+        x, y = net.bus.loc[row["bus"], ["x", "y"]]
         draw_battery_icon(ax_net, x, y, size=0.07, color="blue")
 
     # --- Create a small legend inside the network axes using proxy artists ---

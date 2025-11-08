@@ -34,7 +34,7 @@ class TestEntity(unittest.TestCase):
         e.quantities["foo"] = 42
         self.assertEqual(e.foo, 42)
         self.assertEqual(e.bar, "baz")
-        with self.assertRaises(KeyError):
+        with self.assertRaises(AttributeError):
             _ = e.notfound
 
 

@@ -60,12 +60,11 @@ def elegant_draw_network(
     # build name->index map so elements referencing bus names are resolved
     name_to_idx = {}
     for idx in net.bus.index:
-        try:
-            nm = net.bus.at[idx, "name"]
-            if pd.notna(nm):
-                name_to_idx[str(nm)] = idx
-        except Exception:
+        if idx not in net.bus.index:
             continue
+        nm = net.bus.at[idx, "name"]
+        if pd.notna(nm):
+            name_to_idx[str(nm)] = idx
 
     # Build topology graph
     G = nx.Graph()
