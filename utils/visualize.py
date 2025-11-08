@@ -312,8 +312,6 @@ def elegant_draw_network(
                     edgecolor="#2d8f2d",
                     zorder=13,
                 )
-            # elif typ == "switch":
-            #    ax.scatter(x_plot, y_plot, marker="s", s=40, facecolor="#444444", edgecolor="#222222", zorder=12)
 
     # legend (unchanged)
     pv_circle = Line2D(

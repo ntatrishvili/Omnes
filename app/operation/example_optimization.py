@@ -1,9 +1,9 @@
 from os.path import join
 
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 import numpy as np
 import pulp
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 from pandas import Timestamp, Timedelta
 
 from utils.configuration import Config
@@ -57,9 +57,6 @@ def plot_energy_flows(
         b: np.array([pulp.value(kwargs[f"{b}.e_stor"][t]) for t in time_set])
         for b in bess_names
     }
-    bess_out_sum = (
-        sum(bess_out_profiles.values()) if bess_out_profiles else np.zeros(nT)
-    )
 
     # Slack (import/export)
     slack_in_sum = np.sum(

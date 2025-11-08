@@ -645,5 +645,3 @@ class PandapowerConverter(Converter):
                 for _, ent in self.model.entities.items():
                     if getattr(ent, "id", None) == name:
                         setattr(ent, "last_loading_percent", loading)
-
-        results = {"buses": bus_results, "lines": line_results, "net": self.net}
