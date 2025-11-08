@@ -13,6 +13,7 @@ class Line(Connector):
     default_resistance: Optional[float] = None
     default_reactance: Optional[float] = None
     default_max_current: Optional[float] = None
+    default_capacitance: Optional[float] = None
 
     def __init__(
         self,
@@ -37,7 +38,7 @@ class Line(Connector):
                     value=kwargs.pop("resistance", self.default_resistance)
                 ),
                 "capacitance": Parameter(
-                    value=kwargs.pop("capacitance", self.default_resistance)
+                    value=kwargs.pop("capacitance", self.default_capacitance)
                 ),
             }
         )
