@@ -30,12 +30,22 @@ class Converter(object):
         """
         Convert an entity using registered converters.
         Falls back to default entity conversion if no specialized converter exists.
+
+        This implementation searches the entity's class MRO so that registering a
+        converter for a base class (e.g., Device) will also handle subclasses
+        (e.g., SpecDevice) unless a more specific converter is registered.
         """
-        # Look up specialized converter for this entity type
+        # Look up specialized converter for this entity type or its base classes
         entity_type = type(entity)
 
+        # 1) Exact match
         if entity_type in self._entity_converters:
             return self._entity_converters[entity_type](entity, time_set, new_freq)
+
+        # 2) Walk MRO (method resolution order) to find the first registered handler
+        for base in entity_type.__mro__[1:]:  # skip the class itself
+            if base in self._entity_converters:
+                return self._entity_converters[base](entity, time_set, new_freq)
 
         # Fall back to default entity conversion
         return self._convert_entity_default(entity, time_set, new_freq)

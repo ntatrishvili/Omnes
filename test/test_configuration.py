@@ -1,6 +1,7 @@
 # Ensure project root is on sys.path so imports like `utils.*` work when running tests
 import os
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -15,14 +16,40 @@ class TestConfiguration(unittest.TestCase):
     def setUp(self):
         # Ensure a fresh singleton for each test
         Singleton._instance = None
-        # Resolve the repository config file path relative to this test file
-        repo_root = os.path.dirname(os.path.dirname(__file__))
-        self.config_path = os.path.join(repo_root, "config", "config.ini")
+
+        # Create a temporary config file with only the settings used in the tests.
+        # This avoids relying on the repository's config/config.ini and makes tests hermetic.
+        self.temp_config = tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".ini"
+        )
+        self.config_path = self.temp_config.name
+
+        # Minimal config content matching what's asserted in the tests
+        config_content = """
+                        [time]
+                        # time_set is stored as string in config file
+                        time_set = 35037
+                        # frequency should be parsed by Config into a pandas Timedelta
+                        frequency = 15min
+                        
+                        [path]
+                        root = /some/root
+                        """
+        self.temp_config.write(config_content)
+        self.temp_config.flush()
+        self.temp_config.close()
+
+    def tearDown(self):
+        # Clean up the temporary file
+        try:
+            os.remove(self.config_path)
+        except OSError:
+            pass
 
     def test_get_and_getint_and_frequency_processing(self):
         cfg = Config(config_filename=self.config_path)
 
-        # From config.ini: time_set = 35037 (string in file)
+        # From config: time_set = 35037 (string in file)
         self.assertEqual(cfg.get("time", "time_set"), "35037")
         # getint should parse it to an integer
         self.assertEqual(cfg.getint("time", "time_set"), 35037)
