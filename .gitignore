@@ -1,6 +1,8 @@
 # Git and IDE files
 .git/
 .idea/
+.roo/
+.roomodes
 
 # Python virtual environments
 venv/
