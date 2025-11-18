@@ -164,6 +164,143 @@ def plot_branch_voltage_heatmaps(
     return fig, axes
 
 
+def plot_losses_violations_heatmaps(
+    results: list,
+    net,
+    scenario_names: list = None,
+    cmap: str = "Greys",
+    figsize: tuple = (10, 6),
+    savepath: str = None,
+    violation_threshold: float = 1.01,
+) -> tuple:
+    """
+    Plot two heatmaps (losses, voltage violations) across scenarios.
+    - results: list of CSV paths or pandas DataFrames (each scenario)
+    - net: pandapower network (used to get line r and length)
+    - returns (fig, axes)
+    """
+
+    n_scenarios = len(results)
+    stats_cols = ["Maximum", "95% quantile", "Median", "Std. deviation"]
+
+    # precompute per-line r * length (ohm)
+    line_rlen = {}
+    for idx, row in net.line.iterrows():
+        r = row.get("r_ohm_per_km", 0.0) or 0.0
+        length = row.get("length_km", 0.0) or 0.0
+        line_rlen[int(idx)] = float(r) * float(length)  # ohm (km cancels)
+
+    # prepare arrays
+    losses_arr = np.full((n_scenarios, len(stats_cols)), np.nan, dtype=float)
+    viols_arr = np.full((n_scenarios, len(stats_cols)), np.nan, dtype=float)
+
+    for i, res in enumerate(results):
+        # load dataframe
+        if isinstance(res, str):
+            df = pd.read_csv(res, index_col=None)
+        elif isinstance(res, pd.DataFrame):
+            df = res.copy()
+        else:
+            raise ValueError("Each item of results must be a filepath or a pandas DataFrame")
+
+        # identify columns
+        i_cols = [c for c in df.columns if c.endswith("_i_ka")]
+        vm_cols = [c for c in df.columns if c.endswith("_vm_pu")]
+
+        if df.empty or (not i_cols and not vm_cols):
+            continue
+
+        # compute per-timestep total losses (MW) and violations (count)
+        total_losses = []
+        total_violations = []
+        for _, row in df.iterrows():
+            # losses
+            loss_sum_W = 0.0
+            for c in i_cols:
+                try:
+                    line_idx = int(c.split("_")[0])
+                except Exception:
+                    continue
+                val = row.get(c, np.nan)
+                if pd.isna(val):
+                    continue
+                I_A = float(val) * 1000.0  # kA -> A
+                r_len = line_rlen.get(line_idx, 0.0)
+                # approximate three-phase losses: 3 * I^2 * R_total (W)
+                loss_sum_W += 3.0 * (I_A ** 2) * r_len
+            total_losses.append(loss_sum_W)
+
+            # voltage violations: count buses with vm_pu > threshold
+            if vm_cols:
+                vm_values = row[vm_cols].astype(float).values
+                viol_count = np.sum(~np.isnan(vm_values) & (vm_values > violation_threshold))
+            else:
+                viol_count = np.nan
+            total_violations.append(viol_count)
+
+        # compute statistics (max, 95th, median, std)
+        arr_losses = np.array(total_losses, dtype=float)
+        arr_viol = np.array(total_violations, dtype=float)
+
+        if arr_losses.size > 0 and not np.all(np.isnan(arr_losses)):
+            losses_arr[i, 0] = np.nanmax(arr_losses)
+            losses_arr[i, 1] = np.nanpercentile(arr_losses, 95)
+            losses_arr[i, 2] = np.nanmedian(arr_losses)
+            losses_arr[i, 3] = np.nanstd(arr_losses)
+
+        if arr_viol.size > 0 and not np.all(np.isnan(arr_viol)):
+            viols_arr[i, 0] = np.nanmax(arr_viol)
+            viols_arr[i, 1] = np.nanpercentile(arr_viol, 95)
+            viols_arr[i, 2] = np.nanmedian(arr_viol)
+            viols_arr[i, 3] = np.nanstd(arr_viol)
+
+    # scenario names
+    if scenario_names is None:
+        scenario_names = [f"S{i+1}" for i in range(n_scenarios)]
+    if len(scenario_names) != n_scenarios:
+        raise ValueError("Length of scenario_names must match number of results")
+
+    # plotting
+    fig, axes = plt.subplots(1, 2, figsize=figsize, sharey=True)
+    titles = ["Total line losses [MW]", "Count of U(pu) > {:.2f}".format(violation_threshold)]
+    data_list = [losses_arr, viols_arr]
+
+    for ax, data, title in zip(axes, data_list, titles):
+        # handle empty/all-nan
+        vmin = np.nanmin(data)
+        vmax = np.nanmax(data)
+        if np.isnan(vmin) or np.isnan(vmax):
+            vmin, vmax = 0.0, 1.0
+
+        im = ax.imshow(data, cmap=cmap, aspect="equal", origin="lower", vmin=vmin, vmax=vmax, interpolation="nearest")
+        im.set_zorder(1)
+
+        # grid lines
+        n_cols = data.shape[1]
+        ax.set_xticks(np.arange(-0.5, n_cols, 1), minor=True)
+        ax.set_yticks(np.arange(-0.5, n_scenarios, 1), minor=True)
+        ax.grid(which="minor", color="lightgrey", linestyle="-", linewidth=0.6, zorder=2, alpha=0.9)
+        ax.grid(which="major", visible=False)
+        ax.set_xlim(-0.5, n_cols - 0.5)
+        ax.set_ylim(-0.5, n_scenarios - 0.5)
+
+        ax.set_title(title)
+        ax.set_xticks(np.arange(n_cols))
+        ax.set_xticklabels(stats_cols, rotation=45, ha="right")
+        ax.set_yticks(np.arange(n_scenarios))
+        ax.set_yticklabels(scenario_names)
+        cbar = fig.colorbar(im, ax=ax, orientation="vertical", pad=0.06, fraction=0.06)
+        cbar.ax.tick_params(labelsize=8)
+
+    plt.suptitle("Network losses and voltage violations across scenarios")
+    plt.tight_layout()
+    if savepath:
+        plt.savefig(join(savepath, "losses_violations_heatmaps.png"), dpi=400, bbox_inches="tight")
+    plt.show()
+    return fig, axes
+
+
+
 def fit_network_axis(ax, net, padx=0.05, pady=0.05, min_span=1e-6, ymargin=0, xmargin=0):
     """
     Tighten `ax` limits to the extents of net.bus['x','y'] with a fractional padding.
@@ -809,3 +946,4 @@ if __name__ == "__main__":
     bus_names = ["feeder", "branch 1", "branch 2", "branch 3", "branch 4"]
     plot_branch_voltage_heatmaps(results, branch_buses, bus_names, scenarios, cmap="RdYlBu_r",
                                  savepath=config.get("path", "output"))
+    plot_losses_violations_heatmaps(results, net, scenarios, cmap="RdYlBu_r", savepath=config.get("path", "output"))
