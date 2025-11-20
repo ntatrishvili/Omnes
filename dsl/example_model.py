@@ -3,7 +3,6 @@ from pulp import LpMinimize, LpProblem
 from app.conversion.pulp_converter import PulpConverter
 from app.infra.relation import Relation
 from app.model.converter.converter import Converter
-from app.model.entity import Entity
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
 from app.model.grid_component.bus import Bus, BusType

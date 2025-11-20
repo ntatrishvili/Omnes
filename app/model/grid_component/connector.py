@@ -1,6 +1,5 @@
 from typing import Optional
 
-from app.infra.quantity import Parameter
 from app.infra.timeseries_object_factory import (
     DefaultTimeseriesFactory,
     TimeseriesFactory,

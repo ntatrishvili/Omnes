@@ -146,7 +146,9 @@ class TestPandapowerConverter(unittest.TestCase):
         self.assertEqual(self.conv.net.sgen.at[wind_idx, "name"], "wind_1")
 
         # Battery (sgen placeholder)
-        batt = SimpleNamespace(id="bat_1", bus="bus_gen")
+        batt = SimpleNamespace(
+            id="bat_1", bus="bus_gen", max_charge_rate=SimpleNamespace(value=10)
+        )
         batt_idx = self.conv._convert_battery(batt)
         self.assertIn(batt_idx, self.conv.net.sgen.index)
         self.assertEqual(self.conv.net.sgen.at[batt_idx, "name"], "bat_1")

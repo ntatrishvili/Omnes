@@ -1,17 +1,21 @@
-import configparser
 from os.path import join
 
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 import numpy as np
 import pulp
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 from pandas import Timestamp, Timedelta
 
+from utils.configuration import Config
 from utils.logging_setup import get_logger
 
 log = get_logger(__name__)
 
+import matplotlib as mpl
 
+mpl.rcParams['savefig.transparent'] = True
+mpl.rcParams['figure.facecolor']    = 'none'
+mpl.rcParams['axes.facecolor']      = 'none'
 def plot_energy_flows(
     kwargs,
     pv_names,
@@ -57,10 +61,6 @@ def plot_energy_flows(
         b: np.array([pulp.value(kwargs[f"{b}.e_stor"][t]) for t in time_set])
         for b in bess_names
     }
-    bess_in_sum = sum(bess_in_profiles.values()) if bess_in_profiles else np.zeros(nT)
-    bess_out_sum = (
-        sum(bess_out_profiles.values()) if bess_out_profiles else np.zeros(nT)
-    )
 
     # Slack (import/export)
     slack_in_sum = np.sum(
@@ -328,10 +328,7 @@ def optimize_energy_system(**kwargs):
         raise RuntimeError(f"Optimization failed: {pulp.LpStatus[status]}")
 
     days = [136, 137]
-    config = configparser.ConfigParser(
-        allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
-    )
-    config.read("..\\config.ini")
+    config = Config()
     plot_energy_flows(
         kwargs,
         pv_names,

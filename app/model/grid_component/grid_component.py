@@ -25,7 +25,7 @@ class GridComponent(Entity):
         self.check_kwargs(**kwargs)
         self.phase_count = kwargs.pop("phase_count", self.default_phase_count)
         self.phase = kwargs.pop(
-            "phase", self.default_phase if self.phase_count == 3 else None
+            "phase", self.default_phase if self.phase_count == 1 else None
         )
         self.coordinates = kwargs.pop("coordinates", [])
 

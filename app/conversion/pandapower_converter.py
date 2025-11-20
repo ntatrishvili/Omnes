@@ -435,7 +435,11 @@ class PandapowerConverter(Converter):
         """
         bus_idx = self.bus_map[battery.bus]
         return pp.create_sgen(
-            self.net, bus=bus_idx, p_mw=battery.max_charge_rate.value/1000.0, q_mvar=0.0, name=battery.id
+            self.net,
+            bus=bus_idx,
+            p_mw=battery.max_charge_rate.value / 1000.0,
+            q_mvar=0.0,
+            name=battery.id,
         )
 
     def _convert_load(self, load: Load) -> int:
@@ -641,5 +645,3 @@ class PandapowerConverter(Converter):
                 for _, ent in self.model.entities.items():
                     if getattr(ent, "id", None) == name:
                         setattr(ent, "last_loading_percent", loading)
-
-        results = {"buses": bus_results, "lines": line_results, "net": self.net}

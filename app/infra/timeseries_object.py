@@ -128,7 +128,7 @@ class TimeseriesObject(Quantity):
             df_data = self._read_csv_to_dataframe(
                 params["input_path"],
                 params["col"],
-                datatime_column=params.get("datetime_column", None),
+                datetime_column=params.get("datetime_column", None),
                 datetime_format=params.get("datetime_format", None),
                 tz=params.get("tz", None),
             ) * params.get("scale", 1.0)
@@ -199,7 +199,7 @@ class TimeseriesObject(Quantity):
     def _read_csv_to_dataframe(
         input_path: str,
         col: str,
-        datatime_column: Optional[str] = None,
+        datetime_column: Optional[str] = None,
         datetime_format: Optional[str] = None,
         tz: Optional[str] = None,
     ) -> pd.DataFrame:
@@ -207,7 +207,7 @@ class TimeseriesObject(Quantity):
 
         :param str input_path: Path to CSV
         :param str col: Column name to return
-        :param str|None datatime_column: Name of time column to parse (default 'timestamp').
+        :param str|None datetime_column: Name of time column to parse (default 'timestamp').
                                   If None, the function will try to auto-detect a datetime-like column.
         :param str|None datetime_format: Optional datetime format string to use for parsing.
         :returns pd.DataFrame: DataFrame with column and timestamp index
@@ -228,14 +228,14 @@ class TimeseriesObject(Quantity):
             )
 
         # If a specific time column was provided
-        if datatime_column is not None:
-            if datatime_column not in input_df.columns:
+        if datetime_column is not None:
+            if datetime_column not in input_df.columns:
                 raise KeyError(
-                    f"The time column '{datatime_column}' is not found in the file {input_path}. Columns: {list(input_df.columns)}"
+                    f"The time column '{datetime_column}' is not found in the file {input_path}. Columns: {list(input_df.columns)}"
                 )
             # Try parsing using provided format first (if any), then fallback to automatic parsing
             input_df = TimeseriesObject.__parse_time_col(
-                input_df, datatime_column, datetime_format=datetime_format
+                input_df, datetime_column, datetime_format=datetime_format
             )
         else:
             found_col = False
@@ -290,7 +290,7 @@ class TimeseriesObject(Quantity):
             data=TimeseriesObject._read_csv_to_dataframe(
                 input_path,
                 col,
-                datatime_column=time_col,
+                datetime_column=time_col,
                 datetime_format=datetime_format,
             )
         )

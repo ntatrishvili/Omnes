@@ -93,8 +93,9 @@ def try_convert(value, sample):
                     # if parsed already matching expected structure, return converted
                     if isinstance(parsed, (list, dict)):
                         return target_type(parsed)
-                except Exception:
-                    pass
+                except Exception as e:
+                    # Failed to parse value as JSON; will raise original exception after fallback attempts.
+                    log.debug(f"JSON decoding failed for value '{value}': {e}")
             raise
 
     # Fallback: try to call the type on the value

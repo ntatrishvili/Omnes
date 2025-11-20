@@ -1,4 +1,3 @@
-import configparser
 from os.path import join
 
 import pandas as pd
@@ -17,13 +16,10 @@ from app.model.slack import Slack
 from app.model.storage.battery import Battery
 from app.operation.example_optimization import optimize_energy_system
 from app.operation.example_simulation import simulate_energy_system
+from utils.configuration import Config
 from utils.logging_setup import get_logger, init_logging
 from utils.visualize import elegant_draw_network
 
-config = configparser.ConfigParser(
-    allow_no_value=True, interpolation=configparser.ExtendedInterpolation()
-)
-config.read("..\\config.ini")
 
 def build_model_from_simbench(**kwargs):
     datetime_properties = {
@@ -32,6 +28,7 @@ def build_model_from_simbench(**kwargs):
         "tz": "Europe/Berlin",
     }
 
+    config = Config()
     root = config.get("simbench", "simbench_input")
     nodes = read_data_file(root, "Node.csv")
     slack_units = read_data_file(root, "ExternalNet.csv")
@@ -235,7 +232,7 @@ def build_model_from_simbench(**kwargs):
     battery = Battery(
         "battery",
         bus=buses[0].id,
-        capacity=kwargs.get("bess_size", 50.0),  # in kWh
+        capacity=kwargs.get("bess_size", 500.0),  # in kWh
         max_charge_rate=kwargs.get("charge_rate", 10),
         max_discharge_rate=kwargs.get("charge_rate", 10),
     )
@@ -279,7 +276,7 @@ if __name__ == "__main__":
     log = get_logger(__name__)
 
     pv_scale = 1.5  # scale PV sizes
-    bess_size = 100.0  # in kWh
+    bess_size = 500.0  # in kWh
     log.info("Logging initialized")
     model = build_model_from_simbench(pv_scale=pv_scale, bess_size=bess_size)
     log.info("Model built successfully")
@@ -297,12 +294,19 @@ if __name__ == "__main__":
     model.set({"battery.p_out": problem["battery.p_out"]})
 
     net = PandapowerConverter().convert_model(model)
-    elegant_draw_network(net, output_path=config.get("path", "output"))
+    elegant_draw_network(net, output_path=Config().get("path", "output"))
     log.info("Model converted to pandapower net successfully")
 
     for battery_bus, scenario in zip(
         [-1, 4, 1, 13, 5, 3],
-        ["No battery", "Feeder", "Branch 1 end", "Branch 2 end", "Branch 3 end", "Branch 4 end"],
+        [
+            "No battery",
+            "Feeder",
+            "Branch 1 end",
+            "Branch 2 end",
+            "Branch 3 end",
+            "Branch 4 end",
+        ],
     ):
         if battery_bus == -1:
             net.sgen.loc[net.sgen.name.str.contains("battery"), "in_service"] = False
