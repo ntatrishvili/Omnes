@@ -37,7 +37,7 @@ pv1 = PV(
     id="pv1",
     bus="bus_LV1",
     peak_power=4,
-    p_out={"input_path": "data/input.csv"},
+    p_out={"input_path": "config/input.csv"},
     tags={"household": "HH1"},
 )
 
@@ -45,7 +45,7 @@ pv2 = PV(
     id="pv2",
     bus="bus_LV2",
     peak_power=3,
-    p_out={"input_path": "data/input2.csv"},
+    p_out={"input_path": "config/input2.csv"},
     tags={"household": "HH2"},
 )
 
@@ -54,7 +54,7 @@ wind1 = Wind(
     bus="bus_LV3",
     peak_power=5,
     efficiency=0.95,
-    p_out={"input_path": "data/input.csv", "col": "wind"},
+    p_out={"input_path": "config/input.csv", "col": "wind"},
 )
 
 # Instantiate Battery
@@ -83,7 +83,7 @@ hot_water_storage1 = HotWaterStorage(
     bus="bus_LV1",
     volume=120,
     set_temperature=60,
-    p_out={"input_path": "data/input.csv", "col": "hot_water1"},
+    p_out={"input_path": "config/input.csv", "col": "hot_water1"},
     tags={"household": "HH1"},
 )
 
@@ -104,7 +104,7 @@ hot_water_storage2 = HotWaterStorage(
     bus="bus_LV2",
     volume=200,
     set_temperature=55,
-    input={"input_path": "data/input.csv", "col": "hot_water2"},
+    input={"input_path": "config/input.csv", "col": "hot_water2"},
     tags={"household": "HH2"},
 )
 
@@ -123,13 +123,13 @@ water_heater2 = Transducer(
 load1 = Load(
     id="load1",
     bus="bus_LV1",
-    input={"input_path": "data/input.csv"},
+    input={"input_path": "config/input.csv"},
     tags={"household": "HH1"},
 )
 load2 = Load(
     id="load2",
     bus="bus_LV2",
-    input={"input_path": "data/input2.csv"},
+    input={"input_path": "config/input2.csv"},
     tags={"household": "HH2"},
 )
 

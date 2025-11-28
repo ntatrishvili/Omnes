@@ -1,7 +1,7 @@
 import json
 
-from utils.configuration import Config
-from utils.logging_setup import init_logging, get_logger
+from app.infra.configuration import Config
+from app.infra.logging_setup import init_logging, get_logger
 from app.conversion.pulp_converter import PulpConverter
 from app.model.model import Model
 
@@ -13,7 +13,7 @@ def read_model():
     freq = config.get("time", "frequency")
     time_set = config.getint("time", "time_set")
 
-    with open("data/model_config.json", "r") as file:
+    with open("config/model_config.json", "r") as file:
         config = json.load(file)
     return Model.build("model", config, time_set, freq)
 

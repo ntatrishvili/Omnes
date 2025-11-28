@@ -36,7 +36,7 @@ from app.model.load.load import Load
 from app.model.model import Model
 from app.model.slack import Slack
 from app.model.storage.battery import Battery
-from utils.logging_setup import get_logger
+from app.infra.logging_setup import get_logger
 
 logger = get_logger(__name__)
 

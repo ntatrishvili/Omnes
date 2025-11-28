@@ -9,7 +9,7 @@ import unittest
 import pandas as pd
 
 from app.infra.singleton import Singleton
-from utils.configuration import Config
+from app.infra.configuration import Config
 
 
 class TestConfiguration(unittest.TestCase):

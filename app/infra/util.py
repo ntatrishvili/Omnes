@@ -4,7 +4,7 @@ import os
 
 from pandas import date_range
 
-from utils.logging_setup import get_logger
+from app.infra.logging_setup import get_logger
 
 log = get_logger(__name__)
 
@@ -13,7 +13,7 @@ def get_input_path(filename: str = "input.csv") -> str:
     """
     Return the absolute path to the input CSV file.
 
-    By default, returns the path to 'data/input.csv' relative to this file.
+    By default, returns the path to 'config/input.csv' relative to this file.
 
     :param filename: str: Name of the CSV file to locate.
     :raises FileNotFoundError: If the data folder or file does not exist.

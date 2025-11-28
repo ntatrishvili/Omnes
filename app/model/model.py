@@ -1,9 +1,8 @@
 import secrets
 from typing import Optional
 
-from utils.logging_setup import get_logger
+from app.infra.logging_setup import get_logger
 from app.infra.util import get_input_path, TimesetBuilder, TimeSet
-from app.model.generator.pv import PV
 from app.model.entity import Entity
 from app.model.generator.pv import PV
 from app.model.load.load import Load
