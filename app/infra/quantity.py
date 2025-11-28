@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from app.infra.util import try_convert
+from app.infra.util import cast_like
 
 
 class Direction:
@@ -86,7 +86,7 @@ class Parameter(Quantity):
             return
 
         try:
-            converted = try_convert(value, self._value)
+            converted = cast_like(value, self._value)
         except Exception:
             raise TypeError(
                 f"Cannot convert provided value ({value!r}) to type {type(self._value).__name__}"

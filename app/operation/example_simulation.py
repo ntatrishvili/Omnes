@@ -269,10 +269,10 @@ def plot_losses_violations_heatmaps(
             # losses
             loss_sum_W = 0.0
             for c in i_cols:
-                try:
-                    line_idx = int(c.split("_")[0])
-                except Exception:
+                line_idices = c.split("_")
+                if len(line_idices) < 1:
                     continue
+                line_index = line_idices[0]
                 val = row.get(c, np.nan)
                 if pd.isna(val):
                     continue
@@ -396,10 +396,7 @@ def plot_losses_violations_heatmaps(
         cbar = fig.colorbar(im, ax=ax, orientation="vertical", pad=0.06, fraction=0.06)
         cbar.ax.tick_params(labelsize=fs)
         # also set colorbar label size if present
-        try:
-            cbar.ax.yaxis.label.set_size(fs)
-        except Exception:
-            pass
+        cbar.ax.yaxis.label.set_size(fs)
 
         # If this is the violations heatmap, show only integer ticks 0,1,2,... up to max
         try:
@@ -595,13 +592,13 @@ def visualize_high_voltage_day(
     # --- Extract coordinates before plotting ---
     def extract_coords(geo_str):
         if pd.isna(geo_str):
-            return (None, None)
+            return None, None
         try:
             geo = json.loads(geo_str)
             lon, lat = geo["coordinates"]
             return lon, lat
         except Exception:
-            return (None, None)
+            return None, None
 
     if "x" not in net.bus.columns or "y" not in net.bus.columns:
         net.bus[["x", "y"]] = net.bus["geo"].apply(

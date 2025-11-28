@@ -1,3 +1,5 @@
+import json
+import numbers
 import os
 
 from pandas import date_range
@@ -46,10 +48,7 @@ def flatten(nested_list):
     return flattened
 
 
-def try_convert(value, sample):
-    import numbers
-    import json
-
+def cast_like(value, sample):
     # If no sample type to infer, accept the value as-is
     if sample is None:
         return value
