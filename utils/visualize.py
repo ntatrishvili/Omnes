@@ -13,9 +13,9 @@ from utils.configuration import Config
 
 import matplotlib as mpl
 
-mpl.rcParams['savefig.transparent'] = True
-mpl.rcParams['figure.facecolor']    = 'none'
-mpl.rcParams['axes.facecolor']      = 'none'
+mpl.rcParams["savefig.transparent"] = True
+mpl.rcParams["figure.facecolor"] = "none"
+mpl.rcParams["axes.facecolor"] = "none"
 
 
 def elegant_draw_network(

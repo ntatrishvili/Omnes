@@ -41,9 +41,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List, Union, Tuple
 
-mpl.rcParams['savefig.transparent'] = True
-mpl.rcParams['figure.facecolor']    = 'none'
-mpl.rcParams['axes.facecolor']      = 'none'
+mpl.rcParams["savefig.transparent"] = True
+mpl.rcParams["figure.facecolor"] = "none"
+mpl.rcParams["axes.facecolor"] = "none"
+
+
 def plot_branch_voltage_heatmaps(
     results: List[Union[str, pd.DataFrame]],
     branch_buses: List,
@@ -232,7 +234,9 @@ def plot_losses_violations_heatmaps(
         elif isinstance(res, pd.DataFrame):
             df = res.copy()
         else:
-            raise ValueError("Each item of results must be a filepath or a pandas DataFrame")
+            raise ValueError(
+                "Each item of results must be a filepath or a pandas DataFrame"
+            )
 
         # identify columns
         i_cols = [c for c in df.columns if c.endswith("_i_ka")]
@@ -275,7 +279,7 @@ def plot_losses_violations_heatmaps(
                 I_A = float(val) * 1000.0  # kA -> A
                 r_len = line_rlen.get(line_idx, 0.0)
                 # approximate three-phase losses: 3 * I^2 * R_total (W)
-                loss_sum_W += 3.0 * (I_A ** 2) * r_len
+                loss_sum_W += 3.0 * (I_A**2) * r_len
             total_losses.append(loss_sum_W)
 
         # compute daily violation counts: for each day count hours where any vm > threshold
@@ -287,7 +291,9 @@ def plot_losses_violations_heatmaps(
             # group by day (date) using Grouper and count True values per day -> integer counts
             # This is robust for datetime-like indices and avoids static-analysis warnings.
             daily_counts = (
-                any_violation_per_t.groupby(pd.Grouper(freq="D")).sum().values.astype(float)
+                any_violation_per_t.groupby(pd.Grouper(freq="D"))
+                .sum()
+                .values.astype(float)
             )
         else:
             daily_counts = np.array([], dtype=float)
@@ -321,7 +327,10 @@ def plot_losses_violations_heatmaps(
 
     # plotting
     fig, axes = plt.subplots(1, 2, figsize=figsize, sharey=True)
-    titles = ["Total line losses [W]", "Count of U(pu) > {:.2f} per day".format(violation_threshold)]
+    titles = [
+        "Total line losses [W]",
+        "Count of U(pu) > {:.2f} per day".format(violation_threshold),
+    ]
     data_list = [losses_arr, viols_arr]
 
     for ax, data, title in zip(axes, data_list, titles):
@@ -342,16 +351,39 @@ def plot_losses_violations_heatmaps(
                 vi_max = vi_min
             n_colors = max(1, vi_max - vi_min + 1)
             cmap_obj = plt.get_cmap(cmap, n_colors)
-            im = ax.imshow(data, cmap=cmap_obj, aspect="equal", origin="lower", vmin=vi_min, vmax=vi_max, interpolation="nearest")
+            im = ax.imshow(
+                data,
+                cmap=cmap_obj,
+                aspect="equal",
+                origin="lower",
+                vmin=vi_min,
+                vmax=vi_max,
+                interpolation="nearest",
+            )
         else:
-            im = ax.imshow(data, cmap=cmap, aspect="equal", origin="lower", vmin=vmin, vmax=vmax, interpolation="nearest")
+            im = ax.imshow(
+                data,
+                cmap=cmap,
+                aspect="equal",
+                origin="lower",
+                vmin=vmin,
+                vmax=vmax,
+                interpolation="nearest",
+            )
         im.set_zorder(1)
 
         # grid lines
         n_cols = data.shape[1]
         ax.set_xticks(np.arange(-0.5, n_cols, 1), minor=True)
         ax.set_yticks(np.arange(-0.5, n_scenarios, 1), minor=True)
-        ax.grid(which="minor", color="lightgrey", linestyle="-", linewidth=0.6, zorder=2, alpha=0.9)
+        ax.grid(
+            which="minor",
+            color="lightgrey",
+            linestyle="-",
+            linewidth=0.6,
+            zorder=2,
+            alpha=0.9,
+        )
         ax.grid(which="major", visible=False)
         ax.set_xlim(-0.5, n_cols - 0.5)
         ax.set_ylim(-0.5, n_scenarios - 0.5)
@@ -392,10 +424,16 @@ def plot_losses_violations_heatmaps(
             if len(ticks) > 0:
                 cbar.mappable.set_clim(ticks[0] - 0.5, ticks[-1] + 0.5)
 
-    plt.suptitle("Network losses and voltage violations across scenarios", fontsize=fs + 2)
+    plt.suptitle(
+        "Network losses and voltage violations across scenarios", fontsize=fs + 2
+    )
     plt.tight_layout()
     if savepath:
-        plt.savefig(join(savepath, "losses_violations_heatmaps.png"), dpi=400, bbox_inches="tight")
+        plt.savefig(
+            join(savepath, "losses_violations_heatmaps.png"),
+            dpi=400,
+            bbox_inches="tight",
+        )
     plt.show()
     return fig, axes
 
@@ -1131,4 +1169,10 @@ if __name__ == "__main__":
     #     cmap="RdYlBu_r",
     #     savepath=Config().get("path", "output"),
     # )
-    plot_losses_violations_heatmaps(results, net, scenarios, cmap="RdYlBu_r", savepath=Config().get("path", "output"))
+    plot_losses_violations_heatmaps(
+        results,
+        net,
+        scenarios,
+        cmap="RdYlBu_r",
+        savepath=Config().get("path", "output"),
+    )
