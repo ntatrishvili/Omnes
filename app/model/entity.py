@@ -20,7 +20,7 @@ class Entity:
     Attributes:
         - id (str): Unique identifier.
         - quantities (Dict[str, Quantity]): Named quantities belonging to this entity.
-        - sub_entities (list[Entity]): Optional nested child entities.
+        - sub_entities (dict[str, Entity]): Optional nested child entities.
         - relations (list[Relation]): Constraints or rules related to this entity.
         - tags (dict): Dictionary of tags associated with this entity.
         - ts_factory (TimeseriesFactory): Used to generate time series objects in an advanced manner.
@@ -36,8 +36,8 @@ class Entity:
         Initialize the entity with an optional id.
         """
         self.id = str(id) if id is not None else secrets.token_hex(16)
-        self.quantities: Dict[str, Quantity] = {}
-        self.sub_entities: list[Entity] = []
+        self.quantities: dict[str, Quantity] = {}
+        self.sub_entities: dict[str, Entity] = {}
         self.relations: list[Relation] = []
         self.parent = None
         self.ts_factory = ts_factory or DefaultTimeseriesFactory()
@@ -52,7 +52,10 @@ class Entity:
         """
         entity.parent = self
         entity.parent_id = self.id
-        self.sub_entities.append(entity)
+        self.sub_entities[entity.id] = entity
+
+    def get_sub_entity(self, id):
+        return self.sub_entities[id]
 
     def convert(self, time_set: int, new_freq: str, converter):
         """
@@ -65,21 +68,39 @@ class Entity:
         String representation of the entity.
         """
         sub_entities_str = ", ".join(
-            [str(sub_entity) for sub_entity in self.sub_entities]
+            [str(sub_entity) for sub_entity in self.sub_entities.items()]
         )
         return f"Entity '{self.id}' containing: [{sub_entities_str}]"
+
+    def __contains__(self, item):
+        return item in self.sub_entities or item in self.quantities
 
     def __getattr__(self, name):
         """
         Get an attribute by name, checking parameters and quantities.
         """
-        if name in self.quantities:
-            return self.quantities[name]
-        else:
-            raise KeyError(f"'{name}' not found in parameters or quantities")
+        try:
+            quantities = object.__getattribute__(self, "quantities")
+        except AttributeError:
+            # If `quantities` itself doesn't exist, behave like normal attribute lookup
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            )
+
+        if name in quantities:
+            return quantities[name]
+
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
+        )
 
     def __dir__(self):
         """
         Extend the default dir to include parameters and quantities.
         """
         return super().__dir__() + list(self.quantities.keys())
+
+    def create_quantity(self, name: str, **kwargs):
+        self.quantities.update(
+            {name: self.ts_factory.create(name, **kwargs.get(name, {}))}
+        )

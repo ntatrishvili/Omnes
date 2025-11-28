@@ -19,8 +19,8 @@ class TestPV(unittest.TestCase):
     def test_pv_init(self):
         pv = PV(id="pv1", ts_factory=self.ts_factory, max_power=5, bus="pv1")
         self.assertEqual(pv.id, "pv1")
-        self.assertIn("p_pv", pv.quantities)
-        self.assertIsInstance(pv.quantities["p_pv"], pd.Series)
+        self.assertIn("p_out", pv.quantities)
+        self.assertIsInstance(pv.quantities["p_out"], pd.Series)
         self.assertIsInstance(str(pv), str)
 
 

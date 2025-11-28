@@ -4,21 +4,22 @@ from app.infra.timeseries_object_factory import (
     DefaultTimeseriesFactory,
     TimeseriesFactory,
 )
-from app.model.generator.generator import Generator
+from app.model.grid_component.grid_component import GridComponent
 
 
-class PV(Generator):
+class Connector(GridComponent):
     def __init__(
         self,
         id: Optional[str] = None,
         ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
-        **kwargs: object,
+        **kwargs,
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
+        self.from_bus = kwargs.pop("from_bus")
+        self.to_bus = kwargs.pop("to_bus")
 
     def __str__(self):
         """
-        String representation of the PV entity.
+        String representation of the Connector entity.
         """
-        production_sum = self.p_out.sum() if not self.p_out.empty else 0
-        return f"PV '{self.id}' with production sum = {production_sum}"
+        return f"Connector '{self.id}' {self.from_bus}--{self.to_bus}"

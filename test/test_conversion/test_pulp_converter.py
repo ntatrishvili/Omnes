@@ -11,6 +11,7 @@ from app.infra.relation import (
     Literal,
     Operator,
     Relation,
+    AssignmentExpression,
 )
 
 
@@ -45,25 +46,24 @@ class TestPulpConverter(unittest.TestCase):
         """Test converting parameter quantity"""
         mock_parameter = Mock(spec=Parameter)
         mock_parameter.empty.return_value = False
-        mock_parameter.get_values.return_value = 42
+        mock_parameter.value = 42
 
         result = self.converter.convert_quantity(mock_parameter, "test_name")
 
         self.assertEqual(result, 42)
-        mock_parameter.get_values.assert_called_once()
 
     def test_convert_quantity_regular(self):
         """Test converting regular quantity"""
         mock_quantity = Mock(spec=Quantity)
         mock_quantity.empty.return_value = False
-        mock_quantity.get_values.return_value = [1, 2, 3, 4, 5]
+        mock_quantity.value.return_value = [1, 2, 3, 4, 5]
 
         result = self.converter.convert_quantity(
             mock_quantity, "test_name", time_set=5, freq="1H"
         )
 
         self.assertEqual(result, [1, 2, 3, 4, 5])
-        mock_quantity.get_values.assert_called_once_with(time_set=5, freq="1H")
+        mock_quantity.value.assert_called_once_with(time_set=5, freq="1H")
 
 
 class TestDynamicConstraintBuilding(unittest.TestCase):
@@ -515,18 +515,21 @@ class TestComprehensiveCoverage(unittest.TestCase):
 
         # Create a dummy timeset builder for testing
         class DummyTimesetBuilder(TimesetBuilder):
-            def create(self, **kwargs):
+            def create(self, time_kwargs=None, **kwargs):
+                if time_kwargs is None:
+                    time_kwargs = {}
                 import pandas as pd
 
                 from app.infra.util import TimeSet
 
-                dates = pd.date_range(start="2023-01-01", periods=5, freq="1H")
+                dates = pd.date_range(start="2023-01-01", periods=5, freq="1h")
                 return TimeSet(
                     start="2023-01-01",
                     end="2023-01-01 04:00:00",
                     resolution="1H",
                     number_of_time_steps=5,
                     time_points=dates,
+                    **time_kwargs,
                 )
 
         dummy_builder = DummyTimesetBuilder()
@@ -536,7 +539,7 @@ class TestComprehensiveCoverage(unittest.TestCase):
         from app.infra.timeseries_object import TimeseriesObject
 
         entity.quantities["power"] = TimeseriesObject(name="power", data=[])
-        model.entities = [entity]
+        model.entities = {entity.id: entity}
 
         # Test convert_model with default parameters
         result = self.converter.convert_model(model)
@@ -669,6 +672,23 @@ class TestComprehensiveCoverage(unittest.TestCase):
         self.assertEqual(vars_list[0].name, "test_var_0")
         self.assertEqual(vars_list[3].name, "test_var_3")
         self.assertEqual(vars_list[0].lowBound, 0)
+
+    def test_assignment_expression(self):
+        """Test AssignmentExpression conversion to equality constraint"""
+        from app.infra.relation import AssignmentExpression, EntityReference, Literal
+
+        time_steps = 3
+        battery_power = [pulp.LpVariable(f"battery_{t}") for t in range(time_steps)]
+        self.converter._PulpConverter__objects = {"battery.power": battery_power}
+
+        # Assignment: battery.power(t) = 42
+        expr = AssignmentExpression(EntityReference("battery.power"), Literal(42))
+        for t in range(time_steps):
+            result = expr.convert(self.converter, t, time_steps)
+            self.assertIsInstance(result, pulp.LpConstraint)
+            constraint_str = str(result)
+            self.assertIn(f"battery_{t}", constraint_str)
+            self.assertIn("42", constraint_str)
 
 
 if __name__ == "__main__":

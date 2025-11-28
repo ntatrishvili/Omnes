@@ -5,14 +5,15 @@ from app.infra.timeseries_object_factory import (
     DefaultTimeseriesFactory,
     TimeseriesFactory,
 )
-from app.model.grid_component.grid_component import GridComponent
+from app.model.grid_component.connector import Connector
 
 
-class Line(GridComponent):
+class Line(Connector):
     default_line_length: Optional[float] = None
     default_resistance: Optional[float] = None
     default_reactance: Optional[float] = None
     default_max_current: Optional[float] = None
+    default_capacitance: Optional[float] = None
 
     def __init__(
         self,
@@ -21,11 +22,9 @@ class Line(GridComponent):
         **kwargs,
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
-        self.from_bus = kwargs.pop("from_bus")
-        self.to_bus = kwargs.pop("to_bus")
+        self.create_quantity("current", **kwargs)
         self.quantities.update(
             {
-                "current": self.ts_factory.create("current", **kwargs),
                 "max_current": Parameter(
                     value=kwargs.pop("max_current", self.default_max_current)
                 ),
@@ -38,11 +37,14 @@ class Line(GridComponent):
                 "resistance": Parameter(
                     value=kwargs.pop("resistance", self.default_resistance)
                 ),
+                "capacitance": Parameter(
+                    value=kwargs.pop("capacitance", self.default_capacitance)
+                ),
             }
         )
 
     def __str__(self):
         """
-        String representation of the Bus entity.
+        String representation of the Line entity.
         """
         return f"Line '{self.id}' {self.from_bus}--{self.to_bus} with length {self.line_length}"

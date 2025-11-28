@@ -25,13 +25,14 @@ class GridComponent(Entity):
         self.check_kwargs(**kwargs)
         self.phase_count = kwargs.pop("phase_count", self.default_phase_count)
         self.phase = kwargs.pop(
-            "phase", self.default_phase if self.phase_count == 3 else None
+            "phase", self.default_phase if self.phase_count == 1 else None
         )
+        self.coordinates = kwargs.pop("coordinates", [])
 
     @classmethod
     def check_kwargs(cls, **kwargs):
         phase_count = kwargs.get("phase_count", cls.default_phase_count)
-        phase = kwargs.get("phase", cls.default_phase if phase_count == 3 else None)
+        phase = kwargs.get("phase", cls.default_phase if phase_count == 1 else None)
         if phase_count not in (1, 3):
             raise ValueError(
                 "Bus phase count set incorrectly. Phase count must be 1 or 3."

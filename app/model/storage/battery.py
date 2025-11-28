@@ -19,13 +19,6 @@ class Battery(Storage):
         **kwargs,
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
-        self.quantities.update(
-            {
-                "p_bess_in": self.ts_factory.create("p_bess_in", **kwargs),
-                "p_bess_out": self.ts_factory.create("p_bess_out", **kwargs),
-                "e_bess_stor": self.ts_factory.create("e_bess_stor", **kwargs),
-            }
-        )
 
     def __str__(self):
         """

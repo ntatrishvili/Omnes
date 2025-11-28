@@ -114,7 +114,7 @@ def test_multi_dimensional_backward_compatibility(ts_multi):
     flat_array = ts_multi.to_nd()
     expected_size = 24 * 3 * 2
     assert len(flat_array) == expected_size
-    values = ts_multi.get_values()
+    values = ts_multi.value()
     assert len(values) == expected_size
 
 
@@ -216,60 +216,9 @@ def test_infer_freq_from_two_dates_error():
     # Should raise if no timestamp coord
     arr = xr.DataArray([1, 2], dims=["not_timestamp"])
     with pytest.raises(ValueError):
-        from app.infra.timeseries_object import infer_freq_from_two_dates
+        from app.infra.timeseries_object import _infer_freq_from_two_dates
 
-        infer_freq_from_two_dates(arr)
-
-
-def test_initialize_data_array_branches():
-    # input_path and col but file does not exist
-    with pytest.raises(FileNotFoundError):
-        TimeseriesObject(input_path="notfound.csv", col="val")
-    # No data, no input_path, no col
-    ts = TimeseriesObject()
-    assert isinstance(ts.data, xr.DataArray)
-
-
-def test_initialize_frequency_with_freq_param():
-    df = pd.DataFrame(
-        {"a": [1, 2]}, index=pd.date_range("2020-01-01", periods=2, freq="h")
-    )
-    ts = TimeseriesObject(data=df, freq="1h")
-    assert ts.freq == "1h"
-
-
-def test_get_values_branches(ts_simple):
-    # freq != self.freq, time_set != resampled size
-    arr = xr.DataArray(
-        [1, 2, 3, 4],
-        dims=["timestamp"],
-        coords={"timestamp": pd.date_range("2020-01-01", periods=4, freq="h")},
-    )
-    ts = TimeseriesObject(data=arr)
-    vals = ts.get_values(freq="15min", time_set=2)
-    assert isinstance(vals, np.ndarray)
-    # time_set != self.data.sizes["timestamp"]
-    vals2 = ts.get_values(time_set=2)
-    assert isinstance(vals2, np.ndarray)
-    # Covers infer_freq_from_two_dates and <3 timestamp branch
-    arr = xr.DataArray(
-        data=[1, 2],
-        dims=["timestamp"],
-        coords={"timestamp": pd.date_range("2020-01-01", periods=2, freq="15min")},
-    )
-    freq = TimeseriesObject._infer_frequency_from_data(TimeseriesObject(data=arr))
-
-    assert freq == "15min"
-
-
-# Additional tests for coverage
-def test_infer_freq_from_two_dates_error():
-    # Should raise if no timestamp coord
-    arr = xr.DataArray([1, 2], dims=["not_timestamp"])
-    with pytest.raises(ValueError):
-        from app.infra.timeseries_object import infer_freq_from_two_dates
-
-        infer_freq_from_two_dates(arr)
+        _infer_freq_from_two_dates(arr)
 
 
 def test_initialize_data_array_branches():
@@ -283,9 +232,10 @@ def test_initialize_data_array_branches():
 
 def test_initialize_frequency_with_freq_param():
     df = pd.DataFrame(
-        {"a": [1, 2]}, index=pd.date_range("2020-01-01", periods=2, freq="h")
+        {"a": [1, 2]}, index=pd.date_range("2020-01-01", periods=2, freq="1h")
     )
     ts = TimeseriesObject(data=df, freq="1h")
+    print(ts.freq)
     assert ts.freq == "1h"
 
 
@@ -297,52 +247,10 @@ def test_get_values_branches(ts_simple):
         coords={"timestamp": pd.date_range("2020-01-01", periods=4, freq="h")},
     )
     ts = TimeseriesObject(data=arr)
-    vals = ts.get_values(freq="15min", time_set=2)
+    vals = ts.value(freq="15min", time_set=2)
     assert isinstance(vals, np.ndarray)
     # time_set != self.data.sizes["timestamp"]
-    vals2 = ts.get_values(time_set=2)
-    assert isinstance(vals2, np.ndarray)
-
-
-# Additional tests for coverage
-def test_infer_freq_from_two_dates_error():
-    # Should raise if no timestamp coord
-    arr = xr.DataArray([1, 2], dims=["not_timestamp"])
-    with pytest.raises(ValueError):
-        from app.infra.timeseries_object import infer_freq_from_two_dates
-
-        infer_freq_from_two_dates(arr)
-
-
-def test_initialize_data_array_branches():
-    # input_path and col but file does not exist
-    with pytest.raises(FileNotFoundError):
-        TimeseriesObject(input_path="notfound.csv", col="val")
-    # No data, no input_path, no col
-    ts = TimeseriesObject()
-    assert isinstance(ts.data, xr.DataArray)
-
-
-def test_initialize_frequency_with_freq_param():
-    df = pd.DataFrame(
-        {"a": [1, 2]}, index=pd.date_range("2020-01-01", periods=2, freq="h")
-    )
-    ts = TimeseriesObject(data=df, freq="1h")
-    assert ts.freq == "1h"
-
-
-def test_get_values_branches(ts_simple):
-    # freq != self.freq, time_set != resampled size
-    arr = xr.DataArray(
-        [1, 2, 3, 4],
-        dims=["timestamp"],
-        coords={"timestamp": pd.date_range("2020-01-01", periods=4, freq="h")},
-    )
-    ts = TimeseriesObject(data=arr)
-    vals = ts.get_values(freq="15min", time_set=2)
-    assert isinstance(vals, np.ndarray)
-    # time_set != self.data.sizes["timestamp"]
-    vals2 = ts.get_values(time_set=2)
+    vals2 = ts.value(time_set=2)
     assert isinstance(vals2, np.ndarray)
 
 

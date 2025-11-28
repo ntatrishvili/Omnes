@@ -6,7 +6,7 @@ from app.model.model import Model
 
 
 class DummyTimesetBuilder(TimesetBuilder):
-    def create(self, **kwargs): ...
+    def create(self, time_kwargs=None, **kwargs): ...
 
 
 class TestModel(unittest.TestCase):
@@ -23,6 +23,7 @@ class TestModel(unittest.TestCase):
     @patch("app.model.load.load.Load.__init__", return_value=None)
     @patch("app.model.storage.battery.Battery.__init__", return_value=None)
     @patch("app.model.entity.Entity.add_sub_entity", return_value=None)
+    @patch("app.model.entity.Entity.__getattr__", return_value=None)
     @patch("app.model.model.Slack.__init__", return_value=None)
     def test_build_minimal(
         self,
@@ -32,6 +33,7 @@ class TestModel(unittest.TestCase):
         mock_consumer_init,
         mock_pv_init,
         mock_get_input_path,
+        mock_entity_getattr,
     ):
         config = {
             "entity1": {

@@ -1,120 +1,118 @@
-import time
-
 import numpy as np
 import pulp
-from pulp import LpStatusOptimal
 
-from utils.logging_setup import get_logger
+from app.infra.configuration import Config
+from app.infra.logging_setup import get_logger
+from app.infra.visualize import plot_energy_flows
 
 log = get_logger(__name__)
 
 
-def optimize(**kwargs) -> None:
+def optimize_energy_system(**kwargs):
     time_set = kwargs["time_set"]
-    p_cons = kwargs["load2.p_cons"]
-    p_pv = kwargs["pv1.p_pv"]
-    p_slack_out = kwargs["slack.p_slack_out"]
-    p_slack_in = kwargs["slack.p_slack_in"]
-    p_bess_in = kwargs["battery1.p_bess_in"]
-    p_bess_out = kwargs["battery1.p_bess_out"]
-    e_bess_stor = kwargs["battery1.e_bess_stor"]
-    max_power_bess = kwargs["battery1.max_charge_rate"]
-    max_stored_energy_bess = kwargs["battery1.capacity"]
+
+    # Automatically detect all components
+    # TODO: improve understanding of component types, we need more automatic indicators
+    pv_names = {
+        k.replace(".p_out", "")
+        for k in kwargs
+        if ("pv" in k.lower() or "sgen" in k.lower()) and ".p_out" in k
+    }
+    log.info(f"Detected PV entities: {pv_names}")
+    load_names = {
+        k.replace(".p_cons", "")
+        for k in kwargs
+        if "load" in k.lower() and ".p_cons" in k
+    }
+    log.info(f"Detected load entities: {load_names}")
+    bess_names = {
+        k.replace(".p_in", "")
+        for k in kwargs
+        if "battery" in k.lower() and ".p_in" in k
+    }
+    log.info(f"Detected batteries: {bess_names}")
+    slack_names = {
+        k.replace(".p_in", "")
+        for k in kwargs
+        if ("slack" in k.lower() or "grid" in k.lower()) and ".p_in" in k
+    }
+    log.info(f"Detected slack entities: {slack_names}")
+
     prob = pulp.LpProblem("CSCopt", pulp.LpMinimize)
 
-    # Add the constraints to the problem
+    # Global energy balance
     for t in time_set:
-        # subsequent time-step (0 for the last one, i.e., cyclic)
-        k = (t + 1) % len(time_set)
+        total_pv = np.sum(kwargs[f"{pv}.p_out"][t] for pv in pv_names)
+        total_load = np.sum(kwargs[f"{load}.p_cons"][t] for load in load_names)
+        total_bess_in = pulp.lpSum(kwargs[f"{b}.p_in"][t] for b in bess_names)
+        total_bess_out = pulp.lpSum(kwargs[f"{b}.p_out"][t] for b in bess_names)
+        total_slack_in = pulp.lpSum(kwargs[f"{s}.p_in"][t] for s in slack_names)
+        total_slack_out = pulp.lpSum(kwargs[f"{s}.p_out"][t] for s in slack_names)
 
-        # Energy balance between the slack and the household
+        # Energy balance constraint
+        # We need to know which one is in and which one is out
+        # Generation + Discharge + Import = Consumption + Charge + Export
         prob += (
-            p_pv[t] + p_slack_out[t] + p_bess_out[t]
-            == p_slack_in[t] + p_bess_in[t] + p_cons[t]
+            total_pv + total_slack_out + total_bess_out
+            == total_load + total_slack_in + total_bess_in
         )
 
-        # Battery energy storage system
-        # energy balance between time steps
-        prob += e_bess_stor[k] - e_bess_stor[t] == p_bess_in[t] - p_bess_out[t]
+        # Battery constraints
+        for b in bess_names:
+            p_in = kwargs[f"{b}.p_in"]
+            p_out = kwargs[f"{b}.p_out"]
+            e_stor = kwargs[f"{b}.e_stor"]
+            cap = kwargs[f"{b}.capacity"]
+            max_p = kwargs[f"{b}.max_charge_rate"]
 
-        # maximum input and output power and mutual exclusivity
-        prob += p_bess_in[t] <= min(
-            max_power_bess,
-            (p_pv[t] - p_cons[t] if p_pv[t] > p_cons[t] else 0),
-        )
-        prob += p_bess_out[t] <= min(
-            max_power_bess,
-            (p_cons[t] - p_pv[t] if p_cons[t] > p_pv[t] else 0),
-        )
+            # maximum input and output power and mutual exclusivity
+            k = (t + 1) % len(time_set)
+            prob += e_stor[k] - e_stor[t] == p_in[t] - p_out[t]
+            prob += e_stor[t] <= cap
+            prob += p_in[t] <= min(
+                max_p, (total_pv - total_load if total_pv > total_load else 0)
+            )
+            prob += p_out[t] <= min(
+                max_p, (total_load - total_pv if total_load > total_pv else 0)
+            )
 
-        # maximum storable energy (minimum is defined by variable lower bound)
-        prob += e_bess_stor[t] <= max_stored_energy_bess
+    # Objective: minimize total exchange with the grid
+    prob += pulp.lpSum(
+        kwargs[f"{s}.p_in"][t] + kwargs[f"{s}.p_out"][t]
+        for s in slack_names
+        for t in time_set
+    )
 
-    # Objective
-    prob += pulp.lpSum([p_slack_out[t] + p_slack_in[t] for t in time_set])
-
-    # Solve the problem
-    log.info("Starting optimization problem solve")
-    t = time.time()
     status = prob.solve(pulp.GUROBI_CMD(msg=True))
-    if status != LpStatusOptimal:
-        raise RuntimeError("Unable to solve the problem!")
-    solve_time = time.time() - t
-    log.info(f"Optimization solved in {solve_time:.3f} seconds")
-    objective = pulp.value(prob.objective)
+    if pulp.LpStatus[status] != "Optimal":
+        raise RuntimeError(f"Optimization failed: {pulp.LpStatus[status]}")
 
-    print(f"Optimization Status: {prob.status}")
-    print(f"Energy exchanged with the slack for the entire year: {objective:.0}")
-
-    # Retain variables
-    p_bess_in = np.array([pulp.value(p_bess_in[t]) for t in time_set])
-    p_bess_out = np.array([pulp.value(p_bess_out[t]) for t in time_set])
-    e_bess_stor = np.array([pulp.value(e_bess_stor[t]) for t in time_set])
-
-    charge_hours = np.sum(p_bess_in > 0) // 4
-    discharge_hours = np.sum(p_bess_out > 0) // 4
-    print(f"Charge hours: {charge_hours}")
-    print(f"Discharge hours: {discharge_hours}")
-
-    import matplotlib.pyplot as plt
-
-    time_range_to_plot = range(11040, 11136)
-    plt.bar(
-        time_range_to_plot,
-        p_bess_in[time_range_to_plot],
-        color="grey",
-        label="Battery charging",
+    days = [136, 137]
+    config = Config()
+    plot_energy_flows(
+        kwargs,
+        pv_names,
+        load_names,
+        bess_names,
+        slack_names,
+        time_range_to_plot=range(24 * days[0], 24 * days[1]),
+        output_path=config.get("path", "output"),
     )
 
-    plt.bar(
-        time_range_to_plot,
-        -p_bess_out[time_range_to_plot],
-        color="darkgrey",
-        label="Battery discharging",
-    )
+    for b in bess_names:
+        for name in ["p_in", "p_out", "e_stor"]:
+            kwargs[f"{b}.{name}"] = np.array(
+                [pulp.value(kwargs[f"{b}.{name}"][t]) for t in time_set]
+            )
 
-    plt.step(
-        time_range_to_plot,
-        e_bess_stor[time_range_to_plot] / 8,
-        "b",
-        alpha=0.7,
-        label="Stored energy/8",
-    )
+    for s in slack_names:
+        for name in ["p_in", "p_out"]:
+            kwargs[f"{s}.{name}"] = np.array(
+                [pulp.value(kwargs[f"{s}.{name}"][t]) for t in time_set]
+            )
 
-    plt.plot(
-        time_range_to_plot,
-        p_pv[time_range_to_plot],
-        "r",
-        label="PV production",
-    )
-    plt.plot(
-        time_range_to_plot,
-        p_cons[time_range_to_plot],
-        "g",
-        label="Consumption",
-    )
-    plt.ylabel("Energy (kWh)")
-    plt.xlabel("Time (quarter hours)")
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+    return {
+        "status": pulp.LpStatus[status],
+        "objective": pulp.value(prob.objective),
+        **kwargs,
+    }

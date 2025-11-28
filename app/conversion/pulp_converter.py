@@ -14,6 +14,7 @@ from app.conversion.validation_utils import (
     handle_time_bounds,
     validate_and_normalize_time_set,
     validate_entity_exists,
+    extract_effective_time_properties,
 )
 from app.infra.quantity import Parameter, Quantity
 from app.infra.relation import Relation
@@ -54,69 +55,24 @@ class PulpConverter(Converter):
     >>> constraints = model_vars['battery.soc_constraint']
     """
 
-    # Default time set size when none is provided
-    DEFAULT_TIME_SET_SIZE = 10
-
     def __init__(self):
         super().__init__()
-        self.__objects = {}
+        self.__objects: Dict[str, Any] = {}
 
-    def convert_model(
-        self,
-        model: Model,
-        time_set: Optional[Union[int, range]] = None,
-        new_freq: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    def _register_converters(self):
         """
-        Convert the model to an optimization/simulation problem.
-
-        Converts the model's entities and their quantities into a flat dictionary
-        of pulp variables suitable for optimization. It also handles the resampling of time series
-        data to the specified frequency and time set.
-
-        Parameters
-        ----------
-        model : Model
-            The model to convert.
-        time_set : Optional[Union[int, range]], optional
-            The number of time steps to represent in the pulp variables.
-            If None, uses model.number_of_time_steps.
-        new_freq : Optional[str], optional
-            The target frequency to resample time series data to (e.g., '15min', '1H').
-            If None, uses model.frequency.
-
-        Returns
-        -------
-        Dict[str, Any]
-            Dictionary containing all pulp variables and time set information.
-            Includes a 'time_set' key with the range of time steps.
+        PulpConverter doesn't need specialized entity converters.
+        All entities use the default conversion logic.
         """
-        # Use model defaults if not specified
-        effective_time_set = (
-            time_set if time_set is not None else model.number_of_time_steps
-        )
-        effective_freq = new_freq if new_freq is not None else model.frequency
+        # Intentionally empty - all entities use _convert_entity_default
+        pass
 
-        # Convert all entities
-        model_variables = {}
-        for entity in model.entities:
-            model_variables.update(
-                entity.convert(effective_time_set, effective_freq, self)
-            )
-
-        # Add time set information
-        time_range = validate_and_normalize_time_set(
-            effective_time_set, self.DEFAULT_TIME_SET_SIZE
-        )
-        model_variables["time_set"] = time_range
-
-        return model_variables
-
-    def convert_entity(
+    def _convert_entity_default(
         self,
         entity: Entity,
         time_set: Optional[Union[int, range]] = None,
         new_freq: Optional[str] = None,
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Convert an Entity and its sub-entities into a flat dictionary of pulp variables.
@@ -154,7 +110,7 @@ class PulpConverter(Converter):
         }
 
         # Recursively convert sub-entities
-        for sub_entity in entity.sub_entities:
+        for _, sub_entity in entity.sub_entities.items():
             entity_variables.update(self.convert_entity(sub_entity, time_set, new_freq))
 
         # Convert relations to constraints
@@ -168,6 +124,60 @@ class PulpConverter(Converter):
             entity_variables.update(relation_constraints)
 
         return entity_variables
+
+    def convert_model(
+        self,
+        model: Model,
+        time_set: Optional[Union[int, range]] = None,
+        new_freq: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        Convert the model to an optimization/simulation problem.
+
+        Converts the model's entities and their quantities into a flat dictionary
+        of pulp variables suitable for optimization. It also handles the resampling of time series
+        data to the specified frequency and time set.
+
+        Parameters
+        ----------
+        model : Model
+            The model to convert.
+        time_set : Optional[Union[int, range]], optional
+            The number of time steps to represent in the pulp variables.
+            If None, uses model.number_of_time_steps.
+        new_freq : Optional[str], optional
+            The target frequency to resample time series data to (e.g., '15min', '1H').
+            If None, uses model.frequency.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary containing all pulp variables and time set information.
+            Includes a 'time_set' key with the range of time steps.
+        """
+        # Use model defaults if not specified
+        effective_freq, effective_time_set = extract_effective_time_properties(
+            model, new_freq, time_set
+        )
+
+        # Convert all entities
+        skip_entities = kwargs.get("skip_entities", set())
+        model_variables = {}
+        for _, entity in model.entities.items():
+            if type(entity) in skip_entities:
+                continue
+            model_variables.update(
+                entity.convert(effective_time_set, effective_freq, self)
+            )
+
+        # Add time set information
+        time_range = validate_and_normalize_time_set(
+            effective_time_set, self.DEFAULT_TIME_SET_SIZE
+        )
+        model_variables["time_set"] = time_range
+
+        return model_variables
 
     def convert_quantity(
         self,
@@ -199,15 +209,15 @@ class PulpConverter(Converter):
         Union[List[pulp.LpVariable], Any]
             Either a list of PuLP variables (for empty quantities) or the quantity values
         """
-        if quantity.empty():
+        if isinstance(quantity, Parameter):
+            return quantity.value
+        elif quantity.empty():
             normalized_time_set = validate_and_normalize_time_set(
                 time_set, self.DEFAULT_TIME_SET_SIZE
             )
             return create_empty_pulp_var(name, len(normalized_time_set))
-        if isinstance(quantity, Parameter):
-            return quantity.get_values()
         else:
-            return quantity.get_values(time_set=time_set, freq=freq)
+            return quantity.value(time_set=time_set, freq=freq)
 
     def convert_relation(
         self,
@@ -355,37 +365,6 @@ class PulpConverter(Converter):
         else:
             # Single variable, not time-indexed
             return pulp_var
-
-    def convert_literal(
-        self,
-        literal,
-        value,
-        t: int,
-        time_set: Optional[Union[int, range]] = None,
-        new_freq: Optional[str] = None,
-    ):
-        """
-        Convert a literal value (returns the value as-is).
-
-        Parameters
-        ----------
-        literal : Literal
-            The literal object (unused)
-        value : Any
-            The literal value to return
-        t : int
-            Current time step (unused)
-        time_set : Optional[Union[int, range]], optional
-            Time set (unused)
-        new_freq : Optional[str], optional
-            Frequency (unused)
-
-        Returns
-        -------
-        Any
-            The literal value unchanged
-        """
-        return value
 
     def convert_binary_expression(
         self,

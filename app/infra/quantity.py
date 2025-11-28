@@ -1,5 +1,12 @@
 from abc import ABC, abstractmethod
 
+from app.infra.util import cast_like
+
+
+class Direction:
+    IN = "in"
+    OUT = "out"
+
 
 class Quantity(ABC):
     """
@@ -13,14 +20,23 @@ class Quantity(ABC):
         - Implementations should store any metadata or values passed via **kwargs.
     """
 
-    def __init__(self, **kwargs): ...
+    def __init__(self, **kwargs):
+        self.direction = kwargs.pop("direction", None)
 
     def convert(self, converter, **kwargs):
         """Converts the quantity into a pulp-compatible format (e.g., a time series array or a value-variable)."""
         return converter.convert_quantity(self, **kwargs)
 
-    @abstractmethod
-    def get_values(self, **kwargs): ...
+    def set(self, value, **kwargs):
+        """Sets the value of the quantity, if applicable."""
+        ...
+
+    def set_value(self, value, **kwargs):
+        return self.set(value, **kwargs)
+
+    @property
+    def value(self, **kwargs):
+        return None
 
     @abstractmethod
     def __eq__(self, other): ...
@@ -42,19 +58,42 @@ class Parameter(Quantity):
 
     def __init__(self, **kwargs: object):
         super().__init__(**kwargs)
-        self.value = kwargs.pop("value", None)
+        self._value = kwargs.pop("value", None)
 
     def __str__(self):
-        return f"{self.value}"
+        return f"{self._value}"
 
     def __eq__(self, other):
         try:
-            return float(self.value) == float(other)
+            return float(self._value) == float(other)
         except (TypeError, ValueError):
             return False
 
     def empty(self) -> bool:
-        return self.value is None
+        return self._value is None
 
-    def get_values(self, **kwargs):
-        return self.value
+    def set(self, value, **kwargs):
+        """
+        Set the parameter's value after checking type compatibility.
+
+        - If current `_value` is None: accept `value` and store it.
+        - Otherwise attempt to convert `value` to the type of `_value`.
+        - On failure raise `TypeError`.
+        """
+        # if current value is not set, accept whatever is provided
+        if self._value is None:
+            self._value = value
+            return
+
+        try:
+            converted = cast_like(value, self._value)
+        except Exception:
+            raise TypeError(
+                f"Cannot convert provided value ({value!r}) to type {type(self._value).__name__}"
+            )
+
+        self._value = converted
+
+    @property
+    def value(self, **kwargs):
+        return self._value
