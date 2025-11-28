@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Relation - OMNES</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Relation";
+        var mkdocs_page_input_path = "infra/relation.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> OMNES
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Welcome to OMNES Docs</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Conversion</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/context/">Context</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/conversion_utils/">Conversion utils</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/converter/">Converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/pulp_converter/">Pulp converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/validation_utils/">Validation utils</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Infra</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../quantity/">Quantity</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Relation</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.relation.AssignmentExpression">AssignmentExpression</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.AssignmentExpression.convert">convert</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.relation.BinaryExpression">BinaryExpression</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.BinaryExpression.convert">convert</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.BinaryExpression.parse_binary">parse_binary</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.relation.EntityReference">EntityReference</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.EntityReference.__init__">__init__</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.EntityReference.__init__--parameters">Parameters</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.EntityReference.__str__">__str__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.EntityReference.convert">convert</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.EntityReference.convert--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.EntityReference.convert--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.EntityReference.get_ids">get_ids</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.EntityReference.get_ids--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.relation.Expression">Expression</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Expression.__str__">__str__</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.Expression.__str__--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Expression.convert">convert</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.Expression.convert--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.Expression.convert--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Expression.get_ids">get_ids</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.Expression.get_ids--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.relation.IfThenExpression">IfThenExpression</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.IfThenExpression.convert">convert</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.relation.Literal">Literal</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Literal.__init__">__init__</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.Literal.__init__--parameters">Parameters</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Literal.__str__">__str__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Literal.convert">convert</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.Literal.convert--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.Literal.convert--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Literal.get_ids">get_ids</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.Literal.get_ids--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.relation.Operator">Operator</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Operator.category">category</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Operator.symbol">symbol</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Operator.__str__">__str__</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Operator.arithmetic_operators">arithmetic_operators</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Operator.arithmetic_strings">arithmetic_strings</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Operator.comparison_operators">comparison_operators</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Operator.comparison_strings">comparison_strings</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Operator.from_symbol">from_symbol</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.relation.Relation">Relation</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Relation.convert">convert</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.Relation.convert--parameters">Parameters:</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.infra.relation.Relation.convert--returns">Returns:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.Relation.parse">parse</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.relation.TimeConditionExpression">TimeConditionExpression</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.infra.relation.TimeConditionExpression.convert">convert</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../singleton/">Singleton</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../timeseries_object/">Timeseries object</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../timeseries_object_factory/">Timeseries object factory</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../util/">Util</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Model</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/device/">Device</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/entity/">Entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/model/">Model</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/slack/">Slack</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Converter</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/converter/converter/">Converter</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Generator</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/generator/">Generator</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/pv/">Pv</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/wind_turbine/">Wind turbine</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Grid component</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/bus/">Bus</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/grid_component/">Grid component</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/line/">Line</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Load</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/load/load/">Load</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Storage</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/battery/">Battery</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/hot_water_storage/">Hot water storage</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/storage/">Storage</a>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operation</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operation/example_optimization/">Example optimization</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">OMNES</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Infra</li>
+      <li class="breadcrumb-item active">Relation</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <div class="doc doc-object doc-module">
+
+
+
+<h2 id="app.infra.relation" class="doc doc-heading">
+            <code>app.infra.relation</code>
+
+
+</h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Relation and expression system for energy community modeling.</p>
+<p>This module provides the core expression system for representing and converting
+mathematical relations in energy system optimization models. It supports
+arithmetic operations, comparisons, entity references with time offsets,
+and specialized expression types for conditional and temporal constraints.</p>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="app.infra.relation.AssignmentExpression" class="doc doc-heading">
+            <code>AssignmentExpression</code>
+
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Expression (app.infra.relation.Expression)" href="#app.infra.relation.Expression">Expression</a></code></p>
+
+
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.AssignmentExpression.convert" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert</span><span class="p">(</span><span class="n">converter</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert assignment expression using the provided converter</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="app.infra.relation.BinaryExpression" class="doc doc-heading">
+            <code>BinaryExpression</code>
+
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Expression (app.infra.relation.Expression)" href="#app.infra.relation.Expression">Expression</a></code></p>
+
+
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.BinaryExpression.convert" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert</span><span class="p">(</span><span class="n">converter</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert binary expression using the provided converter</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.BinaryExpression.parse_binary" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">parse_binary</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Parse constraint expressions like 'battery1.discharge_power(t) &lt; 2 * battery1.discharge_power(t-1)'</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="app.infra.relation.EntityReference" class="doc doc-heading">
+            <code>EntityReference</code>
+
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Expression (app.infra.relation.Expression)" href="#app.infra.relation.Expression">Expression</a></code></p>
+
+
+
+        <p>Expression representing a reference to an entity with optional time offset.</p>
+<p>Entity references are used to access variables or properties of energy system
+components at specific time steps. Examples include 'battery1.discharge_power(t)'
+or 'pv1.generation(t-1)'.</p>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.EntityReference.__init__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">entity_id</span><span class="p">,</span> <span class="n">time_offset</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Initialize entity reference.</p>
+<h6 id="app.infra.relation.EntityReference.__init__--parameters">Parameters</h6>
+<p>entity_id : str
+    Identifier for the entity (e.g., 'battery1.discharge_power')
+time_offset : int, default=0
+    Time offset relative to current time step:
+    - 0 for current time (t)
+    - -1 for previous time step (t-1)
+    - +1 for next time step (t+1)</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.EntityReference.__str__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__str__</span><span class="p">()</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return string representation with time offset notation.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.EntityReference.convert" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert</span><span class="p">(</span><span class="n">converter</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert entity reference using the provided converter.</p>
+<h6 id="app.infra.relation.EntityReference.convert--parameters">Parameters</h6>
+<p>converter : Any
+    Converter object that handles format-specific conversion
+t : int
+    Current time step
+time_set : int, optional
+    Time set for constraint generation
+new_freq : str, optional
+    Frequency specification for time conversion</p>
+<h6 id="app.infra.relation.EntityReference.convert--returns">Returns</h6>
+<p>Any
+    Converted entity reference representation</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.EntityReference.get_ids" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">get_ids</span><span class="p">()</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return list containing this entity's ID.</p>
+<h6 id="app.infra.relation.EntityReference.get_ids--returns">Returns</h6>
+<p>List[str]
+    List with single entity ID</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="app.infra.relation.Expression" class="doc doc-heading">
+            <code>Expression</code>
+
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="abc.ABC">ABC</span></code></p>
+
+
+
+        <p>Abstract base class for all mathematical expressions.</p>
+<p>This class defines the interface that all expression types must implement
+for parsing, conversion, and entity ID extraction. Expression objects
+form a tree structure representing mathematical operations.</p>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Expression.__str__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__str__</span><span class="p">()</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return string representation of the expression.</p>
+<h6 id="app.infra.relation.Expression.__str__--returns">Returns</h6>
+<p>str
+    Human-readable string representation</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Expression.convert" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert</span><span class="p">(</span><span class="n">converter</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert expression using the provided converter.</p>
+<p>This method implements the visitor pattern, delegating conversion
+logic to the converter object which knows how to handle specific
+target formats (PuLP, pandapower, etc.).</p>
+<h6 id="app.infra.relation.Expression.convert--parameters">Parameters</h6>
+<p>converter : Any
+    Converter object that handles format-specific conversion
+t : int
+    Current time step
+time_set : int, optional
+    Time set for constraint generation
+new_freq : str, optional
+    Frequency specification for time conversion</p>
+<h6 id="app.infra.relation.Expression.convert--returns">Returns</h6>
+<p>Any
+    Converted representation (format depends on converter)</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Expression.get_ids" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">get_ids</span><span class="p">()</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Extract all entity IDs referenced in this expression.</p>
+<h6 id="app.infra.relation.Expression.get_ids--returns">Returns</h6>
+<p>List[str]
+    List of unique entity IDs used in the expression</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="app.infra.relation.IfThenExpression" class="doc doc-heading">
+            <code>IfThenExpression</code>
+
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Expression (app.infra.relation.Expression)" href="#app.infra.relation.Expression">Expression</a></code></p>
+
+
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.IfThenExpression.convert" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert</span><span class="p">(</span><span class="n">converter</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert if-then expression using the provided converter</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="app.infra.relation.Literal" class="doc doc-heading">
+            <code>Literal</code>
+
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Expression (app.infra.relation.Expression)" href="#app.infra.relation.Expression">Expression</a></code></p>
+
+
+
+        <p>Expression representing a literal numeric value.</p>
+<p>Literals are terminal nodes in expression trees that contain constant
+numeric values (integers or floats).</p>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Literal.__init__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Initialize literal with numeric value.</p>
+<h6 id="app.infra.relation.Literal.__init__--parameters">Parameters</h6>
+<p>value : Union[int, float]
+    The numeric value this literal represents</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Literal.__str__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__str__</span><span class="p">()</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return string representation of the literal value.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Literal.convert" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert</span><span class="p">(</span><span class="n">converter</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert literal using the provided converter.</p>
+<h6 id="app.infra.relation.Literal.convert--parameters">Parameters</h6>
+<p>converter : Any
+    Converter object that handles format-specific conversion
+t : int
+    Current time step (unused for literals)
+time_set : int, optional
+    Time set for constraint generation (unused for literals)
+new_freq : str, optional
+    Frequency specification (unused for literals)</p>
+<h6 id="app.infra.relation.Literal.convert--returns">Returns</h6>
+<p>Any
+    Converted literal representation</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Literal.get_ids" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">get_ids</span><span class="p">()</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return empty list as literals contain no entity references.</p>
+<h6 id="app.infra.relation.Literal.get_ids--returns">Returns</h6>
+<p>List[str]
+    Empty list (literals have no entity IDs)</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="app.infra.relation.Operator" class="doc doc-heading">
+            <code>Operator</code>
+
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="enum.Enum">Enum</span></code></p>
+
+
+
+        <p>Enumeration of supported mathematical and comparison operators.</p>
+<p>This enum defines all operators that can be used in mathematical expressions
+within the energy system modeling framework. Each operator contains both its
+string representation and category information for proper handling.</p>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="app.infra.relation.Operator.category" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">category</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return the category of the operator (comparison or arithmetic).</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="app.infra.relation.Operator.symbol" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">symbol</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return the string representation of the operator.</p>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Operator.__str__" class="doc doc-heading">
+            <code class="highlight language-python"><span class="fm">__str__</span><span class="p">()</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return string representation of the operator.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Operator.arithmetic_operators" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">arithmetic_operators</span><span class="p">()</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return all arithmetic operators.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Operator.arithmetic_strings" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">arithmetic_strings</span><span class="p">()</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return string representations of arithmetic operators.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Operator.comparison_operators" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">comparison_operators</span><span class="p">()</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return all comparison operators.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Operator.comparison_strings" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">comparison_strings</span><span class="p">()</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return string representations of comparison operators.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Operator.from_symbol" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">from_symbol</span><span class="p">(</span><span class="n">symbol</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create an operator from its string symbol.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="app.infra.relation.Relation" class="doc doc-heading">
+            <code>Relation</code>
+
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Relation.convert" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert</span><span class="p">(</span><span class="n">converter</span><span class="p">,</span> <span class="n">objects</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert this relation using the provided converter for each time step.</p>
+<p>This implements dependency inversion - the relation delegates to the converter,
+which contains all format-specific logic (PuLP, pandapower, etc.).</p>
+<h6 id="app.infra.relation.Relation.convert--parameters">Parameters:</h6>
+<p>converter : object
+    The converter that knows how to handle conversion (e.g., PulpConverter)
+objects : dict
+    Dictionary mapping entity IDs to their variables/objects
+time_set : int
+    The time set to iterate over
+new_freq : str
+    Frequency (optional)</p>
+<h6 id="app.infra.relation.Relation.convert--returns">Returns:</h6>
+<p>dict
+    Dictionary containing the constraint name and the list of constraints</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.Relation.parse" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">parse</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Parse the expression string into an Expression tree</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="app.infra.relation.TimeConditionExpression" class="doc doc-heading">
+            <code>TimeConditionExpression</code>
+
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Expression (app.infra.relation.Expression)" href="#app.infra.relation.Expression">Expression</a></code></p>
+
+
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.infra.relation.TimeConditionExpression.convert" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert</span><span class="p">(</span><span class="n">converter</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert time condition expression using the provided converter</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../quantity/" class="btn btn-neutral float-left" title="Quantity"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../singleton/" class="btn btn-neutral float-right" title="Singleton">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../quantity/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../singleton/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

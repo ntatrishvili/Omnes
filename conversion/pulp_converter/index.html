@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Pulp converter - OMNES</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Pulp converter";
+        var mkdocs_page_input_path = "conversion/pulp_converter.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> OMNES
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Welcome to OMNES Docs</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Conversion</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../context/">Context</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion_utils/">Conversion utils</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../converter/">Converter</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Pulp converter</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter">PulpConverter</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter--attributes">Attributes</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter--notes">Notes</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter--examples">Examples</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_binary_expression">convert_binary_expression</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_binary_expression--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_binary_expression--returns">Returns</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_binary_expression--raises">Raises</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_entity">convert_entity</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_entity--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_entity--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_entity_reference">convert_entity_reference</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_entity_reference--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_entity_reference--returns">Returns</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_entity_reference--raises">Raises</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_literal">convert_literal</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_literal--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_literal--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_model">convert_model</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_model--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_model--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_quantity">convert_quantity</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_quantity--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_quantity--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_relation">convert_relation</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_relation--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_relation--returns">Returns</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pulp_converter.PulpConverter.convert_relation--raises">Raises</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../validation_utils/">Validation utils</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Infra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/quantity/">Quantity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/relation/">Relation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/singleton/">Singleton</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/timeseries_object/">Timeseries object</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/timeseries_object_factory/">Timeseries object factory</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/util/">Util</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Model</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/device/">Device</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/entity/">Entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/model/">Model</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/slack/">Slack</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Converter</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/converter/converter/">Converter</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Generator</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/generator/">Generator</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/pv/">Pv</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/wind_turbine/">Wind turbine</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Grid component</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/bus/">Bus</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/grid_component/">Grid component</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/line/">Line</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Load</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/load/load/">Load</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Storage</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/battery/">Battery</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/hot_water_storage/">Hot water storage</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/storage/">Storage</a>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operation</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operation/example_optimization/">Example optimization</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">OMNES</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Conversion</li>
+      <li class="breadcrumb-item active">Pulp converter</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <div class="doc doc-object doc-module">
+
+
+
+<h2 id="app.conversion.pulp_converter" class="doc doc-heading">
+            <code>app.conversion.pulp_converter</code>
+
+
+</h2>
+
+    <div class="doc doc-contents first">
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="app.conversion.pulp_converter.PulpConverter" class="doc doc-heading">
+            <code>PulpConverter</code>
+
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="app.conversion.converter.Converter">Converter</span></code></p>
+
+
+
+        <p>Converts a Model class object into a PuLP optimization problem.</p>
+<p>This converter handles the transformation of energy system models into linear programming
+problems that can be solved using the PuLP optimization library. It converts entities,
+quantities, and relations into PuLP variables and constraints while maintaining temporal
+relationships and handling time series data resampling.</p>
+<p>The converter supports:
+- Time-indexed variables for dynamic optimization
+- Linear constraints between variables
+- Temporal relationships (t-1, t+1 references)
+- Time series data resampling
+- Hierarchical entity structures</p>
+<h5 id="app.conversion.pulp_converter.PulpConverter--attributes">Attributes</h5>
+<p>DEFAULT_TIME_SET_SIZE : int
+    Default number of time steps when none is specified (10)</p>
+<h5 id="app.conversion.pulp_converter.PulpConverter--notes">Notes</h5>
+<p>This converter is designed for linear programming problems only. Non-linear operations
+like variable multiplication or division by variables will raise ValueError.</p>
+<h5 id="app.conversion.pulp_converter.PulpConverter--examples">Examples</h5>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>converter = PulpConverter()
+model_vars = converter.convert_model(energy_model)
+constraints = model_vars['battery.soc_constraint']</p>
+</blockquote>
+</blockquote>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.conversion.pulp_converter.PulpConverter.convert_binary_expression" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert_binary_expression</span><span class="p">(</span><span class="n">binary_expr</span><span class="p">,</span> <span class="n">left_result</span><span class="p">,</span> <span class="n">right_result</span><span class="p">,</span> <span class="n">operator</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a binary expression to PuLP constraint or arithmetic operation.</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_binary_expression--parameters">Parameters</h6>
+<p>binary_expr : BinaryExpression
+    The binary expression object (unused)
+left_result : Any
+    Result of the left operand evaluation
+right_result : Any
+    Result of the right operand evaluation
+operator : Operator
+    The operator to apply between left and right operands
+t : int
+    Current time step (unused)
+time_set : Optional[Union[int, range]], optional
+    Time set (unused)
+new_freq : Optional[str], optional
+    Frequency (unused)</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_binary_expression--returns">Returns</h6>
+<p>Union[pulp.LpConstraint, pulp.LpExpression]
+    PuLP constraint for comparison operators or expression for arithmetic operators</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_binary_expression--raises">Raises</h6>
+<p>ValueError
+    If the operator is not supported or violates linear programming constraints.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.conversion.pulp_converter.PulpConverter.convert_entity" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert_entity</span><span class="p">(</span><span class="n">entity</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert an Entity and its sub-entities into a flat dictionary of pulp variables.</p>
+<p>This method recursively traverses the entity hierarchy, resamples all time series
+data to the specified frequency, and converts each TimeseriesObject into pulp-compatible
+variables using its <code>convert</code> method.</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_entity--parameters">Parameters</h6>
+<p>entity : Entity
+    The root entity to convert (may have sub-entities).
+time_set : Optional[Union[int, range]], optional
+    The number of time steps to represent in the pulp variables.
+    If None, uses the default time set size.
+new_freq : Optional[str], optional
+    The target frequency to resample time series data to (e.g., '15min', '1H').</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_entity--returns">Returns</h6>
+<p>Dict[str, Any]
+    A flat dictionary containing all pulp variables from the entity and its descendants.
+    Keys are in the format 'entity_id.quantity_name' for quantities and 'relation_name'
+    for constraints.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.conversion.pulp_converter.PulpConverter.convert_entity_reference" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert_entity_reference</span><span class="p">(</span><span class="n">entity_ref</span><span class="p">,</span> <span class="n">entity_id</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert an entity reference to a PuLP variable for the given time step.</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_entity_reference--parameters">Parameters</h6>
+<p>entity_ref : EntityReference
+    The entity reference object containing time offset information
+entity_id : str
+    The entity ID to look up in the variables dictionary
+t : int
+    Current time step
+time_set : Optional[Union[int, range]], optional
+    Total time set (unused here but kept for consistency)
+new_freq : Optional[str], optional
+    Frequency (unused here but kept for consistency)</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_entity_reference--returns">Returns</h6>
+<p>Union[pulp.LpVariable, Any]
+    PuLP variable or expression for the specified time step</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_entity_reference--raises">Raises</h6>
+<p>ValueError
+    If the entity_id is not found in the objects dictionary.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.conversion.pulp_converter.PulpConverter.convert_literal" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert_literal</span><span class="p">(</span><span class="n">literal</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a literal value (returns the value as-is).</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_literal--parameters">Parameters</h6>
+<p>literal : Literal
+    The literal object (unused)
+value : Any
+    The literal value to return
+t : int
+    Current time step (unused)
+time_set : Optional[Union[int, range]], optional
+    Time set (unused)
+new_freq : Optional[str], optional
+    Frequency (unused)</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_literal--returns">Returns</h6>
+<p>Any
+    The literal value unchanged</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.conversion.pulp_converter.PulpConverter.convert_model" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert the model to an optimization/simulation problem.</p>
+<p>Converts the model's entities and their quantities into a flat dictionary
+of pulp variables suitable for optimization. It also handles the resampling of time series
+data to the specified frequency and time set.</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_model--parameters">Parameters</h6>
+<p>model : Model
+    The model to convert.
+time_set : Optional[Union[int, range]], optional
+    The number of time steps to represent in the pulp variables.
+    If None, uses model.number_of_time_steps.
+new_freq : Optional[str], optional
+    The target frequency to resample time series data to (e.g., '15min', '1H').
+    If None, uses model.frequency.</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_model--returns">Returns</h6>
+<p>Dict[str, Any]
+    Dictionary containing all pulp variables and time set information.
+    Includes a 'time_set' key with the range of time steps.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.conversion.pulp_converter.PulpConverter.convert_quantity" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert_quantity</span><span class="p">(</span><span class="n">quantity</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert the time series data to a format suitable for pulp optimization.</p>
+<p>If the quantity is empty, create an empty pulp variable.
+If the quantity is a Parameter, return its value directly.
+Otherwise, return the values resampled to the specified time set and frequency.</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_quantity--parameters">Parameters</h6>
+<p>quantity : Quantity
+    The quantity to convert
+name : str
+    The name for the generated variables
+time_set : Optional[Union[int, range]], optional
+    The time set specification. If None, uses default size.
+freq : Optional[str], optional
+    The frequency for resampling</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_quantity--returns">Returns</h6>
+<p>Union[List[pulp.LpVariable], Any]
+    Either a list of PuLP variables (for empty quantities) or the quantity values</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.conversion.pulp_converter.PulpConverter.convert_relation" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">convert_relation</span><span class="p">(</span><span class="n">relation</span><span class="p">,</span> <span class="n">entity_variables</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a Relation to PuLP constraints for each time step.</p>
+<p>This method dynamically assembles relations based on identified entity references
+and operations. For example:
+"battery1.discharge_power(t)&lt;2*battery1.discharge_power(t-1)" becomes:
+for t in time_set:
+    constraint = battery1.discharge_power[t] &lt; 2 * battery1.discharge_power[t-1]</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_relation--parameters">Parameters</h6>
+<p>relation : Relation
+    The relation to convert
+entity_variables : Dict[str, Any]
+    Dictionary mapping entity IDs to their PuLP variables
+time_set : Optional[Union[int, range]], optional
+    The time set to iterate over. If None, uses default size.
+new_freq : Optional[str], optional
+    Frequency (kept for consistency with interface)</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_relation--returns">Returns</h6>
+<p>Dict[str, List]
+    Dictionary containing the constraint name as key and list of constraints as value.</p>
+<h6 id="app.conversion.pulp_converter.PulpConverter.convert_relation--raises">Raises</h6>
+<p>ValueError
+    If any entity referenced in the relation is not found in entity_variables.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../converter/" class="btn btn-neutral float-left" title="Converter"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../validation_utils/" class="btn btn-neutral float-right" title="Validation utils">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../converter/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../validation_utils/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

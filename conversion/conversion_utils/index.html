@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Conversion utils - OMNES</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Conversion utils";
+        var mkdocs_page_input_path = "conversion/conversion_utils.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> OMNES
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Welcome to OMNES Docs</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Conversion</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../context/">Context</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Conversion utils</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#app.conversion.conversion_utils.create_empty_pulp_var">create_empty_pulp_var</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.create_empty_pulp_var--parameters">Parameters:</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.create_empty_pulp_var--returns">Returns:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.conversion.conversion_utils.handle_arithmetic_operator">handle_arithmetic_operator</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.handle_arithmetic_operator--parameters">Parameters:</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.handle_arithmetic_operator--returns">Returns:</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.handle_arithmetic_operator--raises">Raises:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.conversion.conversion_utils.handle_comparison_operator">handle_comparison_operator</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.handle_comparison_operator--parameters">Parameters:</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.handle_comparison_operator--returns">Returns:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.conversion.conversion_utils.is_arithmetic_operator">is_arithmetic_operator</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.is_arithmetic_operator--parameters">Parameters:</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.is_arithmetic_operator--returns">Returns:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.conversion.conversion_utils.is_comparison_operator">is_comparison_operator</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.is_comparison_operator--parameters">Parameters:</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.is_comparison_operator--returns">Returns:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.conversion.conversion_utils.validate_linear_division">validate_linear_division</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.validate_linear_division--parameters">Parameters:</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.validate_linear_division--raises">Raises:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.conversion.conversion_utils.validate_linear_multiplication">validate_linear_multiplication</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.validate_linear_multiplication--parameters">Parameters:</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.conversion_utils.validate_linear_multiplication--raises">Raises:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.conversion.conversion_utils.warn_about_not_equal_constraint">warn_about_not_equal_constraint</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../converter/">Converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../pulp_converter/">Pulp converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../validation_utils/">Validation utils</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Infra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/quantity/">Quantity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/relation/">Relation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/singleton/">Singleton</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/timeseries_object/">Timeseries object</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/timeseries_object_factory/">Timeseries object factory</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/util/">Util</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Model</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/device/">Device</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/entity/">Entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/model/">Model</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/slack/">Slack</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Converter</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/converter/converter/">Converter</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Generator</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/generator/">Generator</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/pv/">Pv</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/wind_turbine/">Wind turbine</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Grid component</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/bus/">Bus</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/grid_component/">Grid component</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/line/">Line</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Load</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/load/load/">Load</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Storage</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/battery/">Battery</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/hot_water_storage/">Hot water storage</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/storage/">Storage</a>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operation</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operation/example_optimization/">Example optimization</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">OMNES</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Conversion</li>
+      <li class="breadcrumb-item active">Conversion utils</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <div class="doc doc-object doc-module">
+
+
+
+<h2 id="app.conversion.conversion_utils" class="doc doc-heading">
+            <code>app.conversion.conversion_utils</code>
+
+
+</h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Conversion-specific utility functions for optimization problems.</p>
+<p>This module contains utilities specifically for working with conversion functionality
+variables, constraints, and expressions.</p>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.conversion.conversion_utils.create_empty_pulp_var" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">create_empty_pulp_var</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">time_set_size</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Create a list of empty LpVariable with the specified name and time set size.</p>
+<h5 id="app.conversion.conversion_utils.create_empty_pulp_var--parameters">Parameters:</h5>
+<p>name : str
+    Base name for the variables
+time_set_size : int
+    Number of time steps to create variables for</p>
+<h5 id="app.conversion.conversion_utils.create_empty_pulp_var--returns">Returns:</h5>
+<p>List[pulp.LpVariable]
+    List of PuLP variables with non-negative bounds</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.conversion.conversion_utils.handle_arithmetic_operator" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">handle_arithmetic_operator</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">left_result</span><span class="p">,</span> <span class="n">right_result</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Handle arithmetic operators for expression creation.</p>
+<h5 id="app.conversion.conversion_utils.handle_arithmetic_operator--parameters">Parameters:</h5>
+<p>operator : Operator
+    The arithmetic operator
+left_result : Any
+    Left operand result
+right_result : Any
+    Right operand result</p>
+<h5 id="app.conversion.conversion_utils.handle_arithmetic_operator--returns">Returns:</h5>
+<p>PuLP expression
+    The resulting arithmetic expression</p>
+<h5 id="app.conversion.conversion_utils.handle_arithmetic_operator--raises">Raises:</h5>
+<p>ValueError
+    If the operation violates linear programming constraints</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.conversion.conversion_utils.handle_comparison_operator" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">handle_comparison_operator</span><span class="p">(</span><span class="n">operator</span><span class="p">,</span> <span class="n">left_result</span><span class="p">,</span> <span class="n">right_result</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Handle comparison operators for constraint creation.</p>
+<h5 id="app.conversion.conversion_utils.handle_comparison_operator--parameters">Parameters:</h5>
+<p>operator : Operator
+    The comparison operator
+left_result : Any
+    Left operand result
+right_result : Any
+    Right operand result</p>
+<h5 id="app.conversion.conversion_utils.handle_comparison_operator--returns">Returns:</h5>
+<p>PuLP constraint
+    The resulting constraint</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.conversion.conversion_utils.is_arithmetic_operator" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">is_arithmetic_operator</span><span class="p">(</span><span class="n">operator</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Check if operator is an arithmetic operator.</p>
+<h5 id="app.conversion.conversion_utils.is_arithmetic_operator--parameters">Parameters:</h5>
+<p>operator : Operator
+    The operator to check</p>
+<h5 id="app.conversion.conversion_utils.is_arithmetic_operator--returns">Returns:</h5>
+<p>bool
+    True if operator is an arithmetic operator</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.conversion.conversion_utils.is_comparison_operator" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">is_comparison_operator</span><span class="p">(</span><span class="n">operator</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Check if operator is a comparison operator.</p>
+<h5 id="app.conversion.conversion_utils.is_comparison_operator--parameters">Parameters:</h5>
+<p>operator : Operator
+    The operator to check</p>
+<h5 id="app.conversion.conversion_utils.is_comparison_operator--returns">Returns:</h5>
+<p>bool
+    True if operator is a comparison operator</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.conversion.conversion_utils.validate_linear_division" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">validate_linear_division</span><span class="p">(</span><span class="n">right_result</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Validate that division maintains linearity.</p>
+<h5 id="app.conversion.conversion_utils.validate_linear_division--parameters">Parameters:</h5>
+<p>right_result : Any
+    The divisor</p>
+<h5 id="app.conversion.conversion_utils.validate_linear_division--raises">Raises:</h5>
+<p>ValueError
+    If divisor is a variable (non-linear)</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.conversion.conversion_utils.validate_linear_multiplication" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">validate_linear_multiplication</span><span class="p">(</span><span class="n">left_result</span><span class="p">,</span> <span class="n">right_result</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Validate that multiplication maintains linearity.</p>
+<h5 id="app.conversion.conversion_utils.validate_linear_multiplication--parameters">Parameters:</h5>
+<p>left_result : Any
+    Left operand
+right_result : Any
+    Right operand</p>
+<h5 id="app.conversion.conversion_utils.validate_linear_multiplication--raises">Raises:</h5>
+<p>ValueError
+    If both operands are variables (non-linear)</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.conversion.conversion_utils.warn_about_not_equal_constraint" class="doc doc-heading">
+            <code class="highlight language-python"><span class="n">warn_about_not_equal_constraint</span><span class="p">()</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Warn user about complexity of not-equal constraints.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../context/" class="btn btn-neutral float-left" title="Context"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../converter/" class="btn btn-neutral float-right" title="Converter">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../context/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../converter/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
