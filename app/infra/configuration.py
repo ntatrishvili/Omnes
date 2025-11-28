@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class Config(Singleton):
-    def __init__(self, config_filename=join(getcwd(), "..", "config", "config.ini")):
+    def __init__(self, config_filename=join(getcwd(), "config", "config.ini")):
         super().__new__(self)
         self.__config = RawConfigParser(
             allow_no_value=True, interpolation=ExtendedInterpolation()
