@@ -60,3 +60,7 @@ jobs:
         uses: MishaKav/pytest-coverage-comment@main
         with:
           pytest-xml-coverage-path: ./coverage.xml
+
+permissions:
+  contents: read        # For checkout and comparing commits
+  pull-requests: write  # For creating/updating PR comments

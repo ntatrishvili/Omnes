@@ -37,3 +37,7 @@ jobs:
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
+
+permissions:
+  contents: read        # For checkout and comparing commits
+  pull-requests: write  # For creating/updating PR comments
