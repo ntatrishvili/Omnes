@@ -17,3 +17,5 @@ config/config.ini
 # Coverage reports
 htmlcov/
 .coverage
+*.log*
+config.ini

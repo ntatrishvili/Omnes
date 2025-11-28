@@ -9,7 +9,7 @@ from app.model.device import Device
 from app.model.load.load import Load
 
 
-class Converter(Device):
+class Transducer(Device):
     default_conversion_efficiency: Optional[float] = None
     default_controllable = True
 

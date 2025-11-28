@@ -2,7 +2,7 @@ from pulp import LpMinimize, LpProblem
 
 from app.conversion.pulp_converter import PulpConverter
 from app.infra.relation import Relation
-from app.model.converter.converter import Converter
+from app.model.transducer.converter import Transducer
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
 from app.model.grid_component.bus import Bus, BusType
@@ -91,7 +91,7 @@ hot_water_storage1 = HotWaterStorage(
 
 relation3 = Relation("heater1.power enabled from 10:00 to 16:00")
 relation4 = Relation("heater1.min_on_duration = 2h")
-water_heater1 = Converter(
+water_heater1 = Transducer(
     id="heater1",
     controllable=True,
     charges="hot_water1",
@@ -112,7 +112,7 @@ hot_water_storage2 = HotWaterStorage(
 
 relation5 = Relation("heater2.power enabled from 10:00 to 16:00")
 relation6 = Relation("heater2.min_on_duration = 2h")
-water_heater2 = Converter(
+water_heater2 = Transducer(
     id="heater2",
     charges="hot_water2",
     bus="bus_LV2",

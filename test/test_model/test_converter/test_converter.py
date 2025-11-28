@@ -1,7 +1,7 @@
 import unittest
 
 from app.infra.quantity import Parameter
-from app.model.converter.converter import Converter
+from app.model.transducer.converter import Transducer
 from app.model.device import Device
 
 
@@ -9,7 +9,7 @@ def test_converter_basic_attributes():
     input_device = Device(id="dev1", bus="bus1")
     output_device = Device(id="dev2", bus="bus1")
 
-    conv = Converter(
+    conv = Transducer(
         id="conv1",
         charges="dev2",
         input_device=input_device,

@@ -132,9 +132,9 @@ loads:
     tags:
       household: HH2
 
-  converters:
+  transducers:
   - heater1 on bus_LV1 charges hot_water1
-    # input and output are only valid options for a converter
+    # input and output are only valid options for a transducer (previously converter)
     controllable
     tags:
       is same as the input
