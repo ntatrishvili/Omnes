@@ -1,8 +1,5 @@
-from pulp import LpMinimize, LpProblem
-
 from app.conversion.pulp_converter import PulpConverter
 from app.infra.relation import Relation
-from app.model.transducer.converter import Transducer
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
 from app.model.grid_component.bus import Bus, BusType
@@ -12,6 +9,7 @@ from app.model.model import Model
 from app.model.slack import Slack
 from app.model.storage.battery import Battery
 from app.model.storage.hot_water_storage import HotWaterStorage
+from app.model.transducer.transducer import Transducer
 from app.operation.example_optimization import optimize_energy_system
 
 Bus.default_nominal_voltage = 400
@@ -120,7 +118,6 @@ water_heater2 = Transducer(
     tags={"household": "HH2"},
     relations=[relation5, relation6],
 )
-
 
 # Instantiate Loads
 load1 = Load(

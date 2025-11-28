@@ -1,8 +1,9 @@
 import unittest
 
 from app.infra.quantity import Parameter
-from app.model.transducer.converter import Transducer
+
 from app.model.device import Device
+from app.model.transducer.transducer import Transducer
 
 
 def test_converter_basic_attributes():
