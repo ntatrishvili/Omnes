@@ -50,7 +50,7 @@ class Model:
             for _, entity in self.entities.items():
                 if id not in entity:
                     continue
-                return entity[id]
+                return entity
         raise KeyError(f"Entity with id '{id}' not found in model '{self.id}'")
 
     def set(self, items_to_set):
