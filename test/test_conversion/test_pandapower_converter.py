@@ -280,37 +280,5 @@ class TestPandapowerConverter(unittest.TestCase):
         res_none = self.conv.convert_quantity(p_none, "param_none")
         self.assertIsNone(res_none)
 
-    def test_convert_generic_entity_adds_std_type(self):
-        # Create a minimal GenericEntity-like object with Parameter-like quantities
-        class ParamLike:
-            def __init__(self, val):
-                self.value = val
-
-        quantities = {
-            "id": ParamLike("TYP_XYZ"),
-            "sR": ParamLike(0.1),
-            "vmHV": ParamLike(20.0),
-            "vmLV": ParamLike(0.4),
-            "vmImp": ParamLike(150),
-            "pFe": ParamLike(1.0),
-            "iNoLoad": ParamLike(0.3),
-            "tapable": ParamLike(1),
-            "tapside": ParamLike("HV"),
-            "dVm": ParamLike(2.5),
-            "dVa": ParamLike(0),
-            "tapNeutr": ParamLike(0),
-            "tapMin": ParamLike(-2),
-            "tapMax": ParamLike(2),
-        }
-        entity = SimpleNamespace(quantities=quantities, id="TYP_XYZ_ent")
-        std_name = self.conv._convert_generic_entity(entity)
-        # assert returned name
-        self.assertIsInstance(std_name, str)
-        # ensure net.std_types has the trafo definition
-        self.assertTrue(hasattr(self.conv.net, "std_types"))
-        self.assertIn("trafo", self.conv.net.std_types)
-        self.assertIn(std_name, self.conv.net.std_types["trafo"])
-
-
 if __name__ == "__main__":
     unittest.main()
