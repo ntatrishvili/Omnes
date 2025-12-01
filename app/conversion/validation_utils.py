@@ -8,6 +8,8 @@ different conversion classes to ensure data integrity and proper error handling.
 import warnings
 from typing import Optional, Union
 
+_WARNED_MESSAGES = set()
+
 
 def validate_and_normalize_time_set(
     time_set: Optional[Union[int, range]], default_size: int = 10
@@ -110,18 +112,23 @@ def handle_time_bounds(
     """
     if isinstance(pulp_var, list):
         if actual_time < 0:
-            warnings.warn(
+            msg = (
                 f"Negative time index {actual_time} for {variable_name} clamped to 0. "
-                "This may indicate a logical error in time offset calculations.",
-                UserWarning,
+                "This may indicate a logical error in time offset calculations."
             )
+            # avoid emitting the same warning repeatedly during tests
+            if msg not in _WARNED_MESSAGES:
+                warnings.warn(msg, UserWarning)
+                _WARNED_MESSAGES.add(msg)
             return 0
         elif actual_time >= len(pulp_var):
-            warnings.warn(
+            msg = (
                 f"Time index {actual_time} for {variable_name} exceeds array bounds "
-                f"(size: {len(pulp_var)}). Clamped to last element.",
-                UserWarning,
+                f"(size: {len(pulp_var)}). Clamped to last element."
             )
+            if msg not in _WARNED_MESSAGES:
+                warnings.warn(msg, UserWarning)
+                _WARNED_MESSAGES.add(msg)
             return len(pulp_var) - 1
     return actual_time
 

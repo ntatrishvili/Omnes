@@ -59,8 +59,8 @@ def cast_like(value, sample):
     if isinstance(value, target_type):
         return value
 
-    # Numeric types (int, float, np.*)
-    if issubclass(target_type, numbers.Number):
+    # Only perform conversions for numeric target types (exclude bool)
+    if target_type is not bool and issubclass(target_type, numbers.Number):
         try:
             return target_type(value)
         except Exception:
@@ -70,38 +70,8 @@ def cast_like(value, sample):
                 return target_type(cleaned)
             raise
 
-    # Boolean handling from common strings
-    if target_type is bool:
-        if isinstance(value, str):
-            s = value.strip().lower()
-            if s in ("true", "1", "yes", "y", "t"):
-                return True
-            if s in ("false", "0", "no", "n", "f"):
-                return False
-        return bool(value)
-
-    # Sequence / mapping conversions
-    if target_type in (list, tuple, dict, str):
-        try:
-            return target_type(value)
-        except Exception:
-            # try JSON decode for strings to list/dict
-            if isinstance(value, str) and target_type in (list, dict):
-                try:
-                    parsed = json.loads(value)
-                    # if parsed already matching expected structure, return converted
-                    if isinstance(parsed, (list, dict)):
-                        return target_type(parsed)
-                except Exception as e:
-                    # Failed to parse value as JSON; will raise original exception after fallback attempts.
-                    log.debug(f"JSON decoding failed for value '{value}': {e}")
-            raise
-
-    # Fallback: try to call the type on the value
-    try:
-        return target_type(value)
-    except Exception:
-        raise
+    # For any non-numeric target types (including bool), do not attempt conversion; return as-is
+    return value
 
 
 class TimesetBuilder:
