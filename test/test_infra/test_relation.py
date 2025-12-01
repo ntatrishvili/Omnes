@@ -299,7 +299,9 @@ class TestAdditionalRelationCases(unittest.TestCase):
             def __init__(self):
                 self.called = None
 
-            def convert_entity_reference(self, entity_ref_obj, entity_id, t, time_set, new_freq):
+            def convert_entity_reference(
+                self, entity_ref_obj, entity_id, t, time_set, new_freq
+            ):
                 self.called = (entity_ref_obj, entity_id, t)
                 return ("ent_conv", entity_id)
 
@@ -315,7 +317,9 @@ class TestAdditionalRelationCases(unittest.TestCase):
             def convert_literal(self, literal_obj, value, t, time_set, new_freq):
                 return value * 10
 
-            def convert_binary_expression(self, expr_obj, left_res, right_res, operator, t, time_set, new_freq):
+            def convert_binary_expression(
+                self, expr_obj, left_res, right_res, operator, t, time_set, new_freq
+            ):
                 return (expr_obj, left_res, right_res, operator)
 
         conv = C()
@@ -331,13 +335,17 @@ class TestAdditionalRelationCases(unittest.TestCase):
             def __init__(self):
                 self.called = None
 
-            def convert_entity_reference(self, entity_ref_obj, entity_id, t, time_set, new_freq):
+            def convert_entity_reference(
+                self, entity_ref_obj, entity_id, t, time_set, new_freq
+            ):
                 return "E", entity_id
 
             def convert_literal(self, literal_obj, value, t, time_set, new_freq):
                 return "L", value
 
-            def convert_binary_expression(self, expr_obj, left_res, right_res, operator, t, time_set, new_freq):
+            def convert_binary_expression(
+                self, expr_obj, left_res, right_res, operator, t, time_set, new_freq
+            ):
                 # return a compact tuple for assertions
                 return left_res, right_res, operator
 
@@ -365,10 +373,28 @@ class TestAdditionalRelationCases(unittest.TestCase):
 
     def test_get_ids_with_duplicates(self):
         # left is 'a', right is (a + b) -> get_ids returns ['a','a','b']
-        inner = BinaryExpression(EntityReference("a"), Operator.ADD, EntityReference("b"))
+        inner = BinaryExpression(
+            EntityReference("a"), Operator.ADD, EntityReference("b")
+        )
         top = BinaryExpression(EntityReference("a"), Operator.ADD, inner)
         ids = top.get_ids()
         self.assertEqual(ids, ["a", "a", "b"])
+
+    def test_time_condition_malformed_raises(self):
+        # malformed time string should raise ValueError in parsing
+        with self.assertRaises(ValueError):
+            Relation("heater.power enabled from 100 to 16:00")
+
+    def test_assignment_get_ids_with_expressions(self):
+        # AssignmentExpression with expression objects should return their ids
+        assign = AssignmentExpression(EntityReference("a"), Literal(5))
+        ids = assign.get_ids()
+        self.assertEqual(ids, ["a"])
+
+    def test_if_then_convert_not_implemented(self):
+        rel = Relation("if a < b then c < d")
+        with self.assertRaises(NotImplementedError):
+            rel.expression.convert(None, 0)
 
 
 if __name__ == "__main__":

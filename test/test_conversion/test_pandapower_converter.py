@@ -280,5 +280,6 @@ class TestPandapowerConverter(unittest.TestCase):
         res_none = self.conv.convert_quantity(p_none, "param_none")
         self.assertIsNone(res_none)
 
+
 if __name__ == "__main__":
     unittest.main()
