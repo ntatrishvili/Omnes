@@ -89,11 +89,7 @@ class Model:
         """
         log.info(f"Building model '{id}' with {time_set} time steps")
         model = cls(id, number_of_time_steps=time_set, resolution=frequency)
-        # Ensure frequency stays as provided string representation
-        try:
-            model.frequency = frequency
-        except Exception:
-            pass
+        model.frequency = frequency
         for entity_name, content in config.items():
             entity = Entity(entity_name)
             for pv_id, info in content["pvs"].items():
