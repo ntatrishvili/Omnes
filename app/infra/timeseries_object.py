@@ -146,6 +146,10 @@ class TimeseriesObject(Quantity):
             return None
 
         if freq_param is not None:
+            if self.data.sizes.get("timestamp", 0) == 1:
+                self.freq = freq_param
+                return freq_param
+
             self.resample_to(freq_param, in_place=True)
             return freq_param
 
@@ -156,6 +160,12 @@ class TimeseriesObject(Quantity):
 
         :returns str: Inferred frequency string
         """
+        if self.data.sizes.get("timestamp", 0) < 2:
+            if self.freq is None:
+                raise ValueError(
+                    "Cannot infer frequency with less than two timestamps and no frequency set."
+                )
+            return self.freq
         if self.data.sizes.get("timestamp", 0) < 3:
             return _infer_freq_from_two_dates(self.data)
         # Use xarray's infer_freq directly on the timestamp coordinate
@@ -294,7 +304,7 @@ class TimeseriesObject(Quantity):
                 col,
                 datetime_column=time_col,
                 datetime_format=datetime_format,
-                **read_kwargs
+                **read_kwargs,
             )
         )
 
@@ -320,7 +330,7 @@ class TimeseriesObject(Quantity):
         """
         if self.freq is None:
             raise ValueError("Frequency of the time series is not set.")
-        return self.resample_to("1h")
+        return self.resample_to("1h", closed=closed)
 
     def to_15m(self, closed="right") -> "TimeseriesObject":
         """Convert to 15-minute frequency.
@@ -364,12 +374,31 @@ class TimeseriesObject(Quantity):
             else:
                 method = "agg"  # Downsampling
 
-        resampler = self.data.resample(timestamp=new_freq, **resample_kwargs)
+        # Get the time coordinate
+        time_coord = self.data.coords["timestamp"]
+        start_time = pd.Timestamp(time_coord.values[0])
+        end_time = pd.Timestamp(time_coord.values[-1])
+
         if method == "interpolate":
-            resampled = resampler.interpolate("linear")
+            # For upsampling: extend range to include the last interval
+            # Create grid from start to (end + current_freq), then exclude the final point
+            extended_end = end_time + pd.Timedelta(current_freq)
+            new_timestamps = pd.date_range(
+                start=start_time, end=extended_end, freq=new_freq
+            )
+
+            # Exclude the final endpoint to avoid going beyond the last interval
+            new_timestamps = new_timestamps[:-1]
+
+            # Reindex to the new timestamps with linear interpolation
+            resampled = self.data.reindex(timestamp=new_timestamps, method=None)
+            resampled = resampled.interpolate_na(dim="timestamp", method="linear")
+
+            # Normalize by ratio to preserve total sum
             ratio = self.data.sum(skipna=True) / resampled.sum(skipna=True)
             resampled *= ratio
         elif method == "agg":
+            resampler = self.data.resample(timestamp=new_freq, **resample_kwargs)
             resampled = getattr(resampler, agg)()
         else:
             raise ValueError("Unsupported method. Use 'interpolate' or 'agg'.")
@@ -378,8 +407,7 @@ class TimeseriesObject(Quantity):
             self.data = resampled
             self.freq = new_freq
             return self
-        result = TimeseriesObject(data=resampled)
-        result.freq = new_freq
+        result = TimeseriesObject(data=resampled, freq=new_freq)
         return result
 
     def to_df(self) -> pd.DataFrame:
@@ -437,15 +465,16 @@ class TimeseriesObject(Quantity):
         :returns np.ndarray: Array of values
         """
         freq = kwargs.get("freq", self.freq)
-        time_set = kwargs.get("time_set", self.data.sizes.get("timestamp", 0))
+        # If time_set is not provided, use full length, -1 indicates no slicing
+        time_set = kwargs.get("time_set", -1)
 
         if freq != self.freq:
-            resampled = self.resample_to(freq)
-            if time_set != resampled.data.sizes.get("timestamp", 0):
+            resampled = self.resample_to(freq, **kwargs)
+            if time_set != -1:
                 return resampled.data.values.flatten()[:time_set]
             return resampled.to_nd()
 
-        if time_set != self.data.sizes.get("timestamp", 0):
+        if time_set != -1:
             return self.data.values.flatten()[:time_set]
         return self.to_nd()
 
