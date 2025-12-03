@@ -280,6 +280,41 @@ class TestModel(unittest.TestCase):
             self.assertIn("time_kwargs", call_args[1])
             self.assertEqual(call_args[1]["time_kwargs"], time_kwargs)
 
+    def test_getitem_deeply_nested_entity(self):
+        """Test accessing an entity nested multiple levels deep"""
+        from app.model.entity import Entity
+        from app.model.device import Device
+
+        grandchild = Device(id="granddevice")
+        child = Entity(id="child")
+        child.add_sub_entity(grandchild)
+        parent = Entity(id="parent")
+        parent.add_sub_entity(child)
+
+        m = Model(timeset_builder=self.ts_builder, entities=[parent])
+        retrieved = m["granddevice"]
+        self.assertEqual(retrieved, grandchild)
+
+    def test__find_in_subentities_returns_none(self):
+        """Directly test _find_in_subentities returns None when not found"""
+        from app.model.entity import Entity
+
+        parent = Entity(id="parent")
+        # no sub-entities added
+        m = Model(timeset_builder=self.ts_builder, entities=[parent])
+        result = m._find_in_subentities(parent, "missing")
+        self.assertIsNone(result)
+
+    def test_getitem_keyerror_includes_model_id_and_entity_id(self):
+        """Ensure KeyError message contains both the missing id and model id"""
+        m = Model(id="MyModel", timeset_builder=self.ts_builder)
+        missing_id = "no_such_entity"
+        with self.assertRaises(KeyError) as ctx:
+            _ = m[missing_id]
+        msg = str(ctx.exception)
+        self.assertIn(missing_id, msg)
+        self.assertIn("MyModel", msg)
+
 
 if __name__ == "__main__":
     unittest.main()
