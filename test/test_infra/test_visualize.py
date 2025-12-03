@@ -4,6 +4,8 @@ import json
 import numpy as np
 import pandas as pd
 from types import SimpleNamespace
+import matplotlib as mpl
+from matplotlib import colors as mcolors
 
 from app.infra import visualize
 
@@ -550,6 +552,100 @@ class TestPlotEnergyFlows(unittest.TestCase):
             self.assertIn("set_xticks", str(e))
             # Verify that basic plotting was attempted
             self.assertGreater(mock_plt.bar.call_count, 0)
+
+
+class TestPaletteAndColors(unittest.TestCase):
+    def test_omnes_palette_defined(self):
+        # Palette mapping exists and contains the two main colors
+        self.assertTrue(hasattr(visualize, "OMNES_PALETTE"))
+        pal = visualize.OMNES_PALETTE
+        self.assertIn("fluorescent_green", pal)
+        self.assertIn("fluorescent_pink", pal)
+        # Hex codes should be valid
+        for k, v in pal.items():
+            # should parse to a hex color
+            h = mcolors.to_hex(v)
+            self.assertTrue(h.startswith("#"))
+
+    def test_matplotlib_color_cycle_is_set(self):
+        # rcParams axes.prop_cycle should include our palette colors as the default cycle
+        cycle = mpl.rcParams.get("axes.prop_cycle")
+        self.assertIsNotNone(cycle)
+        by_key = cycle.by_key()
+        self.assertIn("color", by_key)
+        colors = by_key["color"]
+        pal = visualize.OMNES_PALETTE
+        # ensure primary accents are in the first two positions
+        self.assertEqual(colors[0].lower(), pal["fluorescent_green"].lower())
+        self.assertEqual(colors[1].lower(), pal["fluorescent_pink"].lower())
+
+
+class TestElegantDrawNetworkColors(unittest.TestCase):
+    @patch("app.infra.visualize.plt")
+    def test_elegant_draw_network_color_usage(self, mock_plt):
+        # Setup as earlier
+        mock_fig = Mock()
+        mock_ax = Mock()
+        mock_plt.figure.return_value = mock_fig
+        mock_fig.add_subplot.return_value = mock_ax
+        mock_ax.get_figure.return_value = mock_fig
+
+        net = Mock()
+        net.bus = pd.DataFrame(
+            {
+                "name": ["Bus1", "Bus2", "Bus3"],
+                "x": [10.0, 20.0, 30.0],
+                "y": [5.0, 15.0, 25.0],
+            },
+            index=[0, 1, 2],
+        )
+        net.line = pd.DataFrame({"from_bus": [0, 1], "to_bus": [1, 2]}, index=[0, 1])
+        net.trafo = pd.DataFrame(columns=["hv_bus", "lv_bus"])
+        net.ext_grid = pd.DataFrame({"bus": [0]}, index=[0])
+        net.sgen = pd.DataFrame({"bus": [1], "name": ["pv1"]}, index=[0])
+        net.load = pd.DataFrame({"bus": [2], "name": ["load1"]}, index=[0])
+        net.switch = pd.DataFrame(columns=["bus"])
+
+        fig, ax = visualize.elegant_draw_network(net, show=False)
+
+        pal = visualize.OMNES_PALETTE
+        # Verify that at least one call to plot used the dark_gray color (for lines/trafos)
+        used_plot_colors = [
+            c.kwargs.get("color")
+            for c in mock_ax.plot.call_args_list
+            if "color" in c.kwargs
+        ]
+        self.assertIn(pal["dark_gray"], used_plot_colors)
+
+        # Verify scatter used for buses with neutral_light facecolor
+        # Find scatter calls where facecolor equals neutral_light
+        scatter_facecolors = [
+            call.kwargs.get("facecolor")
+            for call in mock_ax.scatter.call_args_list
+            if "facecolor" in call.kwargs
+        ]
+        self.assertIn(pal["neutral_light"], scatter_facecolors)
+
+        # Check ext_grid scatter used gold
+        scatter_colors = [
+            call.kwargs.get("color")
+            for call in mock_ax.scatter.call_args_list
+            if "color" in call.kwargs
+        ]
+        self.assertIn(pal["gold"], scatter_colors)
+
+        # Inspect legend handles passed to legend; they should be matplotlib artists with our palette colors
+        # The function calls ax.legend(...) at least once; inspect its arguments
+        self.assertTrue(mock_ax.legend.called)
+        legend_args = mock_ax.legend.call_args[0]
+        legend_handles = legend_args[0]
+        # First handle is a tuple (pv_circle, pv_hline)
+        pv_proxy = legend_handles[0]
+        pv_circle = pv_proxy[0]
+        # markerfacecolor might be returned as an RGBA; convert to hex
+        mf = pv_circle.get_markerfacecolor()
+        mf_hex = mcolors.to_hex(mf)
+        self.assertEqual(mf_hex.lower(), pal["soft_cyan"].lower())
 
 
 if __name__ == "__main__":
