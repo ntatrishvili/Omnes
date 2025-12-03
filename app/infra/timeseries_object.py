@@ -202,6 +202,7 @@ class TimeseriesObject(Quantity):
         datetime_column: Optional[str] = None,
         datetime_format: Optional[str] = None,
         tz: Optional[str] = None,
+        **read_kwargs,
     ) -> pd.DataFrame:
         """Read CSV and return DataFrame with specified column and parsed timestamp index.
 
@@ -216,7 +217,7 @@ class TimeseriesObject(Quantity):
         :raises KeyError: If requested column not found
         """
         try:
-            input_df = pd.read_csv(input_path, sep=";", header=0)
+            input_df = pd.read_csv(input_path, header=0, **read_kwargs)
         except FileNotFoundError:
             raise FileNotFoundError(f"The file '{input_path}' does not exist.")
         except pd.errors.EmptyDataError:
@@ -277,6 +278,7 @@ class TimeseriesObject(Quantity):
         col: str,
         time_col: Optional[str] = "timestamp",
         datetime_format: Optional[str] = None,
+        **read_kwargs,
     ) -> "TimeseriesObject":
         """Read CSV and return TimeseriesObject.
 
@@ -292,6 +294,7 @@ class TimeseriesObject(Quantity):
                 col,
                 datetime_column=time_col,
                 datetime_format=datetime_format,
+                **read_kwargs
             )
         )
 
@@ -319,16 +322,16 @@ class TimeseriesObject(Quantity):
             raise ValueError("Frequency of the time series is not set.")
         return self.resample_to("1h")
 
-    def to_15m(self, closed="left") -> "TimeseriesObject":
+    def to_15m(self, closed="right") -> "TimeseriesObject":
         """Convert to 15-minute frequency.
 
-        :param str closed: Which side of bin interval is closed (default 'left')
+        :param str closed: Which side of bin interval is closed (default 'right')
         :returns TimeseriesObject: Resampled TimeseriesObject
         :raises ValueError: If frequency is not set
         """
         if self.freq is None:
             raise ValueError("Frequency of the time series is not set.")
-        return self.resample_to("15min")
+        return self.resample_to("15min", closed=closed)
 
     def resample_to(
         self,
@@ -336,6 +339,7 @@ class TimeseriesObject(Quantity):
         method=None,
         agg="mean",
         in_place=False,
+        **resample_kwargs,
     ) -> "TimeseriesObject":
         """Resample to new frequency.
 
@@ -360,7 +364,7 @@ class TimeseriesObject(Quantity):
             else:
                 method = "agg"  # Downsampling
 
-        resampler = self.data.resample(timestamp=new_freq)
+        resampler = self.data.resample(timestamp=new_freq, **resample_kwargs)
         if method == "interpolate":
             resampled = resampler.interpolate("linear")
             ratio = self.data.sum(skipna=True) / resampled.sum(skipna=True)

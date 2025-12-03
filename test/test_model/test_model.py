@@ -229,10 +229,8 @@ class TestModel(unittest.TestCase):
     @patch("app.model.generator.pv.PV.__init__", return_value=None)
     @patch("app.model.load.load.Load.__init__", return_value=None)
     @patch("app.model.entity.Entity.add_sub_entity", return_value=None)
-    @patch("app.model.model.Slack.__init__", return_value=None)
     def test_build_without_batteries(
         self,
-        mock_slack_init,
         mock_add_sub_entity,
         mock_consumer_init,
         mock_pv_init,
@@ -244,6 +242,7 @@ class TestModel(unittest.TestCase):
                 "pvs": {"pv1": {"filename": "pv.csv"}},
                 "consumers": {"c1": {"filename": "load.csv"}},
                 "batteries": {},
+                "slacks": {"slack1": {}},
             }
         }
         m = Model.build("model", config, time_set=24, frequency="1h")

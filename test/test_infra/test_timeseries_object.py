@@ -267,7 +267,7 @@ def test_read_csv_with_custom_time_column():
         temp_path = f.name
 
     try:
-        ts = TimeseriesObject.read(temp_path, col="power", time_col="date")
+        ts = TimeseriesObject.read(temp_path, col="power", time_col="date",sep=',')
         assert not ts.empty()
         assert ts.data.sizes["timestamp"] == 3
     finally:
@@ -453,4 +453,4 @@ def test_resample_preserves_metadata():
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+    pytest.main([__file__, "-q"])
