@@ -355,7 +355,9 @@ class TestPlotBranchVoltageHeatmaps(unittest.TestCase):
                 viz_module.net = original_net
 
     @patch("app.infra.visualize.plt")
-    def test_plot_branch_voltage_heatmaps_empty_branch_df_uses_fallback_vmin_vmax(self, mock_plt):
+    def test_plot_branch_voltage_heatmaps_empty_branch_df_uses_fallback_vmin_vmax(
+        self, mock_plt
+    ):
         """If no vm_pu columns matching branch, the function should still produce axes and use vmin/vmax fallback"""
         import app.infra.visualize as viz_module
 
@@ -447,7 +449,9 @@ class TestPlotLossesViolationsHeatmaps(unittest.TestCase):
             visualize.plot_losses_violations_heatmaps([123], self.net)  # Invalid type
 
     @patch("app.infra.visualize.plt")
-    def test_plot_losses_violations_heatmaps_handles_no_vm_and_no_i_cols(self, mock_plt):
+    def test_plot_losses_violations_heatmaps_handles_no_vm_and_no_i_cols(
+        self, mock_plt
+    ):
         """If results have no i_ka or vm_pu columns, plotting should continue and use fallback vmin/vmax"""
         mock_fig = Mock()
         mock_axes = [Mock(), Mock()]
@@ -457,9 +461,11 @@ class TestPlotLossesViolationsHeatmaps(unittest.TestCase):
         # empty df (no relevant columns)
         df = pd.DataFrame({"foo": [1, 2, 3]})
         net = Mock()
-        net.line = pd.DataFrame(columns=["r_ohm_per_km", "length_km"]) 
+        net.line = pd.DataFrame(columns=["r_ohm_per_km", "length_km"])
 
-        fig, axes = visualize.plot_losses_violations_heatmaps([df], net, scenario_names=["S1"]) 
+        fig, axes = visualize.plot_losses_violations_heatmaps(
+            [df], net, scenario_names=["S1"]
+        )
 
         mock_plt.subplots.assert_called_once()
         for ax in mock_axes:
@@ -763,19 +769,24 @@ class TestVisualizeExtraCases(unittest.TestCase):
         )
         # lines reference buses by name (should be resolved)
         net.line = pd.DataFrame({"from_bus": ["A"], "to_bus": ["B"]}, index=[0])
-        net.trafo = pd.DataFrame(columns=["hv_bus", "lv_bus"]) 
-        net.ext_grid = pd.DataFrame(columns=["bus"]) 
+        net.trafo = pd.DataFrame(columns=["hv_bus", "lv_bus"])
+        net.ext_grid = pd.DataFrame(columns=["bus"])
         # sgen contains a battery name to go into storage branch
         net.sgen = pd.DataFrame({"bus": [1], "name": ["my_battery"]}, index=[0])
-        net.load = pd.DataFrame(columns=["bus", "name"]) 
-        net.switch = pd.DataFrame(columns=["bus"]) 
+        net.load = pd.DataFrame(columns=["bus", "name"])
+        net.switch = pd.DataFrame(columns=["bus"])
 
         fig, ax = visualize.elegant_draw_network(net, show=False)
 
         # should have drawn the single line and a storage scatter
         self.assertGreaterEqual(mock_ax.plot.call_count, 1)
         # sgen storage should produce a scatter call for storage icon
-        self.assertTrue(any(call.kwargs.get("marker") in ("P", None) for call in mock_ax.scatter.call_args_list))
+        self.assertTrue(
+            any(
+                call.kwargs.get("marker") in ("P", None)
+                for call in mock_ax.scatter.call_args_list
+            )
+        )
 
     @patch("app.infra.visualize.plt")
     def test_elegant_draw_network_invalid_geo_and_partial_coords(self, mock_plt):
@@ -795,12 +806,12 @@ class TestVisualizeExtraCases(unittest.TestCase):
             },
             index=[0, 1],
         )
-        net.line = pd.DataFrame(columns=["from_bus", "to_bus"]) 
-        net.trafo = pd.DataFrame(columns=["hv_bus", "lv_bus"]) 
-        net.ext_grid = pd.DataFrame(columns=["bus"]) 
-        net.sgen = pd.DataFrame(columns=["bus", "name"]) 
-        net.load = pd.DataFrame(columns=["bus", "name"]) 
-        net.switch = pd.DataFrame(columns=["bus"]) 
+        net.line = pd.DataFrame(columns=["from_bus", "to_bus"])
+        net.trafo = pd.DataFrame(columns=["hv_bus", "lv_bus"])
+        net.ext_grid = pd.DataFrame(columns=["bus"])
+        net.sgen = pd.DataFrame(columns=["bus", "name"])
+        net.load = pd.DataFrame(columns=["bus", "name"])
+        net.switch = pd.DataFrame(columns=["bus"])
 
         fig, ax = visualize.elegant_draw_network(net, show=False)
 
@@ -812,7 +823,9 @@ class TestVisualizeExtraCases(unittest.TestCase):
         self.assertTrue(pd.isna(net.bus.loc[1, "x"]))
 
     @patch("app.infra.visualize.plt")
-    def test_plot_losses_violations_heatmaps_handles_no_vm_and_no_i_cols(self, mock_plt):
+    def test_plot_losses_violations_heatmaps_handles_no_vm_and_no_i_cols(
+        self, mock_plt
+    ):
         """If results have no i_ka or vm_pu columns, plotting should continue and use fallback vmin/vmax"""
         mock_fig = Mock()
         mock_axes = [Mock(), Mock()]
@@ -822,9 +835,11 @@ class TestVisualizeExtraCases(unittest.TestCase):
         # empty df (no relevant columns)
         df = pd.DataFrame({"foo": [1, 2, 3]})
         net = Mock()
-        net.line = pd.DataFrame(columns=["r_ohm_per_km", "length_km"]) 
+        net.line = pd.DataFrame(columns=["r_ohm_per_km", "length_km"])
 
-        fig, axes = visualize.plot_losses_violations_heatmaps([df], net, scenario_names=["S1"]) 
+        fig, axes = visualize.plot_losses_violations_heatmaps(
+            [df], net, scenario_names=["S1"]
+        )
 
         mock_plt.subplots.assert_called_once()
         for ax in mock_axes:

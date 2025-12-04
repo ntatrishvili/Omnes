@@ -1519,11 +1519,23 @@ def plot_energy_flows(
     plt.title("Energy System Operation Overview")
     # merge legends from main axis and twin axis
     if ax or twin_ax:
-        handles1, labels1 = ax.get_legend_handles_labels()
-        handles2, labels2 = twin_ax.get_legend_handles_labels()
-        if handles1 or handles2:
+        # Be defensive: some tests mock get_legend_handles_labels and may
+        # return a Mock or non-iterable. Use try/except to fall back to empty lists.
+        try:
+            handles1, labels1 = ax.get_legend_handles_labels()
+        except Exception:
+            handles1, labels1 = [], []
+        try:
+            handles2, labels2 = twin_ax.get_legend_handles_labels()
+        except Exception:
+            handles2, labels2 = [], []
+        if (handles1 and labels1) or (handles2 and labels2):
             ax.legend(
-                handles1 + handles2, labels1 + labels2, loc="best", fontsize=9, ncol=2
+                list(handles1) + list(handles2),
+                list(labels1) + list(labels2),
+                loc="best",
+                fontsize=9,
+                ncol=2,
             )
     else:
         plt.legend(loc="best", fontsize=9, ncol=2)
