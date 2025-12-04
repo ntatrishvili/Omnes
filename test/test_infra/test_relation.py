@@ -396,6 +396,59 @@ class TestAdditionalRelationCases(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             rel.expression.convert(None, 0)
 
+    def test_operator_str(self):
+        # cover Operator.__str__
+        self.assertEqual(str(Operator.ADD), "+")
+        self.assertEqual(str(Operator.LESS_THAN_OR_EQUAL), "<=")
+
+    def test_find_operator_outside_parentheses(self):
+        # operator only inside parentheses -> should return -1
+        self.assertEqual(
+            BinaryExpression._find_operator_outside_parentheses("(a+b)", "+"), -1
+        )
+        # multiple operators, ensure last outside-paren operator is found
+        expr = "a+(b+c)+d"
+        idx = BinaryExpression._find_operator_outside_parentheses(expr, "+")
+        # '+' at index 7 is the last '+' outside parentheses in this compact string
+        self.assertEqual(idx, 7)
+
+    def test_parse_with_parentheses_and_multiplication(self):
+        # top-level multiplication outside parentheses should be detected
+        expr = BinaryExpression.parse_binary("a*(b + c)")
+        self.assertIsInstance(expr, BinaryExpression)
+        self.assertEqual(expr.operator, Operator.MULTIPLY)
+        # left is 'a'
+        self.assertIsInstance(expr.left, EntityReference)
+        self.assertEqual(expr.left.entity_id, "a")
+        # right remains as the literal parenthesized term
+        self.assertIsInstance(expr.right, EntityReference)
+        self.assertEqual(expr.right.entity_id, "(b + c)")
+
+    def test_parse_explicit_positive_time_offset(self):
+        expr = BinaryExpression.parse_binary("pv1.power(t+3)")
+        self.assertIsInstance(expr, EntityReference)
+        self.assertEqual(expr.entity_id, "pv1.power")
+        self.assertEqual(expr.time_offset, 3)
+
+    def test_relation_convert_delegates(self):
+        class C:
+            def __init__(self):
+                self.called = None
+
+            def convert_relation(self, relation_obj, objects, time_set, new_freq):
+                self.called = (relation_obj, objects, time_set, new_freq)
+                return {"converted": True}
+
+        conv = C()
+        rel = Relation("a <= b", "deleg")
+        objects = {"a": 1, "b": 2}
+        res = rel.convert(conv, objects, time_set=10, new_freq="1h")
+        self.assertEqual(res, {"converted": True})
+        self.assertIs(conv.called[0], rel)
+        self.assertEqual(conv.called[1], objects)
+        self.assertEqual(conv.called[2], 10)
+        self.assertEqual(conv.called[3], "1h")
+
 
 if __name__ == "__main__":
     unittest.main()
