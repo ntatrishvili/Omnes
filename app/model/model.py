@@ -46,12 +46,23 @@ class Model:
     def __getitem__(self, id):
         if id in self.entities:
             return self.entities[id]
-        else:
-            for _, entity in self.entities.items():
-                if id not in entity:
-                    continue
-                return entity[id]
+        # Search recursively through sub-entities
+        for entity in self.entities.values():
+            found = self._find_in_subentities(entity, id)
+            if found is not None:
+                return found
         raise KeyError(f"Entity with id '{id}' not found in model '{self.id}'")
+
+    def _find_in_subentities(self, entity: Entity, id: str):
+        # Direct child
+        if id in entity.sub_entities:
+            return entity.sub_entities[id]
+        # Recurse
+        for sub in entity.sub_entities.values():
+            result = self._find_in_subentities(sub, id)
+            if result is not None:
+                return result
+        return None
 
     def set(self, items_to_set):
         for item_id, item in items_to_set.items():
@@ -78,6 +89,7 @@ class Model:
         """
         log.info(f"Building model '{id}' with {time_set} time steps")
         model = cls(id, number_of_time_steps=time_set, resolution=frequency)
+        model.frequency = frequency
         for entity_name, content in config.items():
             entity = Entity(entity_name)
             for pv_id, info in content["pvs"].items():
@@ -105,7 +117,8 @@ class Model:
                 )
                 entity.add_sub_entity(b)
             model.add_entity(entity)
-        model.add_entity(Slack(id="slack"))
+        for slack_id, info in config.get("slacks", {"id": "slack"}).items():
+            model.add_entity(Slack(id=slack_id))
         log.info(f"Model built with {len(model.entities)} entities")
         return model
 

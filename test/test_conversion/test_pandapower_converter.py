@@ -1,11 +1,14 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
+import numpy as np
 import pandas as pd
 
 from app.conversion.pandapower_converter import PandapowerConverter
 from app.infra.quantity import Parameter
+from app.infra.timeseries_object import TimeseriesObject
+from app.model.entity import Entity
 
 
 class DummyWithValue:
@@ -21,6 +24,17 @@ class DummyWithValue:
     def value(self, time_set=None, freq=None):
         # Mirror signature used by converter
         return self._value
+
+
+class DummyTs(TimeseriesObject):
+    def __init__(self, arr):
+        self._arr = np.array(arr)
+
+    def empty(self):
+        return False
+
+    def value(self, time_set=None, freq=None):
+        return self._arr
 
 
 class TestPandapowerConverter(unittest.TestCase):
@@ -268,6 +282,172 @@ class TestPandapowerConverter(unittest.TestCase):
         # expected profile tables exist
         self.assertIn("load", net.profiles)
         self.assertIsInstance(net.profiles["load"], pd.DataFrame)
+
+    def test_convert_quantity_with_parameter_object(self):
+        # Using the real Parameter class should return the stored scalar value
+        p = Parameter(value=123.45)
+        res = self.conv.convert_quantity(p, "param_scalar")
+        self.assertEqual(res, 123.45)
+
+        # Parameter with no value should yield None
+        p_none = Parameter()
+        res_none = self.conv.convert_quantity(p_none, "param_none")
+        self.assertIsNone(res_none)
+
+    def test_convert_entity_default_saves_parameter_and_timeseries(self):
+        # Build an entity with a Parameter and a timeseries-like quantity
+        ent = SimpleNamespace(id="ent1")
+        param = Parameter(value=250)
+        ts = DummyTs([1, 2, 3])
+        ent.quantities = {"p": param, "profile": ts}
+
+        # Ensure profiles DataFrame has an index matching the timeseries length
+        self.conv.net.profiles["load"] = pd.DataFrame(index=range(3))
+
+        # Call converter default routine for a 'load' entity (idx=0)
+        self.conv._convert_entity_default(
+            ent,
+            time_set=None,
+            new_freq=None,
+            entity_type="load",
+            idx=0,
+            profile_type="load",
+        )
+
+        # Parameter should be written into net.load at row 0
+        self.assertIn(0, self.conv.net.load.index)
+        self.assertEqual(self.conv.net.load.at[0, "p"], 250)
+
+        # Timeseries should be written into net.profiles['load'] with column 'ent1_profile'
+        self.assertIn("ent1_profile", self.conv.net.profiles["load"].columns)
+        np.testing.assert_array_equal(
+            self.conv.net.profiles["load"]["ent1_profile"].values, np.array([1, 2, 3])
+        )
+
+    @patch("app.conversion.pandapower_converter.pp.create_transformer")
+    def test_convert_transformer_with_missing_std_type_logs_and_creates(
+        self, mock_create_trafo
+    ):
+        # Create two buses in the network and map them
+        hv = SimpleNamespace(
+            id="HV",
+            nominal_voltage=SimpleNamespace(value=20000),
+            coordinates={"x": 0, "y": 0},
+        )
+        lv = SimpleNamespace(
+            id="LV",
+            nominal_voltage=SimpleNamespace(value=400),
+            coordinates={"x": 1, "y": 1},
+        )
+        hv_idx = self.conv._convert_bus(hv)
+        lv_idx = self.conv._convert_bus(lv)
+        self.conv.bus_map = {"HV": hv_idx, "LV": lv_idx}
+
+        # Create transformer object without a valid std_type (type present but not in net.std_types)
+        trafo_obj = SimpleNamespace(
+            id="trafoX",
+            from_bus="HV",
+            to_bus="LV",
+            type=SimpleNamespace(value="NON_EXISTENT"),
+            nominal_power=SimpleNamespace(value=100.0),
+        )
+
+        # Ensure std_types missing or does not contain the name
+        self.conv.net.std_types = {"trafo": {}}
+
+        # Patch create_transformer to avoid pandapower load_std_type raising UserWarning
+        mock_create_trafo.return_value = 5
+
+        # Call _convert_transformer - should not raise and should create a trafo row
+        idx = self.conv._convert_transformer(trafo_obj)
+        self.assertEqual(idx, 5)
+
+    @patch("app.conversion.pandapower_converter.pp.create_transformer")
+    def test_convert_transformer_without_type_attribute(self, mock_create_trafo):
+        # Test trafo object without a .type attribute (std_type should be None)
+        hv = SimpleNamespace(
+            id="HV2",
+            nominal_voltage=SimpleNamespace(value=20000),
+            coordinates={"x": 0, "y": 0},
+        )
+        lv = SimpleNamespace(
+            id="LV2",
+            nominal_voltage=SimpleNamespace(value=400),
+            coordinates={"x": 1, "y": 1},
+        )
+        hv_idx = self.conv._convert_bus(hv)
+        lv_idx = self.conv._convert_bus(lv)
+        self.conv.bus_map = {"HV2": hv_idx, "LV2": lv_idx}
+
+        trafo_obj = SimpleNamespace(
+            id="trafoY",
+            from_bus="HV2",
+            to_bus="LV2",
+            nominal_power=SimpleNamespace(value=50.0),
+        )
+        # No std_types in net
+        if hasattr(self.conv.net, "std_types"):
+            self.conv.net.std_types["trafo"] = {}
+
+        mock_create_trafo.return_value = 7
+        idx = self.conv._convert_transformer(trafo_obj)
+        self.assertEqual(idx, 7)
+
+    def test_convert_generic_entity_uses_default_shift_and_returns_name(self):
+        # Create an entity missing va0 so that default shift_degree=150 is used
+        quantities = {
+            "id": Parameter(value="MY_T1"),
+            "sR": Parameter(value=0.1),
+            "vmHV": Parameter(value=10.0),
+            "vmLV": Parameter(value=0.4),
+            # intentionally omit 'va0' to trigger default
+            "vmImp": Parameter(value=120),
+            "pFe": Parameter(value=1.2),
+            "iNoLoad": Parameter(value=0.2),
+        }
+        entity = SimpleNamespace(quantities=quantities, id="GEN_TRAFO")
+        name = self.conv._convert_generic_entity(entity)
+        self.assertIsInstance(name, str)
+        # std_type should be present in net.std_types['trafo'] after creation
+        self.assertIn(name, self.conv.net.std_types["trafo"])
+
+    def test_convert_back_handles_missing_and_present_results(self):
+        # Prepare model with one entity representing a bus and one representing a line
+        bus_entity = Entity(id="BUS_A")
+        line_entity = Entity(id="LINE1")
+        model = SimpleNamespace(entities={"BUS_A": bus_entity, "LINE1": line_entity})
+        self.conv.model = model
+
+        # Map bus name to index
+        self.conv.bus_map = {"BUS_A": 0}
+
+        # Case 1: net.res_bus exists but no vm_pu column -> vm_pu should be None and set on entity
+        self.conv.net.res_bus = pd.DataFrame(index=[0])
+        # ensure no vm_pu column
+        if "vm_pu" in self.conv.net.res_bus.columns:
+            self.conv.net.res_bus.drop(columns=["vm_pu"], inplace=True)
+
+        # Also set up line tables without res_line
+        self.conv.net.line = pd.DataFrame([{"name": "LINE1"}], index=[0])
+        if hasattr(self.conv.net, "res_line"):
+            delattr(self.conv.net, "res_line")
+
+        # call convert_back
+        self.conv.convert_back(model)
+        # bus entity should have attribute last_vm_pu set to None
+        self.assertTrue(hasattr(bus_entity, "last_vm_pu"))
+        self.assertIsNone(bus_entity.last_vm_pu)
+
+        # Now add vm_pu and res_line with loading_percent and verify values are stored
+        self.conv.net.res_bus = pd.DataFrame({"vm_pu": [1.05]}, index=[0])
+        self.conv.net.line = pd.DataFrame([{"name": "LINE1"}], index=[0])
+        self.conv.net.res_line = pd.DataFrame({"loading_percent": [12.3]}, index=[0])
+
+        # Run convert_back again
+        self.conv.convert_back(model)
+        # Values should be propagated to entities
+        self.assertEqual(bus_entity.last_vm_pu, 1.05)
+        self.assertEqual(line_entity.last_loading_percent, 12.3)
 
 
 if __name__ == "__main__":

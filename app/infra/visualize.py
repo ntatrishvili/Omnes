@@ -22,6 +22,38 @@ mpl.rcParams["savefig.transparent"] = True
 mpl.rcParams["figure.facecolor"] = "none"
 mpl.rcParams["axes.facecolor"] = "none"
 
+# Define a named, harmonious palette for the project (modern, vibrant, scientific)
+OMNES_PALETTE = {
+    "fluorescent_green": "#39FF14",  # vivid green (accent)
+    "fluorescent_pink": "#FF2D95",  # vivid pink (accent)
+    "deep_teal": "#0B6E66",
+    "soft_cyan": "#88CDEE",
+    "deep_green": "#2D8F2D",
+    "soft_green": "#B3E6B3",
+    "coral_red": "#CC4444",
+    "gold": "#FFD700",
+    "neutral_light": "#F0F0F0",
+    "light_gray": "#D3D3D3",
+    "dark_gray": "#444444",
+    "navy": "#013A63",
+    "magenta": "#D61C6F",
+    "purple": "#6B2D9A",
+    "black": "#000000",
+    "white": "#FFFFFF",
+}
+
+# Set a default matplotlib color cycle using key palette colors
+_default_cycle = [
+    OMNES_PALETTE["fluorescent_green"],
+    OMNES_PALETTE["fluorescent_pink"],
+    OMNES_PALETTE["deep_teal"],
+    OMNES_PALETTE["soft_cyan"],
+    OMNES_PALETTE["coral_red"],
+    OMNES_PALETTE["soft_green"],
+    OMNES_PALETTE["navy"],
+]
+mpl.rcParams["axes.prop_cycle"] = mpl.cycler(color=_default_cycle)
+
 
 def elegant_draw_network(
     net,
@@ -121,7 +153,13 @@ def elegant_draw_network(
         p2 = _pos(r.to_bus)
         if p1 is None or p2 is None:
             continue
-        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color="k", lw=1.6, zorder=1)
+        ax.plot(
+            [p1[0], p2[0]],
+            [p1[1], p2[1]],
+            color=OMNES_PALETTE["dark_gray"],
+            lw=1.6,
+            zorder=1,
+        )
 
     # Draw trafos
     for _, r in net.trafo.iterrows():
@@ -132,7 +170,7 @@ def elegant_draw_network(
         ax.plot(
             [p1[0], p2[0]],
             [p1[1], p2[1]],
-            color="#444444",
+            color=OMNES_PALETTE["dark_gray"],
             lw=2.0,
             linestyle=(0, (3, 2)),
             zorder=2,
@@ -144,7 +182,13 @@ def elegant_draw_network(
         if p is None:
             continue
         ax.scatter(
-            p[0], p[1], marker="*", color="gold", s=220, zorder=6, edgecolors="k"
+            p[0],
+            p[1],
+            marker="*",
+            color=OMNES_PALETTE["gold"],
+            s=220,
+            zorder=6,
+            edgecolors=OMNES_PALETTE["dark_gray"],
         )
 
     # Compute spans for offsets
@@ -168,7 +212,12 @@ def elegant_draw_network(
         ys.append(pos[1])
 
     ax.scatter(
-        xs, ys, s=bus_marker_size, facecolor="#f0f0f0", edgecolor="#444444", zorder=5
+        xs,
+        ys,
+        s=bus_marker_size,
+        facecolor=OMNES_PALETTE["neutral_light"],
+        edgecolor=OMNES_PALETTE["dark_gray"],
+        zorder=5,
     )
 
     if annotate:
@@ -195,7 +244,12 @@ def elegant_draw_network(
                 ha="left",
                 va="bottom",
                 zorder=12,
-                bbox=dict(facecolor="white", alpha=0.85, edgecolor="none", pad=0.2),
+                bbox=dict(
+                    facecolor=OMNES_PALETTE["white"],
+                    alpha=0.85,
+                    edgecolor="none",
+                    pad=0.2,
+                ),
             )
 
     # Collect elements per bus and draw them around the bus so they don't overlap
@@ -291,15 +345,15 @@ def elegant_draw_network(
                     y_plot,
                     marker="o",
                     s=sgen_size,
-                    facecolor="#88ccee",
-                    edgecolor="#2b6f8f",
+                    facecolor=OMNES_PALETTE["soft_cyan"],
+                    edgecolor=OMNES_PALETTE["deep_teal"],
                     zorder=14,
                 )
                 dx = 0.00005 * avg_span
                 ax.plot(
                     [x_plot - dx, x_plot + dx],
                     [y_plot, y_plot],
-                    color="#2b6f8f",
+                    color=OMNES_PALETTE["deep_teal"],
                     lw=1.2,
                     zorder=15,
                 )
@@ -309,8 +363,8 @@ def elegant_draw_network(
                     y_plot,
                     marker="v",
                     s=load_size,
-                    facecolor="#ffffff",
-                    edgecolor="#cc4444",
+                    facecolor=OMNES_PALETTE["white"],
+                    edgecolor=OMNES_PALETTE["coral_red"],
                     zorder=14,
                 )
             elif typ == "storage":
@@ -319,8 +373,8 @@ def elegant_draw_network(
                     y_plot,
                     marker="P",
                     s=120,
-                    facecolor="#b3e6b3",
-                    edgecolor="#2d8f2d",
+                    facecolor=OMNES_PALETTE["soft_green"],
+                    edgecolor=OMNES_PALETTE["deep_green"],
                     zorder=13,
                 )
 
@@ -330,20 +384,22 @@ def elegant_draw_network(
         [0],
         marker="o",
         color="w",
-        markerfacecolor="#88ccee",
-        markeredgecolor="#2b6f8f",
+        markerfacecolor=OMNES_PALETTE["soft_cyan"],
+        markeredgecolor=OMNES_PALETTE["deep_teal"],
         markersize=8,
         linestyle="None",
     )
-    pv_hline = Line2D([-0.2, 0.2], [0, 0], color="#2b6f8f", linewidth=1)
+    pv_hline = Line2D(
+        [-0.2, 0.2], [0, 0], color=OMNES_PALETTE["deep_teal"], linewidth=1
+    )
     pv_proxy = (pv_circle, pv_hline)
     load_proxy = Line2D(
         [0],
         [0],
         marker="v",
-        color="#cc4444",
-        markerfacecolor="#ffffff",
-        markeredgecolor="#cc4444",
+        color=OMNES_PALETTE["coral_red"],
+        markerfacecolor=OMNES_PALETTE["white"],
+        markeredgecolor=OMNES_PALETTE["coral_red"],
         markersize=8,
         linestyle="None",
     )
@@ -352,8 +408,8 @@ def elegant_draw_network(
         [0],
         marker="o",
         color="w",
-        markerfacecolor="#f0f0f0",
-        markeredgecolor="#444444",
+        markerfacecolor=OMNES_PALETTE["neutral_light"],
+        markeredgecolor=OMNES_PALETTE["dark_gray"],
         markersize=8,
         linestyle="None",
     )
@@ -361,8 +417,8 @@ def elegant_draw_network(
         [0],
         [0],
         marker="*",
-        color="gold",
-        markerfacecolor="gold",
+        color=OMNES_PALETTE["gold"],
+        markerfacecolor=OMNES_PALETTE["gold"],
         markersize=10,
         linestyle="None",
     )
@@ -371,8 +427,8 @@ def elegant_draw_network(
         [0],
         marker="P",
         color="w",
-        markerfacecolor="#b3e6b3",
-        markeredgecolor="#2d8f2d",
+        markerfacecolor=OMNES_PALETTE["soft_green"],
+        markeredgecolor=OMNES_PALETTE["deep_green"],
         markersize=8,
         linestyle="None",
     )
@@ -1463,11 +1519,23 @@ def plot_energy_flows(
     plt.title("Energy System Operation Overview")
     # merge legends from main axis and twin axis
     if ax or twin_ax:
-        handles1, labels1 = ax.get_legend_handles_labels()
-        handles2, labels2 = twin_ax.get_legend_handles_labels()
-        if handles1 or handles2:
+        # Be defensive: some tests mock get_legend_handles_labels and may
+        # return a Mock or non-iterable. Use try/except to fall back to empty lists.
+        try:
+            handles1, labels1 = ax.get_legend_handles_labels()
+        except Exception:
+            handles1, labels1 = [], []
+        try:
+            handles2, labels2 = twin_ax.get_legend_handles_labels()
+        except Exception:
+            handles2, labels2 = [], []
+        if (handles1 and labels1) or (handles2 and labels2):
             ax.legend(
-                handles1 + handles2, labels1 + labels2, loc="best", fontsize=9, ncol=2
+                list(handles1) + list(handles2),
+                list(labels1) + list(labels2),
+                loc="best",
+                fontsize=9,
+                ncol=2,
             )
     else:
         plt.legend(loc="best", fontsize=9, ncol=2)

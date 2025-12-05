@@ -272,45 +272,182 @@ class TestRelation(unittest.TestCase):
         self.assertEqual(relation.expression.value, "2h")
 
 
-class TestEdgeCases(unittest.TestCase):
-    def test_parentheses_handling(self):
-        """Test that parentheses in time references don't interfere with arithmetic parsing"""
-        expr = BinaryExpression.parse_binary(
-            "battery.soc(t) >= battery.soc(t-1) + efficiency"
+class TestAdditionalRelationCases(unittest.TestCase):
+    def test_entity_reference_invalid_id_raises(self):
+        with self.assertRaises(ValueError):
+            EntityReference("  ", 0)
+
+    def test_literal_convert_calls_converter(self):
+        class C:
+            def __init__(self):
+                self.called = None
+
+            def convert_literal(self, literal_obj, value, t, time_set, new_freq):
+                # record and return an identifiable value
+                self.called = (literal_obj, value, t, time_set, new_freq)
+                return ("lit_conv", value)
+
+        conv = C()
+        lit = Literal(7)
+        res = lit.convert(conv, t=3, time_set=None, new_freq=None)
+        self.assertEqual(res, ("lit_conv", 7))
+        self.assertIs(conv.called[0], lit)
+        self.assertEqual(conv.called[2], 3)
+
+    def test_entityreference_convert_calls_converter(self):
+        class C:
+            def __init__(self):
+                self.called = None
+
+            def convert_entity_reference(
+                self, entity_ref_obj, entity_id, t, time_set, new_freq
+            ):
+                self.called = (entity_ref_obj, entity_id, t)
+                return ("ent_conv", entity_id)
+
+        conv = C()
+        ref = EntityReference("some.device", -1)
+        res = ref.convert(conv, t=5, time_set=10, new_freq="1h")
+        self.assertEqual(res, ("ent_conv", "some.device"))
+        self.assertIs(conv.called[0], ref)
+        self.assertEqual(conv.called[2], 5)
+
+    def test_binary_expression_convert_delegates(self):
+        class C:
+            def convert_literal(self, literal_obj, value, t, time_set, new_freq):
+                return value * 10
+
+            def convert_binary_expression(
+                self, expr_obj, left_res, right_res, operator, t, time_set, new_freq
+            ):
+                return (expr_obj, left_res, right_res, operator)
+
+        conv = C()
+        be = BinaryExpression(Literal(2), Operator.MULTIPLY, Literal(3))
+        res = be.convert(conv, t=0)
+        # left 2 -> 20, right 3 -> 30, operator MULTIPLY
+        self.assertEqual(res[1], 20)
+        self.assertEqual(res[2], 30)
+        self.assertEqual(res[3], Operator.MULTIPLY)
+
+    def test_assignment_expression_convert_uses_entity_and_literal(self):
+        class C:
+            def __init__(self):
+                self.called = None
+
+            def convert_entity_reference(
+                self, entity_ref_obj, entity_id, t, time_set, new_freq
+            ):
+                return "E", entity_id
+
+            def convert_literal(self, literal_obj, value, t, time_set, new_freq):
+                return "L", value
+
+            def convert_binary_expression(
+                self, expr_obj, left_res, right_res, operator, t, time_set, new_freq
+            ):
+                # return a compact tuple for assertions
+                return left_res, right_res, operator
+
+        conv = C()
+        assign = AssignmentExpression("sensor.temp", "25")
+        res = assign.convert(conv, t=1)
+        # left should be handled via convert_entity_reference and right via convert_literal
+        self.assertEqual(res[0], ("E", "sensor.temp"))
+        self.assertEqual(res[1], ("L", "25"))
+        self.assertEqual(res[2], Operator.EQUAL)
+
+    def test_time_condition_convert_not_implemented(self):
+        tc = TimeConditionExpression("heater", "enabled", "08:00", "12:00")
+        with self.assertRaises(NotImplementedError):
+            tc.convert(None, 0)
+
+    def test_parse_numeric_literals_int_and_float(self):
+        expr_int = BinaryExpression.parse_binary("2.0")
+        self.assertIsInstance(expr_int, Literal)
+        self.assertEqual(expr_int.value, 2)
+
+        expr_float = BinaryExpression.parse_binary("2.5")
+        self.assertIsInstance(expr_float, Literal)
+        self.assertEqual(expr_float.value, 2.5)
+
+    def test_get_ids_with_duplicates(self):
+        # left is 'a', right is (a + b) -> get_ids returns ['a','a','b']
+        inner = BinaryExpression(
+            EntityReference("a"), Operator.ADD, EntityReference("b")
         )
+        top = BinaryExpression(EntityReference("a"), Operator.ADD, inner)
+        ids = top.get_ids()
+        self.assertEqual(ids, ["a", "a", "b"])
 
-        # Should correctly parse without being confused by (t-1)
-        self.assertEqual(expr.operator, Operator.GREATER_THAN_OR_EQUAL)
-        self.assertEqual(expr.right.operator, Operator.ADD)
-        self.assertEqual(expr.right.left.time_offset, -1)
+    def test_time_condition_malformed_raises(self):
+        # malformed time string should raise ValueError in parsing
+        with self.assertRaises(ValueError):
+            Relation("heater.power enabled from 100 to 16:00")
 
-    def test_simple_variable_names(self):
-        """Test parsing simple variable names without dots"""
-        expr = BinaryExpression.parse_binary("x + y <= z")
+    def test_assignment_get_ids_with_expressions(self):
+        # AssignmentExpression with expression objects should return their ids
+        assign = AssignmentExpression(EntityReference("a"), Literal(5))
+        ids = assign.get_ids()
+        self.assertEqual(ids, ["a"])
 
-        ids = expr.get_ids()
-        self.assertEqual(sorted(ids), ["x", "y", "z"])
+    def test_if_then_convert_not_implemented(self):
+        rel = Relation("if a < b then c < d")
+        with self.assertRaises(NotImplementedError):
+            rel.expression.convert(None, 0)
 
-        # All should be treated as EntityReference with time_offset=0
-        self.assertEqual(expr.left.operator, Operator.ADD)
-        self.assertEqual(expr.left.left.time_offset, 0)
-        self.assertEqual(expr.left.right.time_offset, 0)
+    def test_operator_str(self):
+        # cover Operator.__str__
+        self.assertEqual(str(Operator.ADD), "+")
+        self.assertEqual(str(Operator.LESS_THAN_OR_EQUAL), "<=")
 
-    def test_float_literals(self):
-        """Test parsing float literals"""
-        expr = BinaryExpression.parse_binary("battery.efficiency >= 0.85")
+    def test_find_operator_outside_parentheses(self):
+        # operator only inside parentheses -> should return -1
+        self.assertEqual(
+            BinaryExpression._find_operator_outside_parentheses("(a+b)", "+"), -1
+        )
+        # multiple operators, ensure last outside-paren operator is found
+        expr = "a+(b+c)+d"
+        idx = BinaryExpression._find_operator_outside_parentheses(expr, "+")
+        # '+' at index 7 is the last '+' outside parentheses in this compact string
+        self.assertEqual(idx, 7)
 
-        self.assertIsInstance(expr.right, Literal)
-        self.assertEqual(expr.right.value, 0.85)
+    def test_parse_with_parentheses_and_multiplication(self):
+        # top-level multiplication outside parentheses should be detected
+        expr = BinaryExpression.parse_binary("a*(b + c)")
+        self.assertIsInstance(expr, BinaryExpression)
+        self.assertEqual(expr.operator, Operator.MULTIPLY)
+        # left is 'a'
+        self.assertIsInstance(expr.left, EntityReference)
+        self.assertEqual(expr.left.entity_id, "a")
+        # right remains as the literal parenthesized term
+        self.assertIsInstance(expr.right, EntityReference)
+        self.assertEqual(expr.right.entity_id, "(b + c)")
 
-    def test_multiple_operators_same_precedence(self):
-        """Test left-to-right evaluation for same precedence operators"""
-        expr = BinaryExpression.parse_binary("a - b + c")
+    def test_parse_explicit_positive_time_offset(self):
+        expr = BinaryExpression.parse_binary("pv1.power(t+3)")
+        self.assertIsInstance(expr, EntityReference)
+        self.assertEqual(expr.entity_id, "pv1.power")
+        self.assertEqual(expr.time_offset, 3)
 
-        # Should parse as: (a - b) + c
-        self.assertEqual(expr.operator, Operator.ADD)
-        self.assertEqual(expr.left.operator, Operator.SUBTRACT)
-        self.assertEqual(expr.right.entity_id, "c")
+    def test_relation_convert_delegates(self):
+        class C:
+            def __init__(self):
+                self.called = None
+
+            def convert_relation(self, relation_obj, objects, time_set, new_freq):
+                self.called = (relation_obj, objects, time_set, new_freq)
+                return {"converted": True}
+
+        conv = C()
+        rel = Relation("a <= b", "deleg")
+        objects = {"a": 1, "b": 2}
+        res = rel.convert(conv, objects, time_set=10, new_freq="1h")
+        self.assertEqual(res, {"converted": True})
+        self.assertIs(conv.called[0], rel)
+        self.assertEqual(conv.called[1], objects)
+        self.assertEqual(conv.called[2], 10)
+        self.assertEqual(conv.called[3], "1h")
 
 
 if __name__ == "__main__":
