@@ -1,6 +1,8 @@
+![Coverage](https://github.com/ntatrishvili/Omnes/raw/main/coverage-badge.svg)
+
 # Omnes 
 
-**Omnes** is an energy system modelling platform that lets you transform structured datasets into solvable energy models using a simple configuration and processing pipeline. Built for flexibility and clarity, Omnes supports modular data uploads, transformation, and model execution — currently with support for the **Gurobi** solver.
+**Omnes** is an energy system modelling platform that lets you transform structured datasets into solvable energy models using a simple configuration and processing pipeline. Built for flexibility and clarity, Omnes supports modular data uploads, transformation, and model execution — currently with support *PuLP* solver and *Pandapower* simulator.
 
 ---
 
@@ -9,8 +11,8 @@
 - Upload data files to the `data/` folder to describe your energy system (e.g., technologies, resources, demands)
 - Easily configure the time set, resolution, and model settings via `config.ini`
 - Transform input data into a model-ready format
-- Run your custom optimization script with full Gurobi integration
-- Modular design for experimenting with different models and solvers (Gurobi supported currently)
+- Run your custom optimization script with full PulP integration
+- Run your custom simulation with Pandapower
 
 ---
 
