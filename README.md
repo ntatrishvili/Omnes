@@ -11,7 +11,7 @@
 - Upload data files to the `data/` folder to describe your energy system (e.g., technologies, resources, demands)
 - Easily configure the time set, resolution, and model settings via `config.ini`
 - Transform input data into a model-ready format
-- Run your custom optimization script with full PulP integration
+- Run your custom optimization script with full PuLP integration
 - Run your custom simulation with Pandapower
 
 ---
