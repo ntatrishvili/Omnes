@@ -1,4 +1,4 @@
-![Coverage](https://github.com/ntatrishvili/Omnes/raw/main/coverage-badge.svg)
+![Coverage](https://github.com/ntatrishvili/Omnes/actions/workflows/ci.yml/coverage-badge.svg)
 
 # Omnes 
 
