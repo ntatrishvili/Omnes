@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for SonarQube
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,7 +38,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install black flake8 pytest bandit safety
+          pip install black flake8 pytest bandit safety pytest-cov
 
       - name: Run Black (Code Formatter)
         run: black --check .
@@ -46,29 +48,24 @@ jobs:
 
       - name: Run Pytest with Coverage (Unit Tests)
         run: |
-          pip install pytest-cov
           export PYTHONPATH=.
-          pytest --cov=app.model --cov=app.infra --cov=app.conversion --cov-report=term-missing --cov-report=xml --maxfail=3 --disable-warnings -v
+          pytest --cov=app.model --cov=app.infra --cov=app.conversion --cov-report=term-missing --cov-report=xml --cov-report=html --maxfail=3 --disable-warnings -v
 
       - name: Upload Coverage to GitHub Actions
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: coverage.xml
-
-      - name: Generate Coverage Badge for README
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: tj-actions/coverage-badge-py@v2
-
-      - name: Upload coverage badge for README
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-badge
-          path: coverage-badge.svg
+          path: |
+            coverage.xml
+            htmlcov/
 
       - name: Pytest Coverage Comment on PRs
         if: github.event_name == 'pull_request'
         uses: MishaKav/pytest-coverage-comment@main
         with:
           pytest-xml-coverage-path: ./coverage.xml
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
