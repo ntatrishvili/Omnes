@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from app.model.grid_component.bus import Bus, BusType
@@ -12,7 +13,7 @@ def test_bus_defaults():
 
 def test_bus_custom_nominal_voltage_and_type():
     bus = Bus(id="bus1", nominal_voltage=400.0, type=BusType.SLACK)
-    assert bus.nominal_voltage.value == 400.0
+    assert math.isclose(bus.nominal_voltage.value, 400.0)
     assert bus.type.value == BusType.SLACK
 
 

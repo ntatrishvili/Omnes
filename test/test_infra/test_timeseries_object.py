@@ -1,3 +1,4 @@
+import math
 import pytest
 import numpy as np
 import pandas as pd
@@ -104,7 +105,7 @@ def test_metadata_operations(ts_simple):
         peak_power=100, efficiency=0.95, constraints={"max_power": "< 80kW"}
     )
     assert ts_with_meta.get_metadata("peak_power") == 100
-    assert ts_with_meta.get_metadata("efficiency") == 0.95
+    assert math.isclose(ts_with_meta.get_metadata("efficiency"), 0.95)
     all_meta = ts_with_meta.get_metadata()
     assert "peak_power" in all_meta
     assert "constraints" in all_meta
