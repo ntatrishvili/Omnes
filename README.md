@@ -1,6 +1,10 @@
+[![CI Pipeline](https://github.com/ntatrishvili/Omnes/actions/workflows/ci.yml/badge.svg)](https://github.com/ntatrishvili/Omnes/actions/workflows/ci.yml)
+[![CodeQL Analysis](https://github.com/ntatrishvili/Omnes/actions/workflows/codeql.yml/badge.svg)](https://github.com/ntatrishvili/Omnes/actions/workflows/codeql.yml)
+[![Nightly](https://github.com/ntatrishvili/Omnes/actions/workflows/nightly.yml/badge.svg)](https://github.com/ntatrishvili/Omnes/actions/workflows/nightly.yml)
+
 # Omnes 
 
-**Omnes** is an energy system modelling platform that lets you transform structured datasets into solvable energy models using a simple configuration and processing pipeline. Built for flexibility and clarity, Omnes supports modular data uploads, transformation, and model execution — currently with support for the **Gurobi** solver.
+**Omnes** is an energy system modelling platform that lets you transform structured datasets into solvable energy models using a simple configuration and processing pipeline. Built for flexibility and clarity, Omnes supports modular data uploads, transformation, and model execution — currently with support *PuLP* solver and *Pandapower* simulator.
 
 ---
 
@@ -9,8 +13,8 @@
 - Upload data files to the `data/` folder to describe your energy system (e.g., technologies, resources, demands)
 - Easily configure the time set, resolution, and model settings via `config.ini`
 - Transform input data into a model-ready format
-- Run your custom optimization script with full Gurobi integration
-- Modular design for experimenting with different models and solvers (Gurobi supported currently)
+- Run your custom optimization script with full PuLP integration
+- Run your custom simulation with Pandapower
 
 ---
 
@@ -91,6 +95,23 @@ MIT License — see `LICENSE` file.
 SPDX-License-Identifier: MIT
 
 ---
+
+## How to cite
+If you use this framework in academic work or reports, please cite it as:
+
+>Tatrishvili N., Barancsuk L., Lorenti G., Optimization and Simulation of Multi-node Multi-Energy Systems (version 1.0), GitHub repository, 2025. Available at: https://github.com/ntatrishvili/Omnes
+
+You can also use a BibTeX-style entry:
+```LaTex
+@misc{omnes,
+  author       = {Tatrishvili N., Barancsuk L., Lorenti G.},
+  title        = {Optimization and Simulation of Multi-node Multi-Energy Systems},
+  year         = {2025},
+  howpublished = {GitHub repository},
+  note         = {Version 1.0},
+  url          = {https://github.com/ntatrishvili/Omnes}
+}
+```
 
 ## Maintainer
 
