@@ -98,6 +98,23 @@ SPDX-License-Identifier: MIT
 
 ---
 
+## How to cite
+If you use this framework in academic work or reports, please cite it as:
+
+>Tatrishvili N., Barancsuk L., Lorenti G., Optimization and Simulation of Multi-node Multi-Energy Systems (version 1.0), GitHub repository, 2025. Available at: https://github.com/ntatrishvili/Omnes
+
+You can also use a BibTeX-style entry:
+```LaTex
+@misc{omnes,
+  author       = {Tatrishvili N., Barancsuk L., Lorenti G.},
+  title        = {Optimization and Simulation of Multi-node Multi-Energy Systems},
+  year         = {2025},
+  howpublished = {GitHub repository},
+  note         = {Version 1.0},
+  url          = {https://github.com/ntatrishvili/Omnes}
+}
+```
+
 ## Maintainer
 
 Built and maintained by
