@@ -1,6 +1,7 @@
 [![CI Pipeline](https://github.com/ntatrishvili/Omnes/actions/workflows/ci.yml/badge.svg)](https://github.com/ntatrishvili/Omnes/actions/workflows/ci.yml)
 [![CodeQL Analysis](https://github.com/ntatrishvili/Omnes/actions/workflows/codeql.yml/badge.svg)](https://github.com/ntatrishvili/Omnes/actions/workflows/codeql.yml)
 [![Nightly](https://github.com/ntatrishvili/Omnes/actions/workflows/nightly.yml/badge.svg)](https://github.com/ntatrishvili/Omnes/actions/workflows/nightly.yml)
+[![Docs](https://github.com/ntatrishvili/Omnes/actions/workflows/docs.yml/badge.svg)](https://github.com/ntatrishvili/Omnes/actions/workflows/docs.yml)
 
 # Omnes 
 
