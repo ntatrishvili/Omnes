@@ -19,3 +19,6 @@ htmlcov/
 .coverage
 *.log*
 config.ini
+
+# mkdocs documentation
+/site/
