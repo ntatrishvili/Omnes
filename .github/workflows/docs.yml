@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/*
     paths:
       - 'app/**'
       - 'docs/**'
@@ -34,7 +35,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install mkdocs mkdocstrings[python]
+          pip install mkdocs material mkdocstrings[python]
 
       - name: Build documentation
         run: mkdocs build --strict
