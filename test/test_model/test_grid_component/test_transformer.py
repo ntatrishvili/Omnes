@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from app.model.grid_component.transformer import Transformer
@@ -33,9 +34,9 @@ def test_transformer_custom_values():
         nominal_voltage_lv_side=0.5,
         type="distribution",
     )
-    assert tr.nominal_power.value == 0.5
-    assert tr.nominal_voltage_hv_side.value == 20.0
-    assert tr.nominal_voltage_lv_side.value == 0.5
+    assert math.isclose(tr.nominal_power.value, 0.5)
+    assert math.isclose(tr.nominal_voltage_hv_side.value, 20.0)
+    assert math.isclose(tr.nominal_voltage_lv_side.value, 0.5)
     assert tr.type.value == "distribution"
 
 

@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from app.model.grid_component.line import Line
@@ -23,9 +24,9 @@ def test_line_with_custom_parameters():
         reactance=0.02,
     )
     assert line.max_current.value == 100
-    assert line.line_length.value == 1.2
-    assert line.resistance.value == 0.01
-    assert line.reactance.value == 0.02
+    assert math.isclose(line.line_length.value, 1.2)
+    assert math.isclose(line.resistance.value, 0.01)
+    assert math.isclose(line.reactance.value, 0.02)
 
 
 def test_line_str_representation():

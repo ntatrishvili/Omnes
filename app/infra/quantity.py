@@ -35,7 +35,7 @@ class Quantity(ABC):
         return self.set(value, **kwargs)
 
     @property
-    def value(self, **kwargs):
+    def value(self, **kwargs):  #  NOSONAR
         return None
 
     @abstractmethod
@@ -95,5 +95,5 @@ class Parameter(Quantity):
         self._value = converted
 
     @property
-    def value(self, **kwargs):
+    def value(self):
         return self._value

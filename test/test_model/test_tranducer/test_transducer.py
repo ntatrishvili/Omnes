@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from app.infra.quantity import Parameter
@@ -22,7 +23,7 @@ def test_converter_basic_attributes():
     assert conv.p_in.empty()
     assert conv.p_out.empty()
     assert isinstance(conv.conversion_efficiency, Parameter)
-    assert conv.conversion_efficiency.value == 0.8
+    assert math.isclose(conv.conversion_efficiency.value, 0.8)
     assert conv.controllable is True
     assert conv.input_device == "dev1"
     assert conv.output_device == "dev2"
