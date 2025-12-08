@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Your Name" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Visualize - Omnes Documentation</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Visualize";
+        var mkdocs_page_input_path = "infra/visualize.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> Omnes Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Welcome to OMNES</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../AGENT_GUIDE/">AI Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../CONTRIBUTING/">Contributing to Omnes</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../DEVELOPER_GUIDE/">Developer Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../changelog/">CHANGELOG</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../readme/">Readme</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Conversion</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/context/">Context</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/conversion_utils/">Conversion utils</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/converter/">Converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/pandapower_converter/">Pandapower converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/pulp_converter/">Pulp converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/validation_utils/">Validation utils</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Infra</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../configuration/">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../logging_setup/">Logging setup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../quantity/">Quantity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../relation/">Relation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../singleton/">Singleton</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../timeseries_object/">Timeseries object</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../timeseries_object_factory/">Timeseries object factory</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../util/">Util</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Visualize</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.visualize.annotate_buses"><code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;annotate_buses</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.visualize.draw_battery_icon"><code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;draw_battery_icon</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.visualize.fit_network_axis"><code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;fit_network_axis</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.visualize.plot_branch_voltage_heatmaps"><code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;plot_branch_voltage_heatmaps</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.visualize.plot_losses_violations_heatmaps"><code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;plot_losses_violations_heatmaps</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.infra.visualize.visualize_high_voltage_day"><code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;visualize_high_voltage_day</a>
+    </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Model</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/device/">Device</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/entity/">Entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/generic_entity/">Generic entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/model/">Model</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/slack/">Slack</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Generator</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/generator/">Generator</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/pv/">Pv</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/wind_turbine/">Wind turbine</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Grid component</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/bus/">Bus</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/connector/">Connector</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/grid_component/">Grid component</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/line/">Line</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/transformer/">Transformer</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Load</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/load/load/">Load</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Storage</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/battery/">Battery</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/hot_water_storage/">Hot water storage</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/storage/">Storage</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Transducer</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/transducer/transducer/">Transducer</a>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operation</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operation/example_optimization/">Example optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operation/example_simulation/">Example simulation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operation/simbench_1-LV-rural1--0-sw_feeder/">simbench 1 LV rural1  0 sw feeder</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">Omnes Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Infra</li>
+      <li class="breadcrumb-item active">Visualize</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <div class="doc doc-object doc-module">
+
+
+
+<h2 id="app.infra.visualize" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <code>app.infra.visualize</code>
+
+
+</h2>
+
+    <div class="doc doc-contents first">
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.infra.visualize.annotate_buses" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">annotate_buses</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">bbox</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">filter_fn</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Annotate buses on a matplotlib axis created by pandapower.simple_plot.</p>
+<p>Parameters
+- ax: matplotlib Axes where the network was drawn
+- net: pandapower network
+- label: "name", "index" or any column name from net.bus (e.g. "vm_pu")
+- fontsize: text size
+- offset: (dx, dy) offset in data coordinates to move labels from bus position
+- bbox: whether to draw a semi-transparent background box
+- filter_fn: optional function (idx, row) -&gt; bool to skip some buses</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.infra.visualize.draw_battery_icon" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">draw_battery_icon</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Draw a stylized battery centered at (x, y).
+- size: fractional size relative to axis span (0.02 = 2% of axis span)</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.infra.visualize.fit_network_axis" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">fit_network_axis</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">padx</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">pady</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">min_span</span><span class="o">=</span><span class="mf">1e-06</span><span class="p">,</span> <span class="n">ymargin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">xmargin</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Tighten <code>ax</code> limits to the extents of net.bus['x','y'] with a fractional padding.
+- pad: fraction of span to add on each side (0.05 = 5%)
+- min_span: avoid zero-span if all coords identical</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.infra.visualize.plot_branch_voltage_heatmaps" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">plot_branch_voltage_heatmaps</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">branch_buses</span><span class="p">,</span> <span class="n">bus_names</span><span class="p">,</span> <span class="n">scenario_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;Greys&#39;</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mf">3.5</span><span class="p">),</span> <span class="n">savepath</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Plot stacked heatmaps (max, mean, min) of node voltages along a branch for multiple scenarios.</p>
+<p>Parameters
+- results: list of CSV file paths or pandas DataFrames. Each entry corresponds to one scenario.
+           Each DataFrame must contain a column identifying the bus (e.g. 'bus','node','bus_name')
+           and a voltage column (e.g. 'vm_pu','vm','voltage').
+- branch_buses: ordered list of bus names (x-axis).
+- scenario_names: optional list of names for the scenarios (y-axis). If None, indices are used.
+- cmap: matplotlib colormap name (defaults to 'Greys' to match network plotting).
+- figsize: figure size tuple.
+- savepath: if provided, save the figure to this path.</p>
+<p>Returns:
+- (fig, axes): Matplotlib figure and array of axes.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.infra.visualize.plot_losses_violations_heatmaps" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">plot_losses_violations_heatmaps</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">scenario_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;Greys&#39;</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">savepath</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">violation_threshold</span><span class="o">=</span><span class="mf">1.01</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Plot two heatmaps (losses, voltage violations) across scenarios.
+- results: list of CSV paths or pandas DataFrames (each scenario)
+- net: pandapower network (used to get line r and length)
+- returns (fig, axes)</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.infra.visualize.visualize_high_voltage_day" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">visualize_high_voltage_day</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">results_csv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">results_df</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">branches</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;RdYlBu_r&#39;</span><span class="p">,</span> <span class="n">base_year</span><span class="o">=</span><span class="mi">2016</span><span class="p">,</span> <span class="n">output_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">scenario</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trafo</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">remove_battery</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Visualize network snapshot at the highest voltage timestep.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../util/" class="btn btn-neutral float-left" title="Util"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../../model/device/" class="btn btn-neutral float-right" title="Device">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../util/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../../model/device/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

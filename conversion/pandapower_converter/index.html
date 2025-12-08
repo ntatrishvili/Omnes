@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Your Name" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Pandapower converter - Omnes Documentation</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Pandapower converter";
+        var mkdocs_page_input_path = "conversion/pandapower_converter.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> Omnes Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Welcome to OMNES</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../AGENT_GUIDE/">AI Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../CONTRIBUTING/">Contributing to Omnes</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../DEVELOPER_GUIDE/">Developer Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../changelog/">CHANGELOG</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../readme/">Readme</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Conversion</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../context/">Context</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion_utils/">Conversion utils</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../converter/">Converter</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Pandapower converter</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#app.conversion.pandapower_converter.PandapowerConverter"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;PandapowerConverter</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pandapower_converter.PandapowerConverter--attributes">Attributes</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pandapower_converter.PandapowerConverter.convert_back"><code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;convert_back</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pandapower_converter.PandapowerConverter.convert_back--parameters">Parameters</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pandapower_converter.PandapowerConverter.convert_model"><code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;convert_model</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pandapower_converter.PandapowerConverter.convert_model--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pandapower_converter.PandapowerConverter.convert_model--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.conversion.pandapower_converter.PandapowerConverter.convert_quantity"><code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;convert_quantity</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pandapower_converter.PandapowerConverter.convert_quantity--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#app.conversion.pandapower_converter.PandapowerConverter.convert_quantity--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../pulp_converter/">Pulp converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../validation_utils/">Validation utils</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Infra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/configuration/">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/logging_setup/">Logging setup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/quantity/">Quantity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/relation/">Relation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/singleton/">Singleton</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/timeseries_object/">Timeseries object</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/timeseries_object_factory/">Timeseries object factory</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/util/">Util</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/visualize/">Visualize</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Model</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/device/">Device</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/entity/">Entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/generic_entity/">Generic entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/model/">Model</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/slack/">Slack</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Generator</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/generator/">Generator</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/pv/">Pv</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/wind_turbine/">Wind turbine</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Grid component</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/bus/">Bus</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/connector/">Connector</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/grid_component/">Grid component</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/line/">Line</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/transformer/">Transformer</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Load</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/load/load/">Load</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Storage</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/battery/">Battery</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/hot_water_storage/">Hot water storage</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/storage/">Storage</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Transducer</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/transducer/transducer/">Transducer</a>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operation</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operation/example_optimization/">Example optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operation/example_simulation/">Example simulation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../operation/simbench_1-LV-rural1--0-sw_feeder/">simbench 1 LV rural1  0 sw feeder</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">Omnes Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Conversion</li>
+      <li class="breadcrumb-item active">Pandapower converter</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <div class="doc doc-object doc-module">
+
+
+
+<h2 id="app.conversion.pandapower_converter" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <code>app.conversion.pandapower_converter</code>
+
+
+</h2>
+
+    <div class="doc doc-contents first">
+
+        <p>App conversion module: pandapower_converter</p>
+<p>Provides a converter that maps a minimal Omnes Model to a pandapower network
+(pandapowerNet). The converter models a balanced (single-phase equivalent)
+network and extracts time series profiles for use with pandapower simulations.</p>
+<p>Notes
+- Balanced single-phase equivalent is used. Extend for three-phase/unbalanced use.
+- Batteries and flexible devices are modeled as sgen/load elements whose p_mw
+  are provided externally for each timestep.
+- Time series values are expected in kW and are converted to MW where needed.</p>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="app.conversion.pandapower_converter.PandapowerConverter" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <code>PandapowerConverter</code>
+
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="            Converter (app.conversion.converter.Converter)" href="../converter/#app.conversion.converter.Converter">Converter</a></code></p>
+
+
+
+        <p>Convert an Omnes Model into a pandapower network and associated time series.</p>
+<p>The converter constructs pandapower network elements (buses, lines, sgens,
+loads, ext_grids, switches) and collects time series data into the network's
+'profiles' attribute. Time series are converted to numpy arrays for use in
+simulations.</p>
+<h5 id="app.conversion.pandapower_converter.PandapowerConverter--attributes">Attributes</h5>
+<p>DEFAULT_TIME_SET_SIZE : int
+    Default fallback size for time sets when needed.
+net : pandapowerNet
+    The pandapower network being constructed.
+bus_map : dict
+    Mapping from Omnes bus id to pandapower bus index.</p>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.conversion.pandapower_converter.PandapowerConverter.convert_back" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">convert_back</span><span class="p">(</span><span class="n">model</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Map simulation results from a pandapower network back onto model entities.</p>
+<p>Updates model entities (for example, last_vm_pu or last_loading_percent)
+with values read from the network results tables.</p>
+<h6 id="app.conversion.pandapower_converter.PandapowerConverter.convert_back--parameters">Parameters</h6>
+<p>net
+    The pandapower network containing simulation results.
+model
+    The Omnes model to update.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.conversion.pandapower_converter.PandapowerConverter.convert_model" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">convert_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">new_freq</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a Model into a pandapower network and collect profiles.</p>
+<h6 id="app.conversion.pandapower_converter.PandapowerConverter.convert_model--parameters">Parameters</h6>
+<p>model
+    The Omnes Model to convert.
+time_set
+    Optional time set specification (int or range). If None the model's
+    defaults are used.
+new_freq
+    Optional target frequency for resampling time series (e.g., '15min').</p>
+<h6 id="app.conversion.pandapower_converter.PandapowerConverter.convert_model--returns">Returns</h6>
+<p>pandapowerNet
+    The constructed pandapower network with 'profiles' and 'time_set'
+    attributes populated.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="app.conversion.pandapower_converter.PandapowerConverter.convert_quantity" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">convert_quantity</span><span class="p">(</span><span class="n">quantity</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">time_set</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+</h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a Quantity to a numpy array suitable for pandapower profiles.</p>
+<ul>
+<li>Returns None if the quantity is empty.</li>
+<li>For Parameter instances, returns the parameter's scalar or array value.</li>
+<li>For Timeseries-like quantities, returns values resampled to the
+  requested time_set and frequency.</li>
+</ul>
+<h6 id="app.conversion.pandapower_converter.PandapowerConverter.convert_quantity--parameters">Parameters</h6>
+<p>quantity
+    The Quantity to convert.
+name
+    Human-readable identifier used for logging/debugging.
+time_set
+    Optional time set specification for resampling.
+freq
+    Optional frequency for resampling.</p>
+<h6 id="app.conversion.pandapower_converter.PandapowerConverter.convert_quantity--returns">Returns</h6>
+<p>numpy.ndarray or None
+    Array of values across the time set, or None if empty.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../converter/" class="btn btn-neutral float-left" title="Converter"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../pulp_converter/" class="btn btn-neutral float-right" title="Pulp converter">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../converter/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../pulp_converter/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

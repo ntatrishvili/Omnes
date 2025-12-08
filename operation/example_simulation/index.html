@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Your Name" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Example simulation - Omnes Documentation</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Example simulation";
+        var mkdocs_page_input_path = "operation/example_simulation.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> Omnes Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Welcome to OMNES</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../AGENT_GUIDE/">AI Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../CONTRIBUTING/">Contributing to Omnes</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../DEVELOPER_GUIDE/">Developer Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../changelog/">CHANGELOG</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../readme/">Readme</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Conversion</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/context/">Context</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/conversion_utils/">Conversion utils</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/converter/">Converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/pandapower_converter/">Pandapower converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/pulp_converter/">Pulp converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../conversion/validation_utils/">Validation utils</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Infra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/configuration/">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/logging_setup/">Logging setup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/quantity/">Quantity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/relation/">Relation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/singleton/">Singleton</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/timeseries_object/">Timeseries object</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/timeseries_object_factory/">Timeseries object factory</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/util/">Util</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../infra/visualize/">Visualize</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Model</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/device/">Device</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/entity/">Entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/generic_entity/">Generic entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/model/">Model</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../model/slack/">Slack</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Generator</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/generator/">Generator</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/pv/">Pv</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/generator/wind_turbine/">Wind turbine</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Grid component</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/bus/">Bus</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/connector/">Connector</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/grid_component/">Grid component</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/line/">Line</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/grid_component/transformer/">Transformer</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Load</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/load/load/">Load</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Storage</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/battery/">Battery</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/hot_water_storage/">Hot water storage</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/storage/storage/">Storage</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Transducer</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../../model/transducer/transducer/">Transducer</a>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operation</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../example_optimization/">Example optimization</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Example simulation</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#app.operation.example_simulation.collect_results"><code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;collect_results</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.collect_results--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.collect_results--notes">Notes</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.collect_results--returns">Returns</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.operation.example_simulation.init_results_frame"><code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;init_results_frame</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.init_results_frame--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.init_results_frame--returns">Returns</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.init_results_frame--notes">Notes</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.operation.example_simulation.set_timestep_values"><code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;set_timestep_values</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.set_timestep_values--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.set_timestep_values--notes">Notes</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.set_timestep_values--raises">Raises</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#app.operation.example_simulation.simulate_energy_system"><code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;simulate_energy_system</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.simulate_energy_system--parameters">Parameters</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.simulate_energy_system--returns">Returns</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.simulate_energy_system--notes">Notes</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#app.operation.example_simulation.simulate_energy_system--raises">Raises</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../simbench_1-LV-rural1--0-sw_feeder/">simbench 1 LV rural1  0 sw feeder</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">Omnes Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Operation</li>
+      <li class="breadcrumb-item active">Example simulation</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <div class="doc doc-object doc-module">
+
+
+
+<h2 id="app.operation.example_simulation" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-module"></code>            <code>app.operation.example_simulation</code>
+
+
+</h2>
+
+    <div class="doc doc-contents first">
+
+        <p>Example simulation module for energy system power flow analysis.</p>
+<p>This module demonstrates how to run time-stepped power flow simulations on a
+pandapower network. It provides utilities to set load and generator values
+from time-series profiles, run power flow calculations, and collect results
+for each timestep.</p>
+
+
+<details class="sign-conventions" open>
+  <summary>Sign Conventions</summary>
+  <ul>
+<li>Loads: p_mw is positive for consumption (kW → MW ÷ 1000)</li>
+<li>Generators (PV/wind/battery): p_mw is negative for injection (generation)
+  into the network (i.e., sgen.p_mw = -gen_kW ÷ 1000)</li>
+</ul>
+</details>        <p>This sign convention is common in pandapower but should be verified for
+consistency with your specific use case.</p>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.operation.example_simulation.collect_results" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">collect_results</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">time_idx</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Collect power flow results from the network and store in a results DataFrame.</p>
+<p>After a successful power flow calculation, this function extracts voltage
+and current results from the network and stores them in the provided
+results DataFrame.</p>
+<h5 id="app.operation.example_simulation.collect_results--parameters">Parameters</h5>
+<p>net : pp.pandapowerNet
+    The pandapower network with computed results in net.res_bus and
+    net.res_line tables.
+results : pd.DataFrame
+    The results DataFrame indexed by timestep, with columns named as
+    '{element_idx}_{quantity}' (e.g., '0_vm_pu', '1_i_ka'). This
+    DataFrame is modified in-place.
+time_idx : int
+    The row index (timestep) at which to store results in the DataFrame.</p>
+<h5 id="app.operation.example_simulation.collect_results--notes">Notes</h5>
+<ul>
+<li>Extracts bus-level quantities: vm_pu, va_degree, p_mw, q_mvar</li>
+<li>Extracts line-level quantities: i_ka (current in kA)</li>
+<li>Results are indexed by bus index and line index within the network</li>
+</ul>
+<h5 id="app.operation.example_simulation.collect_results--returns">Returns</h5>
+<p>None
+    Results are stored in-place in the provided DataFrame.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.operation.example_simulation.init_results_frame" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">init_results_frame</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">time_set</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Initialize an empty DataFrame to store power flow results for all timesteps.</p>
+<p>Creates a results DataFrame with one row per timestep and columns for
+each bus quantity and line quantity that will be collected after running
+power flow calculations.</p>
+<h5 id="app.operation.example_simulation.init_results_frame--parameters">Parameters</h5>
+<p>net : pp.pandapowerNet
+    The pandapower network whose bus and line indices are used to generate
+    column names.
+time_set : list or range
+    The set of timesteps (indices) for which results will be collected.
+    Used as the index of the returned DataFrame.</p>
+<h5 id="app.operation.example_simulation.init_results_frame--returns">Returns</h5>
+<p>pd.DataFrame
+    An empty DataFrame with time_set as index and columns named as:
+    - '{bus_idx}_vm_pu', '{bus_idx}_va_degree', '{bus_idx}_p_mw', '{bus_idx}_q_mvar'
+      for each bus in net.bus
+    - '{line_idx}_i_ka' for each line in net.line</p>
+<h5 id="app.operation.example_simulation.init_results_frame--notes">Notes</h5>
+<p>The returned DataFrame is populated later by collect_results() after
+each power flow calculation.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.operation.example_simulation.set_timestep_values" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">set_timestep_values</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="n">timestep_idx</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Set load and generator power values for a specific timestep.</p>
+<p>Updates the pandapower network with time-series values from the profiles
+DataFrames for a given timestep. Loads are set with positive p_mw values
+(consumption), while generators (sgen) are set to inject power (convention
+may vary).</p>
+<h5 id="app.operation.example_simulation.set_timestep_values--parameters">Parameters</h5>
+<p>net : pp.pandapowerNet
+    The pandapower network to update. Must have 'profiles' dict with
+    'load' and 'renewables' DataFrames, indexed by timestep.
+timestep_idx : int
+    The timestep index to retrieve values for. Used to index into
+    net.profiles['load'] and net.profiles['renewables'].</p>
+<h5 id="app.operation.example_simulation.set_timestep_values--notes">Notes</h5>
+<ul>
+<li>Expects net.profiles['load'] columns named as: '{load_name}_p_cons', '{load_name}_q_cons'</li>
+<li>Expects net.profiles['renewables'] columns named as: '{sgen_name}_p_out'</li>
+<li>Values in profiles are in kW; converted to MW for pandapower (÷ 1000)</li>
+<li>Reactive power for sgens is set to 0</li>
+</ul>
+<h5 id="app.operation.example_simulation.set_timestep_values--raises">Raises</h5>
+<p>KeyError
+    If timestep_idx is not in the profiles index or if expected column
+    names are missing from the profiles DataFrames.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="app.operation.example_simulation.simulate_energy_system" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">simulate_energy_system</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+
+</h3>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Run a time-stepped power flow simulation on the pandapower network.</p>
+<p>Iterates through all timesteps in the network's time_set, updates load
+and generator values from profiles for each timestep, runs a power flow
+calculation, and collects results. Non-convergence is logged as a warning
+but does not halt the simulation.</p>
+<h5 id="app.operation.example_simulation.simulate_energy_system--parameters">Parameters</h5>
+<p>net : pp.pandapowerNet
+    The pandapower network to simulate. Must have:
+    - 'time_set' attribute containing timestep indices
+    - 'profiles' dict with 'load' and 'renewables' DataFrames
+    - All standard pandapower tables (bus, load, line, sgen, ext_grid, etc.)</p>
+<h5 id="app.operation.example_simulation.simulate_energy_system--returns">Returns</h5>
+<p>None
+    Results are written to a CSV file 'energy_system_power_flow_results.csv'
+    in the current working directory.</p>
+<h5 id="app.operation.example_simulation.simulate_energy_system--notes">Notes</h5>
+<p>Power flow solver settings (Newton-Raphson method, tolerance, etc.) are
+hardcoded. Modify the pp.runpp() call to change solver parameters.</p>
+
+
+<details class="convergence" open>
+  <summary>Convergence</summary>
+  <ul>
+<li>Uses 'auto' initialization for the first timestep, 'results' for
+  subsequent timesteps (warm start)</li>
+<li>Maximum 30 iterations allowed per timestep</li>
+<li>Failure to converge is logged but the simulation continues</li>
+</ul>
+</details>        <h5 id="app.operation.example_simulation.simulate_energy_system--raises">Raises</h5>
+<p>AttributeError
+    If net does not have a 'time_set' attribute or if profiles are missing.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../example_optimization/" class="btn btn-neutral float-left" title="Example optimization"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../simbench_1-LV-rural1--0-sw_feeder/" class="btn btn-neutral float-right" title="simbench 1 LV rural1  0 sw feeder">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../example_optimization/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../simbench_1-LV-rural1--0-sw_feeder/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

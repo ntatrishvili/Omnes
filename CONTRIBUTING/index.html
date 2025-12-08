@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Your Name" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Contributing to Omnes - Omnes Documentation</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Contributing to Omnes";
+        var mkdocs_page_input_path = "CONTRIBUTING.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Omnes Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Welcome to OMNES</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../AGENT_GUIDE/">AI Guide</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Contributing to Omnes</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#contribution-workflow">Contribution Workflow</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#1-fork-the-repository">1. Fork the Repository</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#2-clone-your-fork-locally">2. Clone Your Fork Locally</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#3-set-up-your-environment">3. Set Up Your Environment</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#4-pick-an-open-issue">4. Pick an Open Issue</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#5-create-a-branch">5. Create a Branch</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#6-make-your-changes">6. Make Your Changes</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#7-run-tests">7. Run Tests</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#8-format-secure-code">8. Format &amp; Secure Code</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#9-commit-and-push">9. Commit and Push</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#10-open-a-pull-request">10. Open a Pull Request</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#pull-request-checklist">Pull Request Checklist</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#review-process">Review Process</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#license">License</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../DEVELOPER_GUIDE/">Developer Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../changelog/">CHANGELOG</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../readme/">Readme</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Conversion</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion/context/">Context</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion/conversion_utils/">Conversion utils</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion/converter/">Converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion/pandapower_converter/">Pandapower converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion/pulp_converter/">Pulp converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion/validation_utils/">Validation utils</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Infra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/configuration/">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/logging_setup/">Logging setup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/quantity/">Quantity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/relation/">Relation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/singleton/">Singleton</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/timeseries_object/">Timeseries object</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/timeseries_object_factory/">Timeseries object factory</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/util/">Util</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/visualize/">Visualize</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Model</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../model/device/">Device</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../model/entity/">Entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../model/generic_entity/">Generic entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../model/model/">Model</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../model/slack/">Slack</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Generator</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../model/generator/generator/">Generator</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/generator/pv/">Pv</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/generator/wind_turbine/">Wind turbine</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Grid component</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../model/grid_component/bus/">Bus</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/grid_component/connector/">Connector</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/grid_component/grid_component/">Grid component</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/grid_component/line/">Line</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/grid_component/transformer/">Transformer</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Load</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../model/load/load/">Load</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Storage</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../model/storage/battery/">Battery</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/storage/hot_water_storage/">Hot water storage</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/storage/storage/">Storage</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Transducer</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../model/transducer/transducer/">Transducer</a>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operation</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../operation/example_optimization/">Example optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operation/example_simulation/">Example simulation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operation/simbench_1-LV-rural1--0-sw_feeder/">simbench 1 LV rural1  0 sw feeder</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Omnes Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Contributing to Omnes</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="contributing-to-omnes">Contributing to Omnes</h1>
+<p>Thank you for your interest in contributing to <strong>Omnes</strong>! We welcome all kinds of contributions: new features, bug fixes, documentation, tests, and more.</p>
+<hr />
+<h2 id="contribution-workflow">Contribution Workflow</h2>
+<h3 id="1-fork-the-repository">1. Fork the Repository</h3>
+<ul>
+<li>Visit: <a href="https://github.com/ntatrishvili/Omnes">Omnes GitHub Repo</a></li>
+<li>Click <strong>"Fork"</strong> to create your copy.</li>
+</ul>
+<h3 id="2-clone-your-fork-locally">2. Clone Your Fork Locally</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/&lt;your-username&gt;/Omnes.git
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>Omnes
+</code></pre></div>
+<h3 id="3-set-up-your-environment">3. Set Up Your Environment</h3>
+<p>We recommend using <a href="https://python-poetry.org/">Poetry</a> for dependency management:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>poetry<span class="w"> </span>install
+</code></pre></div>
+<h3 id="4-pick-an-open-issue">4. Pick an Open Issue</h3>
+<ul>
+<li>Browse issues: <a href="https://github.com/ntatrishvili/Omnes/issues">GitHub Issues</a></li>
+<li>Comment to claim one or suggest a new enhancement.</li>
+</ul>
+<h3 id="5-create-a-branch">5. Create a Branch</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>&lt;issue-number&gt;-short-description
+</code></pre></div>
+<h3 id="6-make-your-changes">6. Make Your Changes</h3>
+<ul>
+<li>Modify the code based on the issue</li>
+<li><strong>Always add unit tests</strong> for new logic</li>
+<li>Follow project conventions</li>
+</ul>
+<h3 id="7-run-tests">7. Run Tests</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pytest
+</code></pre></div>
+<h3 id="8-format-secure-code">8. Format &amp; Secure Code</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>black<span class="w"> </span>.
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>bandit<span class="w"> </span>-r<span class="w"> </span>.<span class="w"> </span>--exclude<span class="w"> </span>./tests/
+</code></pre></div>
+<h3 id="9-commit-and-push">9. Commit and Push</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git<span class="w"> </span>add<span class="w"> </span>.
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;Fix #&lt;issue-number&gt;: &lt;brief description&gt;&quot;</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>&lt;branch-name&gt;
+</code></pre></div>
+<h3 id="10-open-a-pull-request">10. Open a Pull Request</h3>
+<ul>
+<li>Title: <code>Fix #&lt;issue-number&gt;: &lt;issue title&gt;</code></li>
+<li>Fill out the pull request checklist</li>
+<li>Add reviewers: <strong>Nia Tatrishvili</strong> and <strong>Lilla Barancsuk</strong></li>
+</ul>
+<hr />
+<h2 id="pull-request-checklist">Pull Request Checklist</h2>
+<ul>
+<li>[ ] My code follows the style guidelines</li>
+<li>[ ] I have performed a self-review</li>
+<li>[ ] I have added tests</li>
+<li>[ ] I have run <code>black</code> and <code>bandit</code></li>
+<li>[ ] I have linked the related GitHub issue</li>
+<li>[ ] I have added Nia Tatrishvili and Lilla Barancsuk as reviewers</li>
+</ul>
+<hr />
+<h2 id="review-process">Review Process</h2>
+<ol>
+<li>After opening a PR, GitHub will notify the reviewers.</li>
+<li><strong>Nia Tatrishvili</strong> and <strong>Lilla Barancsuk</strong> will review your PR and leave comments or approve.</li>
+<li>You may be asked to revise code for clarity, design, or test coverage.</li>
+<li>Once approved and all checks pass, the PR will be merged by a maintainer.</li>
+</ol>
+<hr />
+<h2 id="license">License</h2>
+<p>By contributing, you agree that your contributions will be licensed under the <a href="../LICENSE">MIT License</a>.</p>
+<hr />
+<p>Thanks again for contributing to <strong>Omnes</strong>!</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../AGENT_GUIDE/" class="btn btn-neutral float-left" title="AI Guide"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../DEVELOPER_GUIDE/" class="btn btn-neutral float-right" title="Developer Guide">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../AGENT_GUIDE/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../DEVELOPER_GUIDE/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

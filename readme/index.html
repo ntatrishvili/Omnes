@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="Your Name" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Readme - Omnes Documentation</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Readme";
+        var mkdocs_page_input_path = "readme.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Omnes Documentation
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Welcome to OMNES</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../AGENT_GUIDE/">AI Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../CONTRIBUTING/">Contributing to Omnes</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../DEVELOPER_GUIDE/">Developer Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../changelog/">CHANGELOG</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Readme</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#features">Features</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#repository-structure">Repository Structure</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#getting-started">Getting Started</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#1-clone-the-repository">1. Clone the repository</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#2-install-dependencies">2. Install dependencies</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#3-add-your-data">3. Add your data</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#4-configure-model-settings">4. Configure model settings</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#5-run-the-model">5. Run the model</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#contributing">Contributing</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#license">License</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#how-to-cite">How to cite</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#maintainer">Maintainer</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#acknowledgments">🎓 Acknowledgments</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Conversion</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion/context/">Context</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion/conversion_utils/">Conversion utils</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion/converter/">Converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion/pandapower_converter/">Pandapower converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion/pulp_converter/">Pulp converter</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../conversion/validation_utils/">Validation utils</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Infra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/configuration/">Configuration</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/logging_setup/">Logging setup</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/quantity/">Quantity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/relation/">Relation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/singleton/">Singleton</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/timeseries_object/">Timeseries object</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/timeseries_object_factory/">Timeseries object factory</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/util/">Util</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../infra/visualize/">Visualize</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Model</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../model/device/">Device</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../model/entity/">Entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../model/generic_entity/">Generic entity</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../model/model/">Model</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../model/slack/">Slack</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Generator</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../model/generator/generator/">Generator</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/generator/pv/">Pv</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/generator/wind_turbine/">Wind turbine</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Grid component</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../model/grid_component/bus/">Bus</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/grid_component/connector/">Connector</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/grid_component/grid_component/">Grid component</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/grid_component/line/">Line</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/grid_component/transformer/">Transformer</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Load</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../model/load/load/">Load</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Storage</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../model/storage/battery/">Battery</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/storage/hot_water_storage/">Hot water storage</a>
+                </li>
+                <li class="toctree-l2"><a class="reference internal" href="../model/storage/storage/">Storage</a>
+                </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" >Transducer</a>
+    <ul>
+                <li class="toctree-l2"><a class="reference internal" href="../model/transducer/transducer/">Transducer</a>
+                </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Operation</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../operation/example_optimization/">Example optimization</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operation/example_simulation/">Example simulation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../operation/simbench_1-LV-rural1--0-sw_feeder/">simbench 1 LV rural1  0 sw feeder</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Omnes Documentation</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Readme</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <p><a href="https://github.com/ntatrishvili/Omnes/actions/workflows/ci.yml"><img alt="CI Pipeline" src="https://github.com/ntatrishvili/Omnes/actions/workflows/ci.yml/badge.svg" /></a>
+<a href="https://github.com/ntatrishvili/Omnes/actions/workflows/codeql.yml"><img alt="CodeQL Analysis" src="https://github.com/ntatrishvili/Omnes/actions/workflows/codeql.yml/badge.svg" /></a>
+<a href="https://github.com/ntatrishvili/Omnes/actions/workflows/nightly.yml"><img alt="Nightly" src="https://github.com/ntatrishvili/Omnes/actions/workflows/nightly.yml/badge.svg" /></a></p>
+<h1 id="omnes">Omnes</h1>
+<p><strong>Omnes</strong> is an energy system modelling platform that lets you transform structured datasets into solvable energy models using a simple configuration and processing pipeline. Built for flexibility and clarity, Omnes supports modular data uploads, transformation, and model execution — currently with support <em>PuLP</em> solver and <em>Pandapower</em> simulator.</p>
+<hr />
+<h2 id="features">Features</h2>
+<ul>
+<li>Upload data files to the <code>data/</code> folder to describe your energy system (e.g., technologies, resources, demands)</li>
+<li>Easily configure the time set, resolution, and model settings via <code>config.ini</code></li>
+<li>Transform input data into a model-ready format</li>
+<li>Run your custom optimization script with full PuLP integration</li>
+<li>Run your custom simulation with Pandapower</li>
+</ul>
+<hr />
+<h2 id="repository-structure">Repository Structure</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Omnes/
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├──<span class="w"> </span>.github/<span class="w">                </span><span class="c1"># GitHub workflows and config (e.g. CI/CD)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├──<span class="w"> </span>app/<span class="w">                    </span><span class="c1"># Core application logic</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│<span class="w">   </span>├──<span class="w"> </span>conversion/<span class="w">         </span><span class="c1"># Data transformation and conversion</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│<span class="w">   </span>├──<span class="w"> </span>infra/<span class="w">              </span><span class="c1"># Infrastructure utilities &amp; helpers</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│<span class="w">   </span>├──<span class="w"> </span>model/<span class="w">              </span><span class="c1"># Data model components</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│<span class="w">   </span>├──<span class="w"> </span>operation/<span class="w">          </span><span class="c1"># Main modelling and optimization logic</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│<span class="w">   </span>└──<span class="w"> </span>__init__.py
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├──<span class="w"> </span>data/<span class="w">                   </span><span class="c1"># Input datasets and model configuration</span>
+</code></pre></div>
+<hr />
+<h2 id="getting-started">Getting Started</h2>
+<h3 id="1-clone-the-repository">1. Clone the repository</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/ntatrishvili/Omnes.git
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">cd</span><span class="w"> </span>Omnes
+</code></pre></div>
+<h3 id="2-install-dependencies">2. Install dependencies</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+</code></pre></div>
+<blockquote>
+<p>Note: You must have a working <a href="https://www.gurobi.com/downloads/end-user-license-agreement-academic/">Gurobi license</a> and <code>gurobipy</code> installed.</p>
+</blockquote>
+<h3 id="3-add-your-data">3. Add your data</h3>
+<p>Place your system definition files (CSV, Excel, etc.) into the <code>data/</code> folder. These files represent your technologies, time series, costs, and other elements.</p>
+<h3 id="4-configure-model-settings">4. Configure model settings</h3>
+<p>Edit <code>config.ini</code> to set your <strong>time resolution</strong>, <strong>frequency</strong>, and other options:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[time]</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="na">time_set</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">10000</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="na">frequency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">H</span><span class="w">  </span><span class="c1"># e.g., H for hourly, D for daily</span>
+</code></pre></div>
+<h3 id="5-run-the-model">5. Run the model</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>main.py
+</code></pre></div>
+<p>This will transform the input data, build your energy system model, and run it using your configured script in <code>operation/</code>.</p>
+<hr />
+<h2 id="requirements">Requirements</h2>
+<ul>
+<li>Python 3.9+</li>
+<li><a href="https://www.gurobi.com/">Gurobi</a> (Academic or commercial license)</li>
+<li><code>gurobipy</code>, <code>pandas</code>, <code>numpy</code>, <code>configparser</code>, etc. (see <code>requirements.txt</code>)</li>
+</ul>
+<hr />
+<h2 id="contributing">Contributing</h2>
+<p>Contributions are welcome! Please open an issue or pull request to discuss improvements, bugs, or new features.</p>
+<hr />
+<h2 id="license">License</h2>
+<p>MIT License — see <code>LICENSE</code> file.<br />
+SPDX-License-Identifier: MIT</p>
+<hr />
+<h2 id="how-to-cite">How to cite</h2>
+<p>If you use this framework in academic work or reports, please cite it as:</p>
+<blockquote>
+<p>Tatrishvili N., Barancsuk L., Lorenti G., Optimization and Simulation of Multi-node Multi-Energy Systems (version 1.0), GitHub repository, 2025. Available at: https://github.com/ntatrishvili/Omnes</p>
+</blockquote>
+<p>You can also use a BibTeX-style entry:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>@misc<span class="nb">{</span>omnes,
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  author       = <span class="nb">{</span>Tatrishvili N., Barancsuk L., Lorenti G.<span class="nb">}</span>,
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  title        = <span class="nb">{</span>Optimization and Simulation of Multi-node Multi-Energy Systems<span class="nb">}</span>,
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  year         = <span class="nb">{</span>2025<span class="nb">}</span>,
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>  howpublished = <span class="nb">{</span>GitHub repository<span class="nb">}</span>,
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>  note         = <span class="nb">{</span>Version 1.0<span class="nb">}</span>,
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>  url          = <span class="nb">{</span>https://github.com/ntatrishvili/Omnes<span class="nb">}</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nb">}</span>
+</code></pre></div></p>
+<h2 id="maintainer">Maintainer</h2>
+<p>Built and maintained by</p>
+<p>-<a href="https://github.com/ntatrishvili">Nia Tatrishvili</a>
+-<a href="https://github.com/Lilol">Lilla Barancsuk</a>
+-<a href="https://github.com/gianmarco-lorenti">Gianmarco Lorenti</a></p>
+<hr />
+<h2 id="acknowledgments">🎓 Acknowledgments</h2>
+<p>This project was developed as part of a <strong>Bachelor's Thesis</strong> at the<br />
+<strong><a href="https://www.bme.hu/">Budapest University of Technology and Economics (BME)</a></strong>,<br />
+in collaboration with the <strong><a href="https://www.polito.it/">Politecnico di Torino</a></strong> and the<br />
+<strong><a href="https://www.ek.hun-ren.hu/en/home/">HUN-REN Centre for Energy Research</a></strong>.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../changelog/" class="btn btn-neutral float-left" title="CHANGELOG"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../conversion/context/" class="btn btn-neutral float-right" title="Context">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../changelog/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../conversion/context/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
