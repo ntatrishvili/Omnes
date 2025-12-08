@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.12.0 (2025-12-08)
+* Added pipeline for docs generation.
+* Added SonarCloud support.
+
 ## 0.11.2 (2025-12-04)
 * Added a module for visualization utilities. 
 
