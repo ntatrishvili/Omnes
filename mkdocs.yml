@@ -1,6 +1,5 @@
 site_name: Omnes Documentation
 site_description: Documentation for the Omnes energy system optimization framework
-site_author: Your Name
 
 theme:
   name: readthedocs
