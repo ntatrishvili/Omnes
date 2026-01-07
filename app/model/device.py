@@ -29,11 +29,12 @@ class Device(Entity):
         self.bus = kwargs.pop("bus", "bus")
         if self.bus is None:
             raise ValueError(f"No bus specified for device '{self.id}'")
+        tags = kwargs.get("tags", {})
         self.tags = {
-            "vector": self.default_vector,
-            "contributes_to": self.default_contributes_to,
+            "vector": tags.pop("vector", self.default_vector),
+            "contributes_to": tags.pop("contributes_to", self.default_contributes_to),
         }
-        self.tags.update(kwargs.pop("tags", {}))
+        self.tags.update(tags)
 
     def update_tags(self, **tags):
         self.tags.update(**tags)

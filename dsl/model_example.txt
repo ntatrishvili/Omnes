@@ -44,7 +44,8 @@ Generator:
   - pv1 on bus_LV1
     peak_power: 4
     # pv power input is in data/input.csv in column "pv1"
-    power: data/input.csv
+    p_out: data/pv1.csv in_column p
+    q_out: data/pv1.csv in_column q
     tags:
       # Validate this: vector can only be electricity
       # Default vector: electricity; possible values of vector: electricity, heat, material,
@@ -56,7 +57,8 @@ Generator:
   - pv2 on bus_LV2
     peak_power: 3
     # pv power input is in data/input.csv in column "pv2"
-    power: input/pv2.csv
+    p_out: data/pv2.csv in_column p_out
+    q_out: data/pv2.csv in_column q_out
     tags:
       # Validate this: can only be electricity
       #Default vector: electricity
@@ -68,7 +70,8 @@ Generator:
     peak_power: 5
     efficiency: 0.95
     # wind power input is in data/input.csv in column "wind"
-    power: data/input.csv -> wind
+    p_out: data/wind.csv in_column p_out
+    q_out: data/wind.csv in_column q_out
     tags:
       # Default vector: electricity
       # Default contributes_to: electric_power_balance
@@ -87,6 +90,8 @@ Storage:
     discharge_efficiency: 0.95
     # default: 1
     storage_efficiency: 0.995
+    p_in: input/battery1.csv in_column p_in
+    p_out: input/battery1.csv in_column p_out
     tags:
         # Default vector: electricity
         # Default contributes_to: electric_power_balance
@@ -97,7 +102,8 @@ Storage:
     # l
     volume: 120
     set_temperature: 60
-    heat: input/input.csv -> hot_water1
+    p_in: input/hot_water1.csv in_column p_in
+    p_out: input/hot_water1.csv in_column p_out
     tags:
       #Default vector: heat
       #Default contributes_to: heat_balance
@@ -111,7 +117,8 @@ Storage:
     max_discharge_rate: 2
     material: Water
     set_temperature: 55
-    heat: input/hot_water2.csv
+    p_in: input/hot_water2.csv in_column p_in
+    p_out: input/hot_water2.csv in_column p_out
     tags:
       # Default vector: heat
       # Default contributes_to: heat_balance
