@@ -36,7 +36,7 @@ class Bus(GridComponent):
                 "nominal_voltage": Parameter(
                     value=kwargs.pop("nominal_voltage", self.default_nominal_voltage)
                 ),
-                "type": Parameter(value=kwargs.pop("type", self.default_type)),
+                "type": Parameter(value=BusType(kwargs.pop("type", self.default_type))),
             }
         )
 

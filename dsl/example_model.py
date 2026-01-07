@@ -13,12 +13,12 @@ from app.model.transducer.transducer import Transducer
 from app.operation.example_optimization import optimize_energy_system
 
 Bus.default_nominal_voltage = 400
-bus_mv = Bus(id="bus_MV", nominal_voltage=10000, type=BusType.SLACK, phase_count=3)
+bus_mv = Bus(id="bus_MV", nominal_voltage=10000, type="SLACK", phase=3)
 slack = Slack(id="slack", bus="bus_MV")
 
 bus_lv1 = Bus(id="bus_LV1")
-bus_lv2 = Bus(id="bus_LV2", phase="C", phase_count=1)
-bus_lv3 = Bus(id="bus_LV3", phase_count=3)
+bus_lv2 = Bus(id="bus_LV2", phase="C")
+bus_lv3 = Bus(id="bus_LV3")
 
 # Lehetne a default egy külön struktúra?
 # a line ne a buszok nevét vegye át, hanem a referenciát rájuk

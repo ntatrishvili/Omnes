@@ -1,14 +1,14 @@
-model:
+Model:
   name: Energy_Community
   start: 2025-01-01 00:00
   end: 2025-01-02 00:00
   resolution: 1h
+  timezone: Europe/Budapest
 
-buses:
+Bus:
   nominal_voltage: 400
 
   # 3-phase bus
-  # If phase_counts 3, do not specify phase name
   - bus_MV -> 3
     type: Slack
     # This overloads default voltage, which is 400
@@ -24,7 +24,7 @@ buses:
   # 3-phase bus
   - bus_LV3 -> 3
 
-lines:
+Line:
     # km
     line_length: 0.1
     # Ohm/km
@@ -36,8 +36,8 @@ lines:
   - line2 from bus_LV1 to bus_LV2
   - line3 bus_LV1 to bus_LV3
 
-devices:
-generators:
+Device:
+Generator:
     efficiency: 0.9
 
   PV:
@@ -63,7 +63,7 @@ generators:
       #Default contributes_to: electric_power_balance
       household: HH2
 
-  wind:
+  Wind:
   - id: wind1 on bus_LV3
     peak_power: 5
     efficiency: 0.95
@@ -74,8 +74,8 @@ generators:
       # Default contributes_to: electric_power_balance
       # No household here, does not belong to any specific household
 
-storages:
- batteries:
+Storage:
+ Battery:
   - battery1 on bus_LV3
     capacity: 5
     max_charge_rate: 2
@@ -117,7 +117,7 @@ storages:
       # Default contributes_to: heat_balance
       household: HH2
 
-loads:
+Load:
   - load1 on bus_LV1
     type: Load
     power: input/load1.csv
@@ -132,7 +132,7 @@ loads:
     tags:
       household: HH2
 
-  transducers:
+  Transducer:
   - heater1 on bus_LV1 charges hot_water1
     # input and output are only valid options for a transducer (previously converter)
     controllable
@@ -158,7 +158,7 @@ loads:
       power enabled from 10:00 to 16:00
       min_on_duration = 2h
 
-slacks:
+Slack:
   - slack on bus_MV
     # tags:
       # Default vector: electricity
