@@ -1,10 +1,3 @@
-"""GenericEntity model used across the internal model representation.
-
-This module provides a lightweight, catch-all entity class useful when the
-input model contains objects that do not have a dedicated subclass. It
-wraps generic quantities and forwards time-series creation to a factory.
-"""
-
 from typing import Dict, Optional
 
 from app.infra.quantity import Quantity, Parameter

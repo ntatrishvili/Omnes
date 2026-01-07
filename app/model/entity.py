@@ -1,15 +1,16 @@
 import secrets
-from typing import Dict, Optional
+from typing import Optional
 
 from app.infra.quantity import Quantity
 from app.infra.relation import Relation
+from app.model.util import InitializingMeta
 from app.infra.timeseries_object_factory import (
     DefaultTimeseriesFactory,
     TimeseriesFactory,
 )
 
 
-class Entity:
+class Entity(metaclass=InitializingMeta):
     """
     Represents any modelled object (e.g., component, device, node) in the system.
 

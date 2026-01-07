@@ -1,5 +1,5 @@
 import logging
-from enum import Enum, auto
+from enum import Enum
 from typing import Optional
 
 from app.infra.quantity import Parameter
@@ -8,6 +8,7 @@ from app.infra.timeseries_object_factory import (
     TimeseriesFactory,
 )
 from app.model.grid_component.grid_component import GridComponent
+from app.model.util import InitOnSet
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,15 @@ class BusType(Enum):
 
 
 class Bus(GridComponent):
-    default_nominal_voltage: Optional[float] = None
-    default_type: Optional[BusType] = BusType.PQ
+    default_nominal_voltage: Optional[float] = InitOnSet(
+        lambda v: (
+            None if v is None else DefaultTimeseriesFactory().create("voltage", **v)
+        ),
+        default=None,
+    )
+    default_type: Optional[BusType] = InitOnSet(
+        lambda v: BusType(v) if v is not None else BusType.PQ, default=BusType.PQ
+    )
 
     def __init__(
         self,
