@@ -1,6 +1,9 @@
 from typing import Optional
 
-from app.infra.timeseries_object_factory import (DefaultTimeseriesFactory, TimeseriesFactory, )
+from app.infra.timeseries_object_factory import (
+    DefaultTimeseriesFactory,
+    TimeseriesFactory,
+)
 from app.model.entity import Entity
 from app.model.util import InitOnSet
 
@@ -20,7 +23,12 @@ class GridComponent(Entity):
 
     default_phase: Optional[str | int] = InitOnSet(_cast_phase, default=3)
 
-    def __init__(self, id: Optional[str] = None, ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(), **kwargs):
+    def __init__(
+        self,
+        id: Optional[str] = None,
+        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        **kwargs
+    ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
         self.check_kwargs(**kwargs)
         self.phase = kwargs.pop("phase", self.default_phase)
