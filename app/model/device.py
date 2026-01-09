@@ -6,6 +6,7 @@ from app.infra.timeseries_object_factory import (
     TimeseriesFactory,
 )
 from app.model.entity import Entity
+from app.model.util import InitOnSet
 
 
 class Vector(Enum):
@@ -16,7 +17,10 @@ class Vector(Enum):
 
 
 class Device(Entity):
-    default_vector: Optional[Vector] = Vector.INVALID
+    default_vector: Optional[Vector] = InitOnSet(
+        lambda v: None if v is None else (Vector(v) if isinstance(v, str) else v),
+        default=Vector.INVALID,
+    )
     default_contributes_to: Optional[str] = None
 
     def __init__(
@@ -29,11 +33,12 @@ class Device(Entity):
         self.bus = kwargs.pop("bus", "bus")
         if self.bus is None:
             raise ValueError(f"No bus specified for device '{self.id}'")
+        tags = kwargs.get("tags", {})
         self.tags = {
-            "vector": self.default_vector,
-            "contributes_to": self.default_contributes_to,
+            "vector": tags.pop("vector", self.default_vector),
+            "contributes_to": tags.pop("contributes_to", self.default_contributes_to),
         }
-        self.tags.update(kwargs.pop("tags", {}))
+        self.tags.update(tags)
 
     def update_tags(self, **tags):
         self.tags.update(**tags)

@@ -5,7 +5,6 @@ from app.infra.timeseries_object_factory import (
     TimeseriesFactory,
 )
 from app.model.device import Device
-from app.model.entity import Entity
 
 
 class Slack(Device):

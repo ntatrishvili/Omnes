@@ -19,8 +19,9 @@ class Load(Device):
         **kwargs: object,
     ):
         super().__init__(id=id, ts_factory=ts_factory, **kwargs)
+        copy_kwargs = kwargs.copy()
         self.create_quantity("p_cons", **kwargs)
-        self.create_quantity("q_cons", **kwargs)
+        self.create_quantity("q_cons", **copy_kwargs)
         self.quantities.update(
             {
                 "nominal_power": Parameter(value=kwargs.pop("nominal_power", None)),

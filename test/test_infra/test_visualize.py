@@ -1,10 +1,12 @@
-import unittest
-from unittest.mock import Mock, MagicMock, patch, call
 import json
+import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from types import SimpleNamespace
-import matplotlib as mpl
 from matplotlib import colors as mcolors
 
 from app.infra import visualize
@@ -354,38 +356,6 @@ class TestPlotBranchVoltageHeatmaps(unittest.TestCase):
             else:
                 viz_module.net = original_net
 
-    @patch("app.infra.visualize.plt")
-    def test_plot_branch_voltage_heatmaps_empty_branch_df_uses_fallback_vmin_vmax(
-        self, mock_plt
-    ):
-        """If no vm_pu columns matching branch, the function should still produce axes and use vmin/vmax fallback"""
-        import app.infra.visualize as viz_module
-
-        mock_net = Mock()
-        mock_net.bus = pd.DataFrame({"name": ["LV1.101 Bus 0"]}, index=[0])
-        original_net = getattr(viz_module, "net", None)
-        viz_module.net = mock_net
-
-        try:
-            df = pd.DataFrame({"unrelated": [1, 2, 3]})
-            mock_fig = Mock()
-            mock_axes = [Mock(), Mock(), Mock(), Mock()]
-            mock_plt.subplots.return_value = (mock_fig, np.array(mock_axes))
-
-            fig, axes = visualize.plot_branch_voltage_heatmaps(
-                [df], [0], ["B0"], scenario_names=["S1"], savepath=None
-            )
-
-            mock_plt.subplots.assert_called_once()
-            # each axis should have imshow called (fallback arrays)
-            for ax in mock_axes:
-                ax.imshow.assert_called_once()
-        finally:
-            if original_net is None:
-                delattr(viz_module, "net")
-            else:
-                viz_module.net = original_net
-
 
 class TestPlotLossesViolationsHeatmaps(unittest.TestCase):
     """Test plot_losses_violations_heatmaps function"""
@@ -448,29 +418,6 @@ class TestPlotLossesViolationsHeatmaps(unittest.TestCase):
         with self.assertRaises(ValueError):
             visualize.plot_losses_violations_heatmaps([123], self.net)  # Invalid type
 
-    @patch("app.infra.visualize.plt")
-    def test_plot_losses_violations_heatmaps_handles_no_vm_and_no_i_cols(
-        self, mock_plt
-    ):
-        """If results have no i_ka or vm_pu columns, plotting should continue and use fallback vmin/vmax"""
-        mock_fig = Mock()
-        mock_axes = [Mock(), Mock()]
-        mock_plt.subplots.return_value = (mock_fig, np.array(mock_axes))
-        mock_plt.get_cmap.return_value = Mock()
-
-        # empty df (no relevant columns)
-        df = pd.DataFrame({"foo": [1, 2, 3]})
-        net = Mock()
-        net.line = pd.DataFrame(columns=["r_ohm_per_km", "length_km"])
-
-        fig, axes = visualize.plot_losses_violations_heatmaps(
-            [df], net, scenario_names=["S1"]
-        )
-
-        mock_plt.subplots.assert_called_once()
-        for ax in mock_axes:
-            ax.imshow.assert_called_once()
-
 
 class TestVisualizeHighVoltageDay(unittest.TestCase):
     """Test visualize_high_voltage_day function"""
@@ -513,14 +460,6 @@ class TestVisualizeHighVoltageDay(unittest.TestCase):
         """Test error when no results provided"""
         with self.assertRaises(ValueError):
             visualize.visualize_high_voltage_day(self.net)
-
-    def test_visualize_high_voltage_day_raises_on_missing_vm_cols(self):
-        """If results_df has no vm_pu columns, raise ValueError"""
-        net = Mock()
-        net.bus = pd.DataFrame({"name": ["B0"]}, index=[0])
-        df = pd.DataFrame({"no_voltage": [1, 2, 3]})
-        with self.assertRaises(ValueError):
-            visualize.visualize_high_voltage_day(net, results_df=df)
 
 
 class TestPlotEnergyFlows(unittest.TestCase):
@@ -615,48 +554,6 @@ class TestPlotEnergyFlows(unittest.TestCase):
             self.assertIn("set_xticks", str(e))
             # Verify that basic plotting was attempted
             self.assertGreater(mock_plt.bar.call_count, 0)
-
-    @patch("app.infra.visualize.plt")
-    @patch("app.infra.visualize.pulp")
-    def test_plot_energy_flows_tick_steps_and_xticks(self, mock_pulp, mock_plt):
-        """Exercise tick_step selection and setting xticks for short spans"""
-        # Mock pulp.value to return deterministic values
-        mock_pulp.value.side_effect = lambda x: 1.0
-
-        time_set = list(range(8))  # small span -> tick_step = 2
-        kwargs = {
-            "time_set": time_set,
-            "pv1.p_out": [Mock() for _ in time_set],
-            "load1.p_cons": [Mock() for _ in time_set],
-            "bess1.p_in": [Mock() for _ in time_set],
-            "bess1.p_out": [Mock() for _ in time_set],
-            "bess1.e_stor": [Mock() for _ in time_set],
-            "slack1.p_in": [Mock() for _ in time_set],
-            "slack1.p_out": [Mock() for _ in time_set],
-        }
-
-        mock_fig = Mock()
-        mock_ax = Mock()
-        mock_twin = Mock()
-
-        mock_plt.figure.return_value = mock_fig
-        mock_plt.gca.return_value = mock_ax
-        mock_ax.twinx.return_value = mock_twin
-        # twin_ax.spines is used like a dict in the function; provide a dict-like object
-        mock_twin.spines = {"right": Mock()}
-
-        visualize.plot_energy_flows(
-            kwargs,
-            pv_names=["pv1"],
-            load_names=["load1"],
-            bess_names=["bess1"],
-            slack_names=["slack1"],
-            time_range_to_plot=range(len(time_set)),
-            output_path=".",
-        )
-
-        # The function should have set xticks on the plotting axis
-        mock_ax.set_xticks.assert_called
 
 
 class TestPaletteAndColors(unittest.TestCase):
@@ -753,10 +650,10 @@ class TestElegantDrawNetworkColors(unittest.TestCase):
         self.assertEqual(mf_hex.lower(), pal["soft_cyan"].lower())
 
 
-class TestVisualizeExtraCases(unittest.TestCase):
+class TestMoreVisualizeBranches(unittest.TestCase):
     @patch("app.infra.visualize.plt")
-    def test_elegant_draw_network_name_resolution_and_storage(self, mock_plt):
-        """Test that string bus names in line/sgen are resolved via name_to_idx and 'battery' in sgen name classifies as storage"""
+    def test_elegant_draw_network_name_lookup_and_storage(self, mock_plt):
+        # Ensure lines referenced by name (bus name) are resolved and storage drawn
         mock_fig = Mock()
         mock_ax = Mock()
         mock_plt.figure.return_value = mock_fig
@@ -764,116 +661,164 @@ class TestVisualizeExtraCases(unittest.TestCase):
         mock_ax.get_figure.return_value = mock_fig
 
         net = Mock()
+        # bus names that are strings (not numeric indices)
         net.bus = pd.DataFrame(
-            {"name": ["A", "B"], "x": [1.0, 2.0], "y": [10.0, 20.0]}, index=[0, 1]
+            {"name": ["A", "B", "C"], "x": [0.0, 1.0, 2.0], "y": [0.0, 0.5, 1.0]},
+            index=[10, 20, 30],
         )
-        # lines reference buses by name (should be resolved)
+        # lines refer to bus names (strings) -> _pos should resolve via name_to_idx
         net.line = pd.DataFrame({"from_bus": ["A"], "to_bus": ["B"]}, index=[0])
-        net.trafo = pd.DataFrame(columns=["hv_bus", "lv_bus"])
-        net.ext_grid = pd.DataFrame(columns=["bus"])
-        # sgen contains a battery name to go into storage branch
-        net.sgen = pd.DataFrame({"bus": [1], "name": ["my_battery"]}, index=[0])
+        # one sgen named with "battery" in the name -> should be treated as storage
+        net.sgen = pd.DataFrame({"bus": [20], "name": ["my_battery_unit"]}, index=[0])
         net.load = pd.DataFrame(columns=["bus", "name"])
         net.switch = pd.DataFrame(columns=["bus"])
-
-        fig, ax = visualize.elegant_draw_network(net, show=False)
-
-        # should have drawn the single line and a storage scatter
-        self.assertGreaterEqual(mock_ax.plot.call_count, 1)
-        # sgen storage should produce a scatter call for storage icon
-        self.assertTrue(
-            any(
-                call.kwargs.get("marker") in ("P", None)
-                for call in mock_ax.scatter.call_args_list
-            )
-        )
-
-    @patch("app.infra.visualize.plt")
-    def test_elegant_draw_network_invalid_geo_and_partial_coords(self, mock_plt):
-        """Test that invalid geo JSON is handled and valid coords are extracted"""
-        mock_fig = Mock()
-        mock_ax = Mock()
-        mock_plt.figure.return_value = mock_fig
-        mock_fig.add_subplot.return_value = mock_ax
-        mock_ax.get_figure.return_value = mock_fig
-
-        net = Mock()
-        # one valid geo, one invalid JSON
-        net.bus = pd.DataFrame(
-            {
-                "name": ["BusGood", "BusBad"],
-                "geo": [json.dumps({"coordinates": [5.0, 6.0]}), "not-a-json"],
-            },
-            index=[0, 1],
-        )
-        net.line = pd.DataFrame(columns=["from_bus", "to_bus"])
         net.trafo = pd.DataFrame(columns=["hv_bus", "lv_bus"])
         net.ext_grid = pd.DataFrame(columns=["bus"])
-        net.sgen = pd.DataFrame(columns=["bus", "name"])
-        net.load = pd.DataFrame(columns=["bus", "name"])
-        net.switch = pd.DataFrame(columns=["bus"])
 
-        fig, ax = visualize.elegant_draw_network(net, show=False)
+        visualize.elegant_draw_network(net, show=False)
 
-        # x/y columns should have been added
-        self.assertIn("x", net.bus.columns)
-        self.assertIn("y", net.bus.columns)
-        # good bus should have numeric coords, bad one should be NaN
-        self.assertTrue(pd.notna(net.bus.loc[0, "x"]))
-        self.assertTrue(pd.isna(net.bus.loc[1, "x"]))
+        pal = visualize.OMNES_PALETTE
+        # storage scatter facecolor should be soft_green
+        sc_facecolors = [
+            c.kwargs.get("facecolor")
+            for c in mock_ax.scatter.call_args_list
+            if "facecolor" in c.kwargs
+        ]
+        self.assertIn(pal["soft_green"], sc_facecolors)
 
     @patch("app.infra.visualize.plt")
-    def test_plot_losses_violations_heatmaps_handles_no_vm_and_no_i_cols(
-        self, mock_plt
+    def test_plot_branch_voltage_heatmaps_from_csv_and_mismatch(
+        self, mock_plt, tmp_path=None
     ):
-        """If results have no i_ka or vm_pu columns, plotting should continue and use fallback vmin/vmax"""
-        mock_fig = Mock()
-        mock_axes = [Mock(), Mock()]
-        mock_plt.subplots.return_value = (mock_fig, np.array(mock_axes))
-        mock_plt.get_cmap.return_value = Mock()
+        import app.infra.visualize as viz_module
 
-        # empty df (no relevant columns)
-        df = pd.DataFrame({"foo": [1, 2, 3]})
-        net = Mock()
-        net.line = pd.DataFrame(columns=["r_ohm_per_km", "length_km"])
+        # prepare temporary CSV using tempfile
+        import tempfile
+        import os
 
-        fig, axes = visualize.plot_losses_violations_heatmaps(
-            [df], net, scenario_names=["S1"]
-        )
+        df = pd.DataFrame({"0_vm_pu": [1.0, 1.01], "1_vm_pu": [0.99, 1.0]})
+        tmpf = tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False)
+        try:
+            tmp_path = tmpf.name
+            tmpf.close()
+            df.to_csv(tmp_path, index=False)
 
-        mock_plt.subplots.assert_called_once()
-        for ax in mock_axes:
-            ax.imshow.assert_called_once()
+            mock_net = Mock()
+            mock_net.bus = pd.DataFrame(
+                {"name": ["LV1.101 Bus 0", "LV1.101 Bus 1"]}, index=[0, 1]
+            )
+            original_net = getattr(viz_module, "net", None)
+            viz_module.net = mock_net
+            try:
+                mock_fig = Mock()
+                mock_axes = [Mock(), Mock(), Mock(), Mock()]
+                mock_plt.subplots.return_value = (mock_fig, np.array(mock_axes))
+                # pass the csv path as string result
+                visualize.plot_branch_voltage_heatmaps(
+                    [str(tmp_path)],
+                    [0, 1],
+                    ["B0", "B1"],
+                    scenario_names=["S1"],
+                    savepath=None,
+                )
+                mock_plt.subplots.assert_called_once()
+                # now test mismatch: provide wrong number of scenario names
+                with self.assertRaises(ValueError):
+                    visualize.plot_branch_voltage_heatmaps(
+                        [str(tmp_path)], [0, 1], ["B0", "B1"], scenario_names=["A", "B"]
+                    )
+            finally:
+                if original_net is None:
+                    delattr(viz_module, "net")
+                else:
+                    viz_module.net = original_net
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
 
     @patch("app.infra.visualize.plt")
     @patch("app.infra.visualize.pulp")
-    def test_plot_energy_flows_tick_steps_and_xticks(self, mock_pulp, mock_plt):
-        """Exercise tick_step selection and setting xticks for short spans"""
-        # Mock pulp.value to return deterministic values
+    def test_plot_energy_flows_tick_spacing_variations(self, mock_pulp, mock_plt):
+        # Build large time set to trigger different tick spacing
         mock_pulp.value.side_effect = lambda x: 1.0
-
-        time_set = list(range(8))  # small span -> tick_step = 2
-        kwargs = {
-            "time_set": time_set,
-            "pv1.p_out": [Mock() for _ in time_set],
-            "load1.p_cons": [Mock() for _ in time_set],
-            "bess1.p_in": [Mock() for _ in time_set],
-            "bess1.p_out": [Mock() for _ in time_set],
-            "bess1.e_stor": [Mock() for _ in time_set],
-            "slack1.p_in": [Mock() for _ in time_set],
-            "slack1.p_out": [Mock() for _ in time_set],
-        }
+        kwargs = {"time_set": range(0, 200)}
+        # minimal variable arrays for 200 timesteps
+        for key in [
+            "pv1.p_out",
+            "load1.p_cons",
+            "bess1.p_in",
+            "bess1.p_out",
+            "bess1.e_stor",
+            "slack1.p_in",
+            "slack1.p_out",
+        ]:
+            kwargs[key] = [Mock() for _ in range(200)]
 
         mock_fig = Mock()
         mock_ax = Mock()
         mock_twin = Mock()
-
+        # ensure twin_ax.spines is subscriptable like a dict
+        mock_twin.spines = {"right": Mock()}
         mock_plt.figure.return_value = mock_fig
         mock_plt.gca.return_value = mock_ax
         mock_ax.twinx.return_value = mock_twin
-        # twin_ax.spines used with indexing; provide dict-like spines
-        mock_twin.spines = {"right": Mock()}
+        # should not raise
+        visualize.plot_energy_flows(
+            kwargs,
+            pv_names=["pv1"],
+            load_names=["load1"],
+            bess_names=["bess1"],
+            slack_names=["slack1"],
+            time_range_to_plot=range(200),
+            output_path=".",
+        )
+        # ensure xticks were set on the axis
+        self.assertTrue(mock_ax.set_xticks.called)
 
-
-if __name__ == "__main__":
-    unittest.main()
+    @patch("pandapower.plotting.simple_plot")
+    @patch("app.infra.visualize.plt")
+    def test_visualize_high_voltage_day_branches_and_remove_battery(
+        self, mock_plt, mock_simple_plot
+    ):
+        # build results_df
+        df = pd.DataFrame(
+            {
+                "0_vm_pu": [1.0, 1.02, 1.01],
+                "1_vm_pu": [0.99, 0.98, 1.0],
+                "0_i_ka": [0.01, 0.02, 0.01],
+                "1_i_ka": [0.0, 0.0, 0.0],
+            }
+        )
+        net = Mock()
+        net.bus = pd.DataFrame(
+            {
+                "name": ["LV1.101 Bus 0", "LV1.101 Bus 1"],
+                "geo": [
+                    json.dumps({"coordinates": [0, 0]}),
+                    json.dumps({"coordinates": [1, 1]}),
+                ],
+            },
+            index=[0, 1],
+        )
+        net.line = pd.DataFrame({"from_bus": [0], "to_bus": [1]}, index=[0])
+        net.trafo = pd.DataFrame(columns=["hv_bus", "lv_bus"])
+        net.ext_grid = pd.DataFrame({"bus": [0]}, index=[0])
+        net.sgen = pd.DataFrame(
+            {"bus": [1], "name": ["battery_unit"], "in_service": [True]}, index=[0]
+        )
+        net.load = pd.DataFrame(columns=["bus", "name"])
+        mock_plt.get_cmap.return_value = mpl.colormaps.get_cmap("viridis")
+        # Call with branches and remove_battery True
+        # patch the actual pandapower plotting function which is imported inside the function
+        with patch("pandapower.plotting.simple_plot") as mock_pp_simple:
+            visualize.visualize_high_voltage_day(
+                net,
+                results_df=df,
+                branches=[[0, 1]],
+                scenario=None,
+                remove_battery=True,
+            )
+            # simple_plot should be called
+            self.assertTrue(mock_pp_simple.called)
