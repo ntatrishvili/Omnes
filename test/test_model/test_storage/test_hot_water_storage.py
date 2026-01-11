@@ -1,22 +1,24 @@
 import unittest
 
-from app.infra.timeseries_object_factory import TimeseriesFactory
+from app.infra.parameter import Parameter
+from app.infra.quantity_factory import QuantityFactory
+
 from app.model.storage.hot_water_storage import HotWaterStorage
 
 
-class DummyTimeseriesFactory(TimeseriesFactory):
+class DummyQuantityFactory(QuantityFactory):
     def create(self, name, **kwargs):
-        return f"ts_{name}"
+        return Parameter(value=kwargs.get("input", 0))
 
 
 class TestHotWaterStorage(unittest.TestCase):
     def setUp(self):
-        self.ts_factory = DummyTimeseriesFactory()
+        self.quantity_factory = DummyQuantityFactory()
 
     def test_hot_water_storage_init(self):
         hw = HotWaterStorage(
             id="hw1",
-            ts_factory=self.ts_factory,
+            quantity_factory=self.quantity_factory,
             volume=150,
             set_temperature=60,
         )

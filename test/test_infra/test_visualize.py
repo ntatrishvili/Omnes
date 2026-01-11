@@ -736,7 +736,7 @@ class TestMoreVisualizeBranches(unittest.TestCase):
             try:
                 os.unlink(tmp_path)
             except Exception:
-                pass
+                print(f"Could not delete temporary file:{tmp_path}")
 
     @patch("app.infra.visualize.plt")
     @patch("app.infra.visualize.pulp")

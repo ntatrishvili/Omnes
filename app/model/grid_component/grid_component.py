@@ -1,11 +1,10 @@
 from typing import Optional
 
-from app.infra.timeseries_object_factory import (
-    DefaultTimeseriesFactory,
-    TimeseriesFactory,
+from app.infra.quantity_factory import (
+    DefaultQuantityFactory,
+    QuantityFactory,
 )
 from app.model.entity import Entity
-from app.model.util import InitOnSet
 
 
 def _cast_phase(phase: Optional[str | int], default=3) -> str | int:
@@ -21,15 +20,17 @@ class GridComponent(Entity):
     """Represents both the physical and abstract elements of an electrical grid, like transformers, buses, nodes and
     power lines."""
 
-    default_phase: Optional[str | int] = InitOnSet(_cast_phase, default=3)
+    _quantity_excludes = ["default_phase"]
+
+    default_phase: Optional[str | int] = 3
 
     def __init__(
         self,
         id: Optional[str] = None,
-        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        quantity_factory: QuantityFactory = DefaultQuantityFactory(),
         **kwargs
     ):
-        super().__init__(id=id, ts_factory=ts_factory, **kwargs)
+        super().__init__(id=id, quantity_factory=quantity_factory, **kwargs)
         self.check_kwargs(**kwargs)
         self.phase = kwargs.pop("phase", self.default_phase)
         try:

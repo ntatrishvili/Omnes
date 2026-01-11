@@ -16,7 +16,8 @@ from app.conversion.validation_utils import (
     validate_entity_exists,
     extract_effective_time_properties,
 )
-from app.infra.quantity import Parameter, Quantity
+from app.infra.quantity import Quantity
+from app.infra.parameter import Parameter
 from app.infra.relation import Relation
 from app.model.entity import Entity
 from app.model.model import Model

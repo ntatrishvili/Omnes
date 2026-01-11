@@ -1,40 +1,46 @@
-from typing import Callable, Any, Dict
+from app.infra.quantity import Quantity
+from app.infra.parameter import Parameter
+from app.infra.timeseries_object import TimeseriesObject
 
 
-class InitOnSet:
+def create_default_quantity(value):
     """
-    Marker that stores an initializer function and optional default.
-    For attributes that are processed whenever the class attribute is assigned.
+    Convert a raw value into a Parameter or TimeseriesObject.
+    Used for initializing default_ class members at class creation time.
     """
-
-    def __init__(self, init_fn: Callable[[Any], Any], *, default: Any = None):
-        self.init_fn = init_fn
-        self.default = default
+    if value is None:
+        return None
+    if isinstance(value, Quantity):
+        return value
+    if isinstance(value, (int, float, str)) and not isinstance(value, bool):
+        return Parameter(value=value)
+    if isinstance(value, dict):
+        if "value" in value:
+            return Parameter(**value)
+        return TimeseriesObject(**value)
+    # Iterable -> TimeseriesObject
+    return TimeseriesObject(data=value)
 
 
 class InitializingMeta(type):
     """
-    Metaclass that intercepts assignments to class attributes listed
-    as InitOnSet and replaces assigned values with the return value
-    of the corresponding initializer function.
+    Metaclass that converts default_ class members into Parameter/TimeseriesObject
+    at class creation time. Does not interfere with instance initialization.
+
+    Fields listed in _quantity_excludes are left as plain values.
     """
 
-    def __new__(mcls, name, bases, namespace: Dict[str, Any]):
-        # Inherit init-map from bases
-        init_map: Dict[str, Callable[[Any], Any]] = {}
-        for b in bases:
-            init_map.update(getattr(b, "_init_on_set", {}))
-        # Collect InitOnSet in this class namespace and set initial defaults
-        for k, v in list(namespace.items()):
-            if isinstance(v, InitOnSet):
-                init_map[k] = v.init_fn
-                namespace[k] = v.init_fn(v.default)
-        cls = super().__new__(mcls, name, bases, namespace)
-        cls._init_on_set = init_map
-        return cls
+    def __new__(mcs, name, bases, namespace):
+        # Collect exclusion list from class and all ancestors
+        excluded = set(namespace.get("_quantity_excludes", []))
+        for base in bases:
+            for ancestor in getattr(base, "__mro__", []):
+                excluded.update(getattr(ancestor, "_quantity_excludes", []))
 
-    def __setattr__(cls, name: str, value: Any):
-        init_map = getattr(cls, "_init_on_set", {})
-        if name in init_map:
-            value = init_map[name](value)
-        super().__setattr__(name, value)
+        # Convert default_ fields to Quantity at class level
+        for key, value in list(namespace.items()):
+            if key.startswith("default_") and key not in excluded:
+                if not isinstance(value, Quantity):
+                    namespace[key] = create_default_quantity(value)
+
+        return super().__new__(mcs, name, bases, namespace)

@@ -88,7 +88,7 @@ class TestModel(unittest.TestCase):
     def test_set_method_with_quantity(self):
         """Test set() method updates entity quantity"""
         from app.model.entity import Entity
-        from app.infra.quantity import Parameter
+        from app.infra.parameter import Parameter
         from app.infra.util import TimeSet
         import pandas as pd
 

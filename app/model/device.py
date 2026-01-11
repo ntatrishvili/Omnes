@@ -1,12 +1,11 @@
 from enum import Enum
 from typing import Optional
 
-from app.infra.timeseries_object_factory import (
-    DefaultTimeseriesFactory,
-    TimeseriesFactory,
+from app.infra.quantity_factory import (
+    DefaultQuantityFactory,
+    QuantityFactory,
 )
 from app.model.entity import Entity
-from app.model.util import InitOnSet
 
 
 class Vector(Enum):
@@ -17,19 +16,18 @@ class Vector(Enum):
 
 
 class Device(Entity):
-    default_vector: Optional[Vector] = InitOnSet(
-        lambda v: None if v is None else (Vector(v) if isinstance(v, str) else v),
-        default=Vector.INVALID,
-    )
+    _quantity_excludes = ["default_vector", "default_contributes_to"]
+
+    default_vector: Optional[Vector] = Vector.INVALID
     default_contributes_to: Optional[str] = None
 
     def __init__(
         self,
         id: Optional[str] = None,
-        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        quantity_factory: QuantityFactory = DefaultQuantityFactory(),
         **kwargs,
     ):
-        super().__init__(id, ts_factory, **kwargs)
+        super().__init__(id, quantity_factory, **kwargs)
         self.bus = kwargs.pop("bus", "bus")
         if self.bus is None:
             raise ValueError(f"No bus specified for device '{self.id}'")

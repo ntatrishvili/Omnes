@@ -9,13 +9,13 @@ def test_bus_defaults():
     assert bus.id == "bus1"
     assert bus.nominal_voltage.value is None
     assert bus.phase == 3
-    assert bus.type.value == BusType.PQ
+    assert bus.type.value == BusType.PQ.value
 
 
 def test_bus_custom_nominal_voltage_and_type():
     bus = Bus(id="bus1", nominal_voltage=400.0, type="SLACK")
     assert math.isclose(bus.nominal_voltage.value, 400.0)
-    assert bus.type.value == BusType.SLACK
+    assert bus.type.value == BusType.SLACK.value
 
 
 def test_bus_str_representation():

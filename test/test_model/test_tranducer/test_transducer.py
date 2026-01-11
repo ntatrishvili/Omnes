@@ -1,7 +1,8 @@
 import math
 import unittest
 
-from app.infra.quantity import Parameter
+from app.infra.parameter import Parameter
+from app.infra.timeseries_object import TimeseriesObject
 
 from app.model.device import Device
 from app.model.transducer.transducer import Transducer
@@ -24,7 +25,7 @@ def test_converter_basic_attributes():
     assert conv.p_out.empty()
     assert isinstance(conv.conversion_efficiency, Parameter)
     assert math.isclose(conv.conversion_efficiency.value, 0.8)
-    assert conv.controllable is True
+    assert isinstance(conv.controllable, TimeseriesObject)
     assert conv.input_device == "dev1"
     assert conv.output_device == "dev2"
     assert conv.bus == "bus1"

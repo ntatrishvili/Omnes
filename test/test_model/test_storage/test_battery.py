@@ -1,22 +1,23 @@
 import unittest
 
-from app.infra.timeseries_object_factory import TimeseriesFactory
+from app.infra.parameter import Parameter
+from app.infra.quantity_factory import QuantityFactory
 from app.model.storage.battery import Battery
 
 
-class DummyTimeseriesFactory(TimeseriesFactory):
+class DummyQuantityFactory(QuantityFactory):
     def create(self, name, **kwargs):
-        return f"ts_{name}"
+        return Parameter(value=kwargs.get("input", 0))
 
 
 class TestBattery(unittest.TestCase):
     def setUp(self):
-        self.ts_factory = DummyTimeseriesFactory()
+        self.quantity_factory = DummyQuantityFactory()
 
     def test_battery_init(self):
         b = Battery(
             id="bat1",
-            ts_factory=self.ts_factory,
+            quantity_factory=self.quantity_factory,
             max_charge_rate=10,
             capacity=100,
             bus="bus1",

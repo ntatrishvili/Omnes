@@ -1,8 +1,8 @@
 from typing import Optional
 
-from app.infra.timeseries_object_factory import (
-    DefaultTimeseriesFactory,
-    TimeseriesFactory,
+from app.infra.quantity_factory import (
+    DefaultQuantityFactory,
+    QuantityFactory,
 )
 from app.model.device import Device
 
@@ -11,12 +11,12 @@ class Slack(Device):
     def __init__(
         self,
         id: Optional[str] = None,
-        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        quantity_factory: QuantityFactory = DefaultQuantityFactory(),
         **kwargs,
     ):
-        super().__init__(id=id, ts_factory=ts_factory, **kwargs)
-        self.create_quantity("p_in", **kwargs)
-        self.create_quantity("p_out", **kwargs)
+        super().__init__(id=id, quantity_factory=quantity_factory, **kwargs)
+        self.create_quantity("p_in", **kwargs.get("p_in", {}))
+        self.create_quantity("p_out", **kwargs.get("p_out", {}))
 
     def __str__(self):
         """

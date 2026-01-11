@@ -1,4 +1,5 @@
 import json
+import logging
 from collections import defaultdict
 from copy import copy
 from os.path import join
@@ -17,6 +18,8 @@ from matplotlib.path import Path
 from pandas import Timestamp, Timedelta
 
 from app.infra.configuration import Config
+
+logger = logging.getLogger(__name__)
 
 mpl.rcParams["savefig.transparent"] = True
 mpl.rcParams["figure.facecolor"] = "none"
@@ -1225,7 +1228,7 @@ def visualize_high_voltage_day(
         try:
             fig.colorbar(sm, ax=ax_net, label="Voltage [pu]")
         except Exception:
-            pass
+            logger.warning("Failed to add voltage colorbar")
         try:
             cm = mpl.cm.ScalarMappable(
                 cmap=edge_cmap, norm=mpl.colors.Normalize(vmin=cmin, vmax=cmax)
@@ -1233,7 +1236,7 @@ def visualize_high_voltage_day(
             cm.set_array([])
             fig.colorbar(cm, ax=ax_net, label="Current [A]")
         except Exception:
-            pass
+            logger.warning("Failed to add current colorbar")
 
     # --- Branch voltage profiles ---
     highlight_colors = ["C1", "C2", "C3", "C4", "C5"]

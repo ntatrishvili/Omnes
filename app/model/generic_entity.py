@@ -1,9 +1,9 @@
 from typing import Dict, Optional
 
-from app.infra.quantity import Quantity, Parameter
-from app.infra.timeseries_object_factory import (
-    DefaultTimeseriesFactory,
-    TimeseriesFactory,
+from app.infra.quantity import Quantity
+from app.infra.quantity_factory import (
+    DefaultQuantityFactory,
+    QuantityFactory,
 )
 from app.model.entity import Entity
 
@@ -21,9 +21,9 @@ class GenericEntity(Entity):
     id : str | None
         Optional unique identifier for the entity. If omitted a random id may
         be supplied by the base Entity implementation.
-    ts_factory : TimeseriesFactory, optional
+    quantity_factory : QuantityFactory, optional
         Factory used to create time-series objects for quantities. If not
-        provided DefaultTimeseriesFactory() is used.
+        provided DefaultQuantityFactory() is used.
     **kwargs :
         Arbitrary named quantities to initialize on the entity. Each key/value
         pair is converted into a Parameter(value=...). Common examples are
@@ -46,7 +46,7 @@ class GenericEntity(Entity):
     def __init__(
         self,
         id: Optional[str] = None,
-        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        quantity_factory: QuantityFactory = DefaultQuantityFactory(),
         **kwargs,
     ):
         """Initialize the GenericEntity.
@@ -56,10 +56,9 @@ class GenericEntity(Entity):
         behavior (id assignment, sub-entities, relations) is handled by the
         base Entity constructor.
         """
-        super().__init__(id, ts_factory, **kwargs)
-        self.quantities.update(
-            {key: Parameter(value=value) for key, value in kwargs.items()}
-        )
+        super().__init__(id, quantity_factory, **kwargs)
+        for key, value in kwargs.items():
+            self.create_quantity(key, value=value)
 
     def __str__(self):
         """Return a compact human-readable representation of the entity.

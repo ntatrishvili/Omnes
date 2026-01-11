@@ -1,77 +1,154 @@
 import unittest
 
-from app.model.util import InitOnSet, InitializingMeta
+from app.model.util import InitializingMeta, create_default_quantity
+from app.infra.parameter import Parameter
+from app.infra.timeseries_object import TimeseriesObject
+
+
+class TestCreateDefaultQuantity(unittest.TestCase):
+    """Tests for the create_default_quantity function."""
+
+    def test_none_returns_none(self):
+        self.assertIsNone(create_default_quantity(None))
+
+    def test_scalar_int_returns_parameter(self):
+        result = create_default_quantity(42)
+        self.assertIsInstance(result, Parameter)
+        self.assertEqual(result.value, 42)
+
+    def test_scalar_float_returns_parameter(self):
+        result = create_default_quantity(0.95)
+        self.assertIsInstance(result, Parameter)
+        self.assertEqual(result.value, 0.95)
+
+    def test_string_returns_parameter(self):
+        result = create_default_quantity("test")
+        self.assertIsInstance(result, Parameter)
+        self.assertEqual(result.value, "test")
+
+    def test_bool_is_not_treated_as_scalar(self):
+        # Booleans should go to TimeseriesObject path (as iterable falls through)
+        result = create_default_quantity(True)
+        self.assertIsInstance(result, TimeseriesObject)
+
+    def test_dict_with_value_returns_parameter(self):
+        result = create_default_quantity({"value": 100})
+        self.assertIsInstance(result, Parameter)
+        self.assertEqual(result.value, 100)
+
+    def test_existing_quantity_returned_as_is(self):
+        param = Parameter(value=123)
+        result = create_default_quantity(param)
+        self.assertIs(result, param)
 
 
 class TestInitializingMeta(unittest.TestCase):
-    def test_default_initialized_at_class_creation(self):
-        def dbl(v):
-            return 0 if v is None else int(v) * 2
+    """Tests for the InitializingMeta metaclass with default_ fields."""
 
+    def test_default_field_converted_to_parameter(self):
         class C(metaclass=InitializingMeta):
-            # default 3 -> initializer should produce 6
-            x = InitOnSet(dbl, default=3)
+            default_capacity = 100.0
 
-        self.assertEqual(C.x, 6)
+            def __init__(self, **kwargs):
+                pass
 
-    def test_setting_class_attribute_triggers_initializer(self):
-        def to_float_or_none(v):
-            return None if v is None else float(v)
+        # Class attribute should be a Parameter (converted at class creation)
+        self.assertIsInstance(C.default_capacity, Parameter)
+        self.assertEqual(C.default_capacity.value, 100.0)
 
-        class Bus(metaclass=InitializingMeta):
-            default_nominal_voltage = InitOnSet(to_float_or_none, default=None)
-            # plain attribute should be untouched
+    def test_instance_inherits_class_default(self):
+        class Storage(metaclass=InitializingMeta):
+            default_capacity = 100.0
+            default_efficiency = 0.9
+
+            def __init__(self, **kwargs):
+                pass
+
+        storage = Storage()
+        # Instance sees class-level defaults
+        self.assertIsInstance(storage.default_capacity, Parameter)
+        self.assertEqual(storage.default_capacity.value, 100.0)
+        self.assertIsInstance(storage.default_efficiency, Parameter)
+        self.assertEqual(storage.default_efficiency.value, 0.9)
+
+    def test_plain_attributes_untouched(self):
+        class Device(metaclass=InitializingMeta):
+            default_power = 50.0
             other = 7
 
-        # initial default is None
-        self.assertIsNone(Bus.default_nominal_voltage)
-        # set string -> converted to float
-        Bus.default_nominal_voltage = "11.0"
-        self.assertIsInstance(Bus.default_nominal_voltage, float)
-        self.assertEqual(Bus.default_nominal_voltage, 11.0)
-        # set back to None -> stays None
-        Bus.default_nominal_voltage = None
-        self.assertIsNone(Bus.default_nominal_voltage)
-        # plain attribute is assigned normally
-        Bus.other = 42
-        self.assertEqual(Bus.other, 42)
+            def __init__(self, **kwargs):
+                pass
 
-    def test_inheritance_of_init_map_and_isolated_assignment(self):
-        def i_or_zero(v):
-            return int(v) if v is not None else 0
+        # Non-default_ attributes are left as-is
+        self.assertEqual(Device.other, 7)
+        Device.other = 42
+        self.assertEqual(Device.other, 42)
 
+    def test_excluded_fields_not_converted(self):
+        class GridComponent(metaclass=InitializingMeta):
+            _quantity_excludes = ["default_phase"]
+            default_phase = 3
+            default_voltage = 400.0
+
+            def __init__(self, **kwargs):
+                pass
+
+        # Excluded field stays as plain value
+        self.assertEqual(GridComponent.default_phase, 3)
+        self.assertNotIsInstance(GridComponent.default_phase, Parameter)
+        # Non-excluded field is converted
+        self.assertIsInstance(GridComponent.default_voltage, Parameter)
+
+    def test_exclusion_inherited_from_base(self):
         class Parent(metaclass=InitializingMeta):
-            a = InitOnSet(i_or_zero, default=1)
+            _quantity_excludes = ["default_phase"]
+            default_phase = 3
+
+            def __init__(self, **kwargs):
+                pass
 
         class Child(Parent):
-            pass
+            default_phase = "A"  # Override, but still excluded
 
-        # Both classes start with initialized value
-        self.assertEqual(Parent.a, 1)
-        self.assertEqual(Child.a, 1)
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
 
-        # Setting Child.a should apply initializer and not change Parent.a
-        Child.a = "5"
-        self.assertEqual(Child.a, 5)
-        self.assertEqual(Parent.a, 1)
+        # Child inherits exclusion
+        self.assertEqual(Child.default_phase, "A")
+        self.assertNotIsInstance(Child.default_phase, Parameter)
 
-    def test_multiple_init_on_set_attributes(self):
-        def s(v):
-            return str(v) if v is not None else ""
+    def test_inheritance_of_default_fields(self):
+        class Parent(metaclass=InitializingMeta):
+            default_value = 1.0
 
-        def n(v):
-            return (int(v) + 1) if v is not None else -1
+            def __init__(self, **kwargs):
+                pass
 
+        class Child(Parent):
+            default_extra = 2.0
+
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+
+        child = Child()
+        self.assertIsInstance(child.default_value, Parameter)
+        self.assertEqual(child.default_value.value, 1.0)
+        self.assertIsInstance(child.default_extra, Parameter)
+        self.assertEqual(child.default_extra.value, 2.0)
+
+    def test_multiple_default_fields(self):
         class M(metaclass=InitializingMeta):
-            name = InitOnSet(s, default="bob")
-            count = InitOnSet(n, default=4)
+            default_name = "bob"
+            default_count = 4
 
-        self.assertEqual(M.name, "bob")
-        self.assertEqual(M.count, 5)
-        M.name = 123
-        M.count = "7"
-        self.assertEqual(M.name, "123")
-        self.assertEqual(M.count, 8)
+            def __init__(self, **kwargs):
+                pass
+
+        # String and int defaults become Parameters at class level
+        self.assertIsInstance(M.default_name, Parameter)
+        self.assertEqual(M.default_name.value, "bob")
+        self.assertIsInstance(M.default_count, Parameter)
+        self.assertEqual(M.default_count.value, 4)
 
 
 if __name__ == "__main__":

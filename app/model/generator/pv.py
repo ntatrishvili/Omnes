@@ -1,8 +1,8 @@
 from typing import Optional
 
-from app.infra.timeseries_object_factory import (
-    DefaultTimeseriesFactory,
-    TimeseriesFactory,
+from app.infra.quantity_factory import (
+    DefaultQuantityFactory,
+    QuantityFactory,
 )
 from app.model.generator.generator import Generator
 
@@ -11,10 +11,10 @@ class PV(Generator):
     def __init__(
         self,
         id: Optional[str] = None,
-        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        quantity_factory: QuantityFactory = DefaultQuantityFactory(),
         **kwargs: object,
     ):
-        super().__init__(id=id, ts_factory=ts_factory, **kwargs)
+        super().__init__(id=id, quantity_factory=quantity_factory, **kwargs)
 
     def __str__(self):
         """

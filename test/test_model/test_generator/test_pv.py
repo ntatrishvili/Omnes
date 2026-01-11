@@ -2,11 +2,11 @@ import unittest
 
 import pandas as pd
 
-from app.infra.timeseries_object_factory import TimeseriesFactory
+from app.infra.quantity_factory import QuantityFactory
 from app.model.generator.pv import PV
 
 
-class DummyTimeseriesFactory(TimeseriesFactory):
+class DummyQuantityFactory(QuantityFactory):
     def create(self, name, **kwargs):
         # Return a minimal pandas Series to satisfy .empty and .sum()
         return pd.Series([1, 2, 3])
@@ -14,10 +14,12 @@ class DummyTimeseriesFactory(TimeseriesFactory):
 
 class TestPV(unittest.TestCase):
     def setUp(self):
-        self.ts_factory = DummyTimeseriesFactory()
+        self.quantity_factory = DummyQuantityFactory()
 
     def test_pv_init(self):
-        pv = PV(id="pv1", ts_factory=self.ts_factory, max_power=5, bus="pv1")
+        pv = PV(
+            id="pv1", quantity_factory=self.quantity_factory, max_power=5, bus="pv1"
+        )
         self.assertEqual(pv.id, "pv1")
         self.assertIn("p_out", pv.quantities)
         self.assertIsInstance(pv.quantities["p_out"], pd.Series)

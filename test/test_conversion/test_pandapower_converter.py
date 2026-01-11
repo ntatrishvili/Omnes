@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from app.conversion.pandapower_converter import PandapowerConverter
-from app.infra.quantity import Parameter
+from app.infra.parameter import Parameter
 from app.infra.timeseries_object import TimeseriesObject
 from app.model.entity import Entity
 
