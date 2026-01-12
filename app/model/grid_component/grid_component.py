@@ -36,6 +36,7 @@ class GridComponent(Entity):
         try:
             self.phase = int(self.phase)
         except ValueError:
+            # Keep phase as the original non-integer value (e.g. "A", "B", or "C") if casting fails.
             pass
         self.coordinates = kwargs.pop("coordinates", [])
 
