@@ -30,11 +30,11 @@ class Transducer(Device):
         self.create_quantity("p_in", **kwargs.get("p_in", {}))
         self.create_quantity("p_out", **kwargs.get("p_out", {}))
         self.create_quantity(
-            "controllable", input=kwargs.pop("controllable", self.default_controllable)
+            "controllable", input=kwargs.get("controllable", self.default_controllable)
         )
         self.create_quantity(
             "conversion_efficiency",
-            input=kwargs.pop(
+            input=kwargs.get(
                 "conversion_efficiency", self.default_conversion_efficiency
             ),
         )
