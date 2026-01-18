@@ -24,7 +24,8 @@ from app.conversion.validation_utils import (
     validate_and_normalize_time_set,
     extract_effective_time_properties,
 )
-from app.infra.quantity import Parameter, Quantity
+from app.infra.quantity import Quantity
+from app.infra.parameter import Parameter
 from app.infra.timeseries_object import TimeseriesObject
 from app.model.entity import Entity
 from app.model.generator.pv import PV

@@ -105,6 +105,7 @@ class TimeseriesObject(Quantity):
             "freq": kwargs.pop("freq", None),
             "dims": kwargs.pop("dims", None),
             "coords": kwargs.pop("coords", None),
+            "read_kwargs": kwargs.pop("read_kwargs", {}),
             "attrs": attrs,
         }
 
@@ -131,6 +132,7 @@ class TimeseriesObject(Quantity):
                 datetime_column=params.get("datetime_column", None),
                 datetime_format=params.get("datetime_format", None),
                 tz=params.get("tz", None),
+                **params.get("read_kwargs", {}),
             ) * params.get("scale", 1.0)
             return self._dataframe_to_xarray(df_data, params["attrs"])
         else:

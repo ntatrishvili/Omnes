@@ -5,7 +5,8 @@ import numpy as np
 import pulp
 
 from app.conversion.pulp_converter import PulpConverter, create_empty_pulp_var
-from app.infra.quantity import Parameter, Quantity
+from app.infra.quantity import Quantity
+from app.infra.parameter import Parameter
 from app.infra.relation import (
     EntityReference,
     Literal,
