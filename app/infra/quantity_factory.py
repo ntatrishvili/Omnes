@@ -48,4 +48,10 @@ class DefaultQuantityFactory(QuantityFactory):
         if quantity is None:
             return Parameter(value=None)
 
-        raise ValueError("Invalid arguments for creating Quantity")
+        provided_keys = ", ".join(sorted(kwargs.keys())) or "<none>"
+        raise ValueError(
+            f"Invalid arguments for creating Quantity '{quantity_name}'. "
+            f"Expected one of: an existing Quantity under key '{quantity_name}', "
+            f"a scalar 'value', iterable 'data', or timeseries arguments "
+            f"'input_path' and 'col'. Received kwargs keys: {provided_keys}."
+        )
