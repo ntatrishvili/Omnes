@@ -33,4 +33,4 @@ class GridComponent(Entity):
     def check_kwargs(cls, **kwargs):
         phase = kwargs.get("phase", cls.default_phase)
         if phase not in ("A", "B", "C", 3, "3"):
-            raise ValueError("Phase must be 'A', 'B', 'C', 3")
+            raise ValueError(f"Phase must be 'A', 'B', 'C', or 3, but got {phase!r}")
