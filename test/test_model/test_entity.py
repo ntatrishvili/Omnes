@@ -37,6 +37,23 @@ class TestEntity(unittest.TestCase):
         with self.assertRaises(AttributeError):
             _ = e.notfound
 
+    def test_contains(self):
+        e = Entity(id="ent1", quantity_factory=self.quantity_factory)
+        e.quantities["foo"] = 42
+        self.assertIn("foo", e)
+        self.assertNotIn("bar", e)
+
+    def test_dir(self):
+        e = Entity(id="ent1", quantity_factory=self.quantity_factory)
+        e.quantities["foo"] = 42
+        self.assertIn("foo", dir(e))
+
+    def test_create_quantity(self):
+        e = Entity(id="ent1", quantity_factory=self.quantity_factory)
+        e.create_quantity("test_quantity")
+        self.assertIn("test_quantity", e.quantities)
+        self.assertEqual(e.quantities["test_quantity"], "ts_test_quantity")
+
 
 if __name__ == "__main__":
     unittest.main()
