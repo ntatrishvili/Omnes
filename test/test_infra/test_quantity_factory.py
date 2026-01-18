@@ -20,7 +20,7 @@ class TestDefaultQuantityFactory(unittest.TestCase):
     def test_factory_create_returns_parameter(self):
         factory = DefaultQuantityFactory()
         obj = factory.create("p_test", value=42)
-        # Should return a Paramter instance
+        # Should return a Parameter instance
 
         from app.infra.parameter import Parameter
 
