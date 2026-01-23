@@ -2,7 +2,7 @@ from app.conversion.pulp_converter import PulpConverter
 from app.infra.relation import Relation
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
-from app.model.grid_component.bus import Bus, BusType
+from app.model.grid_component.bus import Bus
 from app.model.grid_component.line import Line
 from app.model.load.load import Load
 from app.model.model import Model
@@ -14,7 +14,14 @@ from app.operation.example_optimization import optimize_energy_system
 
 Bus.default_nominal_voltage = 400
 bus_mv = Bus(id="bus_MV", nominal_voltage=10000, type="SLACK", phase=3)
-slack = Slack(id="slack", bus="bus_MV")
+slack = Slack(
+    id="slack",
+    bus="bus_MV",
+    relations=[
+        Relation("$.power >= -10"),
+        Relation("$.power <= 15"),
+    ],
+)
 
 bus_lv1 = Bus(id="bus_LV1")
 bus_lv2 = Bus(id="bus_LV2", phase="C")
@@ -37,16 +44,29 @@ pv1 = PV(
     id="pv1",
     bus="bus_LV1",
     peak_power=4,
-    p_out={"input_path": "config/input.csv"},
+    p_out={"input_path": "config/input.csv", "read_kwargs": {"sep": ";"}},
+    q_out={"input_path": "config/input.csv", "read_kwargs": {"sep": ";"}},
     tags={"household": "HH1"},
+    relations=[
+        Relation("$.p_out <= $.peak_power"),
+        Relation("$.p_out >= 0"),
+        Relation("$.q_out <= 0.3 * $.p_out"),
+    ],
 )
 
 pv2 = PV(
     id="pv2",
     bus="bus_LV2",
     peak_power=3,
-    p_out={"input_path": "config/input2.csv"},
+    p_out={"input_path": "config/input2.csv", "read_kwargs": {"sep": ";"}},
+    q_out={"input_path": "config/input2.csv", "read_kwargs": {"sep": ";"}},
     tags={"household": "HH2"},
+    relations=[
+        Relation("$.p_out <= $.peak_power"),
+        Relation("$.p_out >= 0"),
+        Relation("$.q_out >= -0.4 * $.p_out"),
+        Relation("$.q_out <= 0.4 * $.p_out"),
+    ],
 )
 
 wind1 = Wind(
@@ -54,7 +74,22 @@ wind1 = Wind(
     bus="bus_LV3",
     peak_power=5,
     efficiency=0.95,
-    p_out={"input_path": "config/input.csv", "col": "wind"},
+    p_out={
+        "input_path": "config/input.csv",
+        "col": "wind",
+        "read_kwargs": {"sep": ";"},
+    },
+    q_out={
+        "input_path": "config/input.csv",
+        "col": "wind",
+        "read_kwargs": {"sep": ";"},
+    },
+    relations=[
+        Relation("$.p_out <= $.peak_power"),
+        Relation("$.p_out >= 0"),
+        Relation("$.p_out * $.efficiency <= $.peak_power"),
+        Relation("$.q_out <= 0.2 * $.p_out"),
+    ],
 )
 
 # Instantiate Battery
@@ -75,6 +110,14 @@ battery1 = Battery(
     storage_efficiency=0.995,
     relations=[
         relation2,
+        Relation("$.p_in <= $.max_charge_rate"),
+        Relation("$.p_out <= $.max_discharge_rate"),
+        Relation(
+            "$.soc = $.soc(t-1) * $.storage_efficiency + $.p_in * $.charge_efficiency - $.p_out / $.discharge_efficiency"
+        ),
+        Relation("$.soc >= 0.1 * $.capacity"),
+        Relation("$.soc <= $.capacity"),
+        Relation("if $.soc < 0.2 * $.capacity then $.max_discharge_rate = 1"),
     ],
 )
 
@@ -83,8 +126,14 @@ hot_water_storage1 = HotWaterStorage(
     bus="bus_LV1",
     volume=120,
     set_temperature=60,
-    p_out={"input_path": "config/input.csv", "col": "hot_water1"},
+    p_out={"input_path": "config/input.csv", "col": "pv1", "read_kwargs": {"sep": ";"}},
     tags={"household": "HH1"},
+    relations=[
+        Relation("$.p_in >= 0"),
+        Relation("$.p_out >= 0"),
+        Relation("$.soc <= $.volume"),
+        Relation("$.soc >= 0.1 * $.volume"),
+    ],
 )
 
 relation3 = Relation("heater1.power enabled from 10:00 to 16:00")
@@ -96,7 +145,12 @@ water_heater1 = Transducer(
     bus="bus_LV1",
     conversion_efficiency=0.95,
     tags={"household": "HH1"},
-    relations=[relation3, relation4],
+    relations=[
+        relation3,
+        relation4,
+        Relation("$.power = hot_water1.p_in / $.efficiency"),
+        Relation("$.power >= 0"),
+    ],
 )
 
 hot_water_storage2 = HotWaterStorage(
@@ -104,8 +158,18 @@ hot_water_storage2 = HotWaterStorage(
     bus="bus_LV2",
     volume=200,
     set_temperature=55,
-    input={"input_path": "config/input.csv", "col": "hot_water2"},
+    input={
+        "input_path": "config/input.csv",
+        "col": "load1",
+        "read_kwargs": {"sep": ";"},
+    },
     tags={"household": "HH2"},
+    relations=[
+        Relation("$.p_in <= $.max_charge_rate"),
+        Relation("$.p_out <= $.max_discharge_rate"),
+        Relation("$.soc <= $.volume"),
+        Relation("$.soc >= 0.15 * $.volume"),
+    ],
 )
 
 relation5 = Relation("heater2.power enabled from 10:00 to 16:00")
@@ -116,31 +180,48 @@ water_heater2 = Transducer(
     bus="bus_LV2",
     conversion_efficiency=0.995,
     tags={"household": "HH2"},
-    relations=[relation5, relation6],
+    relations=[
+        relation5,
+        relation6,
+        Relation("$.power <= 3"),
+        Relation("if hot_water2.soc > 0.9 * hot_water2.volume then $.power = 0"),
+    ],
 )
 
 # Instantiate Loads
 load1 = Load(
     id="load1",
     bus="bus_LV1",
-    input={"input_path": "config/input.csv"},
+    input={"input_path": "config/input.csv", "read_kwargs": {"sep": ";"}},
     tags={"household": "HH1"},
+    relations=[
+        Relation("$.power >= 0"),
+        Relation("$.power <= 5"),
+    ],
 )
 load2 = Load(
     id="load2",
     bus="bus_LV2",
     input={"input_path": "config/input2.csv"},
     tags={"household": "HH2"},
+    relations=[
+        Relation("$.electricity >= 0"),
+        Relation("$.electricity <= 4"),
+    ],
 )
 
 # relation1 = Relation("battery1.max_discharge_rate < 2 * pv1.peak_power")
 # e = Entity(relations=[relation1,])
 
+# Global relations
+global_relation1 = Relation("pv1.p_out + wind1.p_out >= load1.power + battery1.p_in")
+global_relation2 = Relation("battery1.p_out * 0.95 <= battery1.capacity / 4")
+
 time_resolution = "1h"
 model = Model(
     id="Energy_Community",
-    time_start="2025-01-01 00:00",
-    time_end="2025-01-02 00:00",
+    time_start="2023-01-01 00:00",
+    time_end="2023-12-31 23:59",
     resolution=time_resolution,
     entities=[
         bus_mv,

@@ -107,6 +107,7 @@ class TimeseriesObject(Quantity):
             "coords": kwargs.pop("coords", None),
             "read_kwargs": kwargs.pop("read_kwargs", {}),
             "attrs": attrs,
+            "entity_id": kwargs.pop("entity_id", None),
         }
 
     def _initialize_data_array(self, params):
@@ -125,10 +126,15 @@ class TimeseriesObject(Quantity):
             return self._dataframe_to_xarray(
                 DataFrame(params["data"], index=params["coords"], columns=["timestamp"])
             )
-        elif params["input_path"] is not None and params["col"] is not None:
+        elif params["input_path"] is not None:
+            if params["col"] is None and params["entity_id"] is None:
+                raise ValueError(
+                    "Column name 'col' or 'entity_id' must be provided when reading from CSV."
+                )
+            col = params["col"] or params["entity_id"]
             df_data = self._read_csv_to_dataframe(
                 params["input_path"],
-                params["col"],
+                col,
                 datetime_column=params.get("datetime_column", None),
                 datetime_format=params.get("datetime_format", None),
                 tz=params.get("tz", None),

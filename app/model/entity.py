@@ -100,4 +100,6 @@ class Entity(metaclass=InitializingMeta):
         return base + list(self.quantities.keys())
 
     def create_quantity(self, name: str, **kwargs):
-        self.quantities.update({name: self.quantity_factory.create(name, **kwargs)})
+        self.quantities.update(
+            {name: self.quantity_factory.create(name, **kwargs, entity_id=self.id)}
+        )

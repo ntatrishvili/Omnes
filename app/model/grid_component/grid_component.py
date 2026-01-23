@@ -19,7 +19,7 @@ class GridComponent(Entity):
         self,
         id: Optional[str] = None,
         quantity_factory: QuantityFactory = DefaultQuantityFactory(),
-        **kwargs
+        **kwargs,
     ):
         super().__init__(id=id, quantity_factory=quantity_factory, **kwargs)
         self.check_kwargs(**kwargs)

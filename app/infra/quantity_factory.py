@@ -8,11 +8,11 @@ from app.infra.timeseries_object import TimeseriesObject
 
 class QuantityFactory(ABC):
     @abstractmethod
-    def create(self, quantity_name: str, **kwargs) -> Quantity: ...
+    def create(self, quantity_name: str, entity_id: str, **kwargs) -> Quantity: ...
 
 
 class DefaultQuantityFactory(QuantityFactory):
-    def create(self, quantity_name: str, **kwargs) -> Quantity:
+    def create(self, quantity_name: str, entity_id: str, **kwargs) -> Quantity:
         # Handle unified 'input' argument
         if "input" in kwargs:
             raw = kwargs.pop("input")
@@ -37,9 +37,9 @@ class DefaultQuantityFactory(QuantityFactory):
 
         # Timeseries heuristics
         if ("data" in kwargs and isinstance(kwargs["data"], Iterable)) or (
-            "input_path" in kwargs and "col" in kwargs
+            "input_path" in kwargs
         ):
-            return TimeseriesObject(**kwargs)
+            return TimeseriesObject(**kwargs, entity_id=entity_id)
 
         # Explicit value → Parameter
         if "value" in kwargs:
