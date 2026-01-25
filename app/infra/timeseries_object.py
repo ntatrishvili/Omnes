@@ -472,9 +472,9 @@ class TimeseriesObject(Quantity):
         :param int time_set: Number of time steps (optional)
         :returns np.ndarray: Array of values
         """
-        freq = kwargs.get("freq", self.freq)
+        freq = kwargs.pop("freq", self.freq)
         # If time_set is not provided, use full length, -1 indicates no slicing
-        time_set = kwargs.get("time_set", -1)
+        time_set = kwargs.pop("time_set", -1)
 
         if freq != self.freq:
             resampled = self.resample_to(freq, **kwargs)
