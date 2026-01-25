@@ -1,9 +1,8 @@
 from typing import Optional
 
-from app.infra.quantity import Parameter
-from app.infra.timeseries_object_factory import (
-    DefaultTimeseriesFactory,
-    TimeseriesFactory,
+from app.infra.quantity_factory import (
+    DefaultQuantityFactory,
+    QuantityFactory,
 )
 from app.model.device import Device
 
@@ -19,40 +18,24 @@ class Storage(Device):
     def __init__(
         self,
         id: Optional[str] = None,
-        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
-        **kwargs
+        quantity_factory: QuantityFactory = DefaultQuantityFactory(),
+        **kwargs,
     ):
-        super().__init__(id, ts_factory, **kwargs)
-        self.create_quantity("p_in", **kwargs)
-        self.create_quantity("p_out", **kwargs)
-        self.create_quantity("e_stor", **kwargs)
-        self.quantities.update(
-            {
-                "capacity": Parameter(
-                    value=kwargs.pop("capacity", self.default_capacity)
+        super().__init__(id, quantity_factory, **kwargs)
+        self.create_quantity("p_in", **kwargs.get("p_in", {}))
+        self.create_quantity("p_out", **kwargs.get("p_out", {}))
+        self.create_quantity("e_stor", **kwargs.get("e_stor", {}))
+        for quantity_name in (
+            "capacity",
+            "max_charge_rate",
+            "max_discharge_rate",
+            "charge_efficiency",
+            "discharge_efficiency",
+            "storage_efficiency",
+        ):
+            self.create_quantity(
+                quantity_name,
+                input=kwargs.pop(
+                    quantity_name, getattr(self, f"default_{quantity_name}")
                 ),
-                "max_charge_rate": Parameter(
-                    value=kwargs.pop("max_charge_rate", self.default_max_charge_rate)
-                ),
-                "max_discharge_rate": Parameter(
-                    value=kwargs.pop(
-                        "max_discharge_rate", self.default_max_discharge_rate
-                    )
-                ),
-                "charge_efficiency": Parameter(
-                    value=kwargs.pop(
-                        "charge_efficiency", self.default_charge_efficiency
-                    )
-                ),
-                "discharge_efficiency": Parameter(
-                    value=kwargs.pop(
-                        "discharge_efficiency", self.default_discharge_efficiency
-                    )
-                ),
-                "storage_efficiency": Parameter(
-                    value=kwargs.pop(
-                        "storage_efficiency", self.default_storage_efficiency
-                    )
-                ),
-            }
-        )
+            )

@@ -210,6 +210,86 @@ class Literal(Expression):
         return converter.convert_literal(self, self.value, t, time_set, new_freq)
 
 
+class SelfReference(Expression):
+    """
+    Expression representing a reference to the containing entity using $ syntax.
+
+    Self references allow relations to refer to properties of their containing entity
+    without explicitly naming it. For example, '$.power >= 0' within a battery's
+    relations refers to 'battery.power >= 0'.
+    """
+
+    def __init__(self, property_name: str, time_offset: int = 0) -> None:
+        """
+        Initialize self reference.
+
+        Parameters
+        ----------
+        property_name : str
+            The property name (e.g., 'power', 'capacity')
+        time_offset : int, default=0
+            Time offset relative to current time step:
+            - 0 for current time (t)
+            - -1 for previous time step (t-1)
+            - +1 for next time step (t+1)
+        """
+        if not property_name or not property_name.strip():
+            raise ValueError("Property name cannot be empty")
+
+        self.property_name = property_name.strip()
+        self.time_offset = time_offset
+
+    def __str__(self) -> str:
+        """Return string representation with $ syntax."""
+        if self.time_offset == 0:
+            return f"$.{self.property_name}"
+        elif self.time_offset < 0:
+            return f"$.{self.property_name}(t{self.time_offset})"
+        else:
+            return f"$.{self.property_name}(t+{self.time_offset})"
+
+    def get_ids(self) -> List[str]:
+        """
+        Return list with self reference marker.
+
+        Returns
+        -------
+        List[str]
+            List with '$' marker to indicate self reference
+        """
+        return ["$"]
+
+    def convert(
+        self,
+        converter: Any,
+        t: int,
+        time_set: Optional[int] = None,
+        new_freq: Optional[str] = None,
+    ) -> Any:
+        """
+        Convert self reference using the provided converter.
+
+        Parameters
+        ----------
+        converter : Any
+            Converter object that handles format-specific conversion
+        t : int
+            Current time step
+        time_set : int, optional
+            Time set for constraint generation
+        new_freq : str, optional
+            Frequency specification for time conversion
+
+        Returns
+        -------
+        Any
+            Converted self reference representation
+        """
+        return converter.convert_self_reference(
+            self, self.property_name, t, time_set, new_freq
+        )
+
+
 class EntityReference(Expression):
     """
     Expression representing a reference to an entity with optional time offset.
@@ -343,12 +423,45 @@ class BinaryExpression(Expression):
     @classmethod
     def _parse_arithmetic_expression(cls, expr: str) -> Expression:
         """Parse arithmetic expressions with +, -, *, /"""
+        expr = expr.strip()
+
+        # Handle parentheses first
+        if expr.startswith("(") and expr.endswith(")"):
+            # Check if these are balanced outer parentheses
+            paren_count = 0
+            for i, char in enumerate(expr):
+                if char == "(":
+                    paren_count += 1
+                elif char == ")":
+                    paren_count -= 1
+                    if paren_count == 0 and i < len(expr) - 1:
+                        # Not outer parentheses, break and continue with normal parsing
+                        break
+            else:
+                # These are outer parentheses, remove them
+                return cls._parse_arithmetic_expression(expr[1:-1])
+
         # Handle addition and subtraction first (lower precedence, right-to-left)
         for op_str in ["+", "-"]:
             op_pos = cls._find_operator_outside_parentheses(expr, op_str)
             if op_pos != -1:
                 left_part = expr[:op_pos].strip()
                 right_part = expr[op_pos + 1 :].strip()
+
+                # Special handling for negative numbers at the start
+                if op_str == "-" and op_pos == 0:
+                    # This is a negative number, not subtraction
+                    continue
+
+                # Don't treat it as subtraction if left part is empty or an operator
+                if op_str == "-" and (
+                    not left_part
+                    or left_part.endswith(
+                        ("*", "/", "+", "-", "(", "<=", ">=", "<", ">", "==", "!=")
+                    )
+                ):
+                    continue
+
                 left = cls._parse_arithmetic_expression(left_part)
                 right = cls._parse_arithmetic_expression(right_part)
                 operator = Operator.from_symbol(op_str)
@@ -386,10 +499,10 @@ class BinaryExpression(Expression):
 
     @classmethod
     def _parse_term(cls, expr: str) -> Expression:
-        """Parse individual terms (numbers, entity references)"""
+        """Parse individual terms (numbers, entity references, self references)"""
         expr = expr.strip()
 
-        # Check if it's a number first
+        # Check if it's a number first (including negative numbers)
         try:
             value = float(expr)
             if value.is_integer():
@@ -397,6 +510,31 @@ class BinaryExpression(Expression):
             return Literal(value)
         except ValueError:
             pass
+
+        # Handle negative numbers that might have been split by operator parsing
+        if expr.startswith("-"):
+            try:
+                # Try to parse the rest as a positive number
+                value = float(expr[1:])
+                if value.is_integer():
+                    return Literal(-int(value))
+                return Literal(-value)
+            except ValueError:
+                pass
+
+        # Check if it's a self reference with $ syntax
+        if expr.startswith("$."):
+            # Handle $. syntax: $.property or $.property(t-1)
+            self_pattern = r"^\$\.(.+?)(\(t([+-]\d+)?\))?$"
+            match = re.match(self_pattern, expr)
+            if match:
+                property_name = match.group(1)
+                time_offset_str = match.group(3)
+                time_offset = 0 if time_offset_str is None else int(time_offset_str)
+                return SelfReference(property_name, time_offset)
+            else:
+                # Invalid $ syntax
+                raise ValueError(f"Invalid self reference syntax: {expr}")
 
         # Check if it's an entity reference with explicit time index
         # Pattern: entity_id.property(t) or entity_id.property(t-1) etc.
@@ -407,6 +545,10 @@ class BinaryExpression(Expression):
             expr = match.group(1)
             time_offset_str = match.group(2)
             time_offset = 0 if time_offset_str is None else int(time_offset_str)
+
+        # Don't try to create EntityReference with empty string
+        if not expr or expr.isspace():
+            raise ValueError(f"Cannot parse empty expression term")
 
         # If EntityReference initialization changes, we have to modify only one place in the code
         return EntityReference(expr, time_offset)
@@ -467,22 +609,63 @@ class AssignmentExpression(Expression):
     def convert(self, converter, t: int, time_set: int = None, new_freq: str = None):
         """Convert assignment expression using the provided converter"""
 
-        # Converter helper: if we are at the leaves, we can specify the type of the object to return, othervise use tha built-in converter of our object
-        def _convert(obj, object_as: EntityReference):
+        # Converter helper: if we are at the leaves, we can specify the type of the object to return, otherwise use the built-in converter of our object
+        def _convert(obj, fallback_type):
             if hasattr(obj, "convert"):
                 return obj.convert(converter, t, time_set, new_freq)
-            # Literal is OK with str(obj)
-            return object_as(str(obj)).convert(converter, t, time_set, new_freq)
+            # For string objects, try to parse them
+            obj_str = str(obj).strip()
+            if obj_str.startswith("$."):
+                # Parse as SelfReference
+                self_pattern = r"^\$\.(.+?)(\(t([+-]\d+)?\))?$"
+                match = re.match(self_pattern, obj_str)
+                if match:
+                    property_name = match.group(1)
+                    time_offset_str = match.group(3)
+                    time_offset = 0 if time_offset_str is None else int(time_offset_str)
+                    return SelfReference(property_name, time_offset).convert(
+                        converter, t, time_set, new_freq
+                    )
+            # Try to parse as number (Literal)
+            try:
+                value = float(obj_str)
+                if value.is_integer():
+                    value = int(value)
+                return Literal(value).convert(converter, t, time_set, new_freq)
+            except ValueError:
+                pass
+            # Fall back to EntityReference
+            return fallback_type(obj_str).convert(converter, t, time_set, new_freq)
 
-        target_result = _convert(self.target, object_as=EntityReference)
-        value_result = _convert(self.value, object_as=Literal)
+        target_result = _convert(self.target, EntityReference)
+        value_result = _convert(self.value, Literal)
         # Delegate to converter for assignment operation (equality constraint)
         return converter.convert_binary_expression(
             self, target_result, value_result, Operator.EQUAL, t, time_set, new_freq
         )
 
     def get_ids(self) -> list[str]:
-        return self.target.get_ids() + self.value.get_ids()
+        target_ids = (
+            self.target.get_ids()
+            if hasattr(self.target, "get_ids")
+            else (
+                [str(self.target)]
+                if not str(self.target).startswith("$.")
+                and not str(self.target).replace(".", "").replace("-", "").isdigit()
+                else (["$"] if str(self.target).startswith("$.") else [])
+            )
+        )
+        value_ids = (
+            self.value.get_ids()
+            if hasattr(self.value, "get_ids")
+            else (
+                [str(self.value)]
+                if not str(self.value).startswith("$.")
+                and not str(self.value).replace(".", "").replace("-", "").isdigit()
+                else (["$"] if str(self.value).startswith("$.") else [])
+            )
+        )
+        return target_ids + value_ids
 
 
 class Relation:

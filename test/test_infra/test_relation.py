@@ -353,8 +353,9 @@ class TestAdditionalRelationCases(unittest.TestCase):
         assign = AssignmentExpression("sensor.temp", "25")
         res = assign.convert(conv, t=1)
         # left should be handled via convert_entity_reference and right via convert_literal
+        # Note: "25" gets parsed as integer 25 by the _convert method
         self.assertEqual(res[0], ("E", "sensor.temp"))
-        self.assertEqual(res[1], ("L", "25"))
+        self.assertEqual(res[1], ("L", 25))
         self.assertEqual(res[2], Operator.EQUAL)
 
     def test_time_condition_convert_not_implemented(self):

@@ -2,7 +2,7 @@ import math
 import unittest
 
 from app.model.grid_component.transformer import Transformer
-from app.infra.quantity import Parameter
+from app.infra.parameter import Parameter
 
 
 def test_transformer_defaults():
@@ -40,10 +40,10 @@ def test_transformer_custom_values():
     assert tr.type.value == "distribution"
 
 
-def test_transformer_str_includes_connector_info():
+def test_transformer_str():
     tr = Transformer(id="trS", from_bus="fromB", to_bus="toB")
     s = str(tr)
-    assert "Connector 'trS'" in s
+    assert "Transformer" in s
     assert "fromB--toB" in s
 
 
