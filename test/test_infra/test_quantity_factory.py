@@ -1,7 +1,6 @@
 import unittest
 
 import xarray
-from pandas.core.interchange.dataframe_protocol import DataFrame
 
 from app.infra.parameter import Parameter
 from app.infra.quantity_factory import DefaultQuantityFactory

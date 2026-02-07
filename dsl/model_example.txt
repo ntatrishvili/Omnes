@@ -110,10 +110,10 @@ Storage:
     relations:
       $.p_in <= $.max_charge_rate
       $.p_out <= $.max_discharge_rate
-      $.soc = $.soc(t-1) * $.storage_efficiency + $.p_in * $.charge_efficiency - $.p_out / $.discharge_efficiency
-      $.soc >= 0.1 * $.capacity
-      $.soc <= $.capacity
-      if $.soc < 0.2 * $.capacity then $.max_discharge_rate = 1
+      $.state_of_charge = $.state_of_charge(t-1) * $.storage_efficiency + $.p_in * $.charge_efficiency - $.p_out / $.discharge_efficiency
+      $.state_of_charge >= 0.1 * $.capacity
+      $.state_of_charge <= $.capacity
+      if $.state_of_charge < 0.2 * $.capacity then $.max_discharge_rate = 1
 
   - hot_water1 on bus_LV1
     # l
@@ -128,8 +128,8 @@ Storage:
     relations:
       $.p_in >= 0
       $.p_out >= 0
-      $.soc <= $.volume
-      $.soc >= 0.1 * $.volume
+      $.state_of_charge <= $.volume
+      $.state_of_charge >= 0.1 * $.volume
 
   - hot_water2 on bus_LV2
     type: HotWater
@@ -148,8 +148,8 @@ Storage:
     relations:
       $.p_in <= $.max_charge_rate
       $.p_out <= $.max_discharge_rate
-      $.soc <= $.volume
-      $.soc >= 0.15 * $.volume
+      $.state_of_charge <= $.volume
+      $.state_of_charge >= 0.15 * $.volume
 
 Load:
   - load1 on bus_LV1
@@ -198,7 +198,7 @@ Load:
       $.power enabled from 10:00 to 16:00
       $.min_on_duration = 2
       $.power <= 3
-      if hot_water2.soc > 0.9 * hot_water2.volume then $.power = 0
+      if hot_water2.state_of_charge > 0.9 * hot_water2.volume then $.power = 0
 
 Slack:
   - slack on bus_MV

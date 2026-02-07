@@ -45,6 +45,10 @@ class DefaultQuantityFactory(QuantityFactory):
         if "value" in kwargs:
             return Parameter(**kwargs)
 
+        # Default type is given, but no other arguments
+        if "default_type" in kwargs and callable(kwargs["default_type"]):
+            return kwargs.pop("default_type")()
+
         if quantity is None:
             return Parameter(value=None)
 

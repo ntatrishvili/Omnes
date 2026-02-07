@@ -200,17 +200,17 @@ class TestDynamicConstraintBuilding(unittest.TestCase):
         self.assertEqual(len(precedence_result["precedence_test"]), 3)
 
     def test_battery_state_of_charge_dynamics(self):
-        """Test complex SOC dynamics with energy balance"""
-        # soc(t) = soc(t-1) + efficiency * charge(t) - discharge(t) * loss_factor
+        """Test complex state_of_charge dynamics with energy balance"""
+        # state_of_charge(t) = state_of_charge(t-1) + efficiency * charge(t) - discharge(t) * loss_factor
         # Using multiplication instead of division for linear programming compatibility
         relation = Relation(
-            "battery.soc(t) >= battery.soc(t-1) + 0.9 * battery.charge_power(t) - 1.1 * battery.discharge_power(t)",
+            "battery.state_of_charge(t) >= battery.state_of_charge(t-1) + 0.9 * battery.charge_power(t) - 1.1 * battery.discharge_power(t)",
             "soc_dynamics",
         )
 
         time_steps = 10
         objects = {
-            "battery.soc": [
+            "battery.state_of_charge": [
                 pulp.LpVariable(f"soc_{t}", lowBound=0, upBound=100)
                 for t in range(time_steps)
             ],
@@ -229,8 +229,8 @@ class TestDynamicConstraintBuilding(unittest.TestCase):
 
         # Verify the constraint includes all terms for t=5
         constraint_str = str(constraints[5])
-        self.assertIn("soc_5", constraint_str)  # Current SOC
-        self.assertIn("soc_4", constraint_str)  # Previous SOC (t-1)
+        self.assertIn("soc_5", constraint_str)  # Current state_of_charge
+        self.assertIn("soc_4", constraint_str)  # Previous state_of_charge (t-1)
         self.assertIn("charge_5", constraint_str)  # Charge power
         self.assertIn("discharge_5", constraint_str)  # Discharge power
 
@@ -364,7 +364,7 @@ class TestRealisticEnergyScenarios(unittest.TestCase):
             "load.demand": load_demand,
             "battery.charge_power": battery_charge,
             "battery.discharge_power": battery_discharge,
-            "battery.soc": battery_soc,
+            "battery.state_of_charge": battery_soc,
             "grid.import_power": grid_import,
         }
 
@@ -372,7 +372,7 @@ class TestRealisticEnergyScenarios(unittest.TestCase):
         constraints_to_test = [
             ("battery.charge_power(t) <= 50", "battery_charge_limit"),
             ("battery.discharge_power(t) <= 50", "battery_discharge_limit"),
-            ("battery.soc(t) <= 100", "battery_soc_limit"),
+            ("battery.state_of_charge(t) <= 100", "battery_soc_limit"),
             (
                 "pv.generation(t) + battery.discharge_power(t) + grid.import_power(t) >= load.demand(t) + battery.charge_power(t)",
                 "power_balance",

@@ -172,19 +172,21 @@ class TestBinaryExpressionParsing(unittest.TestCase):
 
     def test_parse_addition_subtraction(self):
         """Test parsing addition and subtraction with correct precedence"""
-        expr = BinaryExpression.parse_binary("battery.soc(t) >= battery.soc(t-1) + 0.1")
+        expr = BinaryExpression.parse_binary(
+            "battery.state_of_charge(t) >= battery.state_of_charge(t-1) + 0.1"
+        )
 
         self.assertIsInstance(expr, BinaryExpression)
         self.assertEqual(expr.operator, Operator.GREATER_THAN_OR_EQUAL)
 
-        # Left side: battery.soc(t)
-        self.assertEqual(expr.left.entity_id, "battery.soc")
+        # Left side: battery.state_of_charge(t)
+        self.assertEqual(expr.left.entity_id, "battery.state_of_charge")
         self.assertEqual(expr.left.time_offset, 0)
 
-        # Right side: battery.soc(t-1) + 0.1
+        # Right side: battery.state_of_charge(t-1) + 0.1
         self.assertIsInstance(expr.right, BinaryExpression)
         self.assertEqual(expr.right.operator, Operator.ADD)
-        self.assertEqual(expr.right.left.entity_id, "battery.soc")
+        self.assertEqual(expr.right.left.entity_id, "battery.state_of_charge")
         self.assertEqual(expr.right.left.time_offset, -1)
         self.assertEqual(expr.right.right.value, 0.1)
 

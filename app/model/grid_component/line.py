@@ -1,9 +1,11 @@
 from typing import Optional
 
+from app.infra.parameter import Parameter
 from app.infra.quantity_factory import (
     DefaultQuantityFactory,
     QuantityFactory,
 )
+from app.infra.timeseries_object import TimeseriesObject
 from app.model.grid_component.connector import Connector
 
 
@@ -21,7 +23,9 @@ class Line(Connector):
         **kwargs,
     ):
         super().__init__(id=id, quantity_factory=quantity_factory, **kwargs)
-        self.create_quantity("current", **kwargs.get("current", {}))
+        self.create_quantity(
+            "current", **kwargs.get("current", {}), default_type=TimeseriesObject
+        )
         for quantity_name in (
             "line_length",
             "resistance",
@@ -34,6 +38,7 @@ class Line(Connector):
                 input=kwargs.pop(
                     quantity_name, getattr(self, f"default_{quantity_name}")
                 ),
+                default_type=Parameter,
             )
 
     def __str__(self):

@@ -4,6 +4,7 @@ from app.infra.quantity_factory import (
     DefaultQuantityFactory,
     QuantityFactory,
 )
+from app.infra.timeseries_object import TimeseriesObject
 from app.model.device import Device
 
 
@@ -15,8 +16,12 @@ class Slack(Device):
         **kwargs,
     ):
         super().__init__(id=id, quantity_factory=quantity_factory, **kwargs)
-        self.create_quantity("p_in", **kwargs.get("p_in", {}))
-        self.create_quantity("p_out", **kwargs.get("p_out", {}))
+        self.create_quantity(
+            "p_in", **kwargs.get("p_in", {}), default_type=TimeseriesObject
+        )
+        self.create_quantity(
+            "p_out", **kwargs.get("p_out", {}), default_type=TimeseriesObject
+        )
 
     def __str__(self):
         """

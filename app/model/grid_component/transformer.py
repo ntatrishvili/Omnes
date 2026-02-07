@@ -1,5 +1,6 @@
 from typing import Optional
 
+from app.infra.parameter import Parameter
 from app.infra.quantity_factory import (
     DefaultQuantityFactory,
     QuantityFactory,
@@ -73,6 +74,7 @@ class Transformer(Connector):
                 input=kwargs.pop(
                     quantity_name, getattr(self, f"default_{quantity_name}")
                 ),
+                default_type=Parameter,
             )
 
     def __str__(self):

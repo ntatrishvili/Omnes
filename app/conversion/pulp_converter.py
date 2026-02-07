@@ -21,6 +21,7 @@ from app.infra.parameter import Parameter
 from app.infra.relation import Relation
 from app.model.entity import Entity
 from app.model.model import Model
+from app.infra.relation import EntityReference
 
 
 class PulpConverter(Converter):
@@ -106,6 +107,8 @@ class PulpConverter(Converter):
         self.__current_entity_id = entity.id
 
         # Convert entity quantities
+        if self.__current_entity_id == "battery1":
+            k = 99
         entity_variables = {
             f"{entity.id}.{key}": self.convert_quantity(
                 quantity,
@@ -456,7 +459,6 @@ class PulpConverter(Converter):
         entity_property_key = f"{self.__current_entity_id}.{property_name}"
 
         # Fall back to convert_entity_reference if the property doesn't exist
-        from app.infra.relation import EntityReference
 
         entity_ref = EntityReference(entity_property_key, self_ref.time_offset)
         return self.convert_entity_reference(

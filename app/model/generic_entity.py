@@ -7,6 +7,7 @@ wraps generic quantities and forwards quantity creation to a factory.
 
 from typing import Dict, Optional
 
+from app.infra.parameter import Parameter
 from app.infra.quantity import Quantity
 from app.infra.quantity_factory import (
     DefaultQuantityFactory,
@@ -65,7 +66,7 @@ class GenericEntity(Entity):
         """
         super().__init__(id, quantity_factory, **kwargs)
         for key, value in kwargs.items():
-            self.create_quantity(key, value=value)
+            self.create_quantity(key, value=value, default_type=Parameter)
 
     def __str__(self):
         """Return a compact human-readable representation of the entity.

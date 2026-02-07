@@ -1,5 +1,6 @@
 from typing import Optional
 
+from app.infra.parameter import Parameter
 from app.infra.quantity_factory import (
     DefaultQuantityFactory,
     QuantityFactory,
@@ -26,6 +27,7 @@ class HotWaterStorage(Storage):
         self.create_quantity(
             "set_temperature",
             input=kwargs.pop("set_temperature", self.default_set_temperature),
+            default_type=Parameter,
         )
 
     def __str__(self):

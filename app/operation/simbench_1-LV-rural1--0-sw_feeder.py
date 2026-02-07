@@ -4,6 +4,7 @@ import pandas as pd
 
 from app.conversion.pandapower_converter import PandapowerConverter
 from app.conversion.pulp_converter import PulpConverter
+from app.infra.timeseries_object import TimeseriesObject
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
 from app.model.generic_entity import GenericEntity
@@ -237,6 +238,10 @@ def build_model_from_simbench(**kwargs):
         max_charge_rate=kwargs.get("charge_rate", 10),
         max_discharge_rate=kwargs.get("charge_rate", 10),
     )
+    Battery.default_charge_efficiency(
+        input_file="input.csv", column="charge_efficiency"
+    )
+
     # -----------------------------
     # Build model
     model = Model(

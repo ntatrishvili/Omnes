@@ -48,6 +48,7 @@ class TestInitializingMeta(unittest.TestCase):
     def test_default_field_converted_to_parameter(self):
         class C(metaclass=InitializingMeta):
             default_capacity = 100.0
+            default_power = 10.0
 
             def __init__(self, **kwargs):
                 pass

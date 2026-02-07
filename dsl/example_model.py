@@ -1,4 +1,5 @@
 from app.conversion.pulp_converter import PulpConverter
+from app.infra.logging_setup import init_logging
 from app.infra.relation import Relation
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
@@ -12,14 +13,16 @@ from app.model.storage.hot_water_storage import HotWaterStorage
 from app.model.transducer.transducer import Transducer
 from app.operation.example_optimization import optimize_energy_system
 
+init_logging()
+
 Bus.default_nominal_voltage = 400
 bus_mv = Bus(id="bus_MV", nominal_voltage=10000, type="SLACK", phase=3)
 slack = Slack(
     id="slack",
     bus="bus_MV",
     relations=[
-        Relation("$.power >= -10"),
-        Relation("$.power <= 15"),
+        Relation("$.p_in >= -10"),
+        Relation("$.p_out <= 15"),
     ],
 )
 
@@ -94,10 +97,10 @@ wind1 = Wind(
 
 # Instantiate Battery
 #
-relation2 = Relation(
-    "if battery1.capacity < 6 then battery1.max_discharge_rate = 3",
-    "Battery1.CapacityRelation",
-)
+# relation2 = Relation(
+#     "if battery1.capacity < 6 then battery1.max_discharge_rate = 3",
+#     "Battery1.CapacityRelation",
+# )
 
 battery1 = Battery(
     id="battery1",
@@ -108,16 +111,15 @@ battery1 = Battery(
     charge_efficiency=0.95,
     discharge_efficiency=0.95,
     storage_efficiency=0.995,
+    state_of_charge=0.5,
     relations=[
-        relation2,
+        # relation2,
         Relation("$.p_in <= $.max_charge_rate"),
         Relation("$.p_out <= $.max_discharge_rate"),
-        Relation(
-            "$.soc = $.soc(t-1) * $.storage_efficiency + $.p_in * $.charge_efficiency - $.p_out / $.discharge_efficiency"
-        ),
-        Relation("$.soc >= 0.1 * $.capacity"),
-        Relation("$.soc <= $.capacity"),
-        Relation("if $.soc < 0.2 * $.capacity then $.max_discharge_rate = 1"),
+        # Relation("$.state_of_charge = $.state_of_charge(t-1) * $.storage_efficiency"),
+        Relation("$.state_of_charge >= 0.1 * $.capacity"),
+        Relation("$.state_of_charge <= $.capacity"),
+        # Relation("if $.state_of_charge < 0.2 * $.capacity then $.max_discharge_rate = 1"),
     ],
 )
 
@@ -131,12 +133,12 @@ hot_water_storage1 = HotWaterStorage(
     relations=[
         Relation("$.p_in >= 0"),
         Relation("$.p_out >= 0"),
-        Relation("$.soc <= $.volume"),
-        Relation("$.soc >= 0.1 * $.volume"),
+        Relation("$.state_of_charge <= $.volume"),
+        Relation("$.state_of_charge >= 0.1 * $.volume"),
     ],
 )
 
-relation3 = Relation("heater1.power enabled from 10:00 to 16:00")
+relation3 = Relation("heater1.p_in enabled from 10:00 to 16:00")
 relation4 = Relation("heater1.min_on_duration = 2h")
 water_heater1 = Transducer(
     id="heater1",
@@ -148,8 +150,8 @@ water_heater1 = Transducer(
     relations=[
         relation3,
         relation4,
-        Relation("$.power = hot_water1.p_in / $.efficiency"),
-        Relation("$.power >= 0"),
+        # Relation("$.p_in = hot_water1.p_in / $.efficiency"),
+        Relation("$.p_in >= 0"),
     ],
 )
 
@@ -167,12 +169,12 @@ hot_water_storage2 = HotWaterStorage(
     relations=[
         Relation("$.p_in <= $.max_charge_rate"),
         Relation("$.p_out <= $.max_discharge_rate"),
-        Relation("$.soc <= $.volume"),
-        Relation("$.soc >= 0.15 * $.volume"),
+        Relation("$.state_of_charge <= $.volume"),
+        Relation("$.state_of_charge >= 0.15 * $.volume"),
     ],
 )
 
-relation5 = Relation("heater2.power enabled from 10:00 to 16:00")
+relation5 = Relation("heater2.p_in enabled from 10:00 to 16:00")
 relation6 = Relation("heater2.min_on_duration = 2h")
 water_heater2 = Transducer(
     id="heater2",
@@ -183,8 +185,8 @@ water_heater2 = Transducer(
     relations=[
         relation5,
         relation6,
-        Relation("$.power <= 3"),
-        Relation("if hot_water2.soc > 0.9 * hot_water2.volume then $.power = 0"),
+        Relation("$.p_in <= 3"),
+        # Relation("if hot_water2.state_of_charge > 0.9 * hot_water2.volume then $.p_in = 0"),
     ],
 )
 
@@ -195,8 +197,8 @@ load1 = Load(
     input={"input_path": "config/input.csv", "read_kwargs": {"sep": ";"}},
     tags={"household": "HH1"},
     relations=[
-        Relation("$.power >= 0"),
-        Relation("$.power <= 5"),
+        Relation("$.p_in >= 0"),
+        Relation("$.p_in <= 5"),
     ],
 )
 load2 = Load(
@@ -214,7 +216,7 @@ load2 = Load(
 # e = Entity(relations=[relation1,])
 
 # Global relations
-global_relation1 = Relation("pv1.p_out + wind1.p_out >= load1.power + battery1.p_in")
+global_relation1 = Relation("pv1.p_out + wind1.p_out >= load1.p_in + battery1.p_in")
 global_relation2 = Relation("battery1.p_out * 0.95 <= battery1.capacity / 4")
 
 time_resolution = "1h"
