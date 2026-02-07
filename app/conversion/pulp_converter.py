@@ -16,10 +16,12 @@ from app.conversion.validation_utils import (
     validate_entity_exists,
     extract_effective_time_properties,
 )
-from app.infra.quantity import Parameter, Quantity
+from app.infra.quantity import Quantity
+from app.infra.parameter import Parameter
 from app.infra.relation import Relation
 from app.model.entity import Entity
 from app.model.model import Model
+from app.infra.relation import EntityReference
 
 
 class PulpConverter(Converter):
@@ -58,6 +60,9 @@ class PulpConverter(Converter):
     def __init__(self):
         super().__init__()
         self.__objects: Dict[str, Any] = {}
+        self.__current_entity_id: Optional[str] = (
+            None  # Track current entity being processed
+        )
 
     def _register_converters(self):
         """
@@ -98,7 +103,12 @@ class PulpConverter(Converter):
             Keys are in the format 'entity_id.quantity_name' for quantities and 'relation_name'
             for constraints.
         """
+        # Set current entity context for SelfReference resolution
+        self.__current_entity_id = entity.id
+
         # Convert entity quantities
+        if self.__current_entity_id == "battery1":
+            k = 99
         entity_variables = {
             f"{entity.id}.{key}": self.convert_quantity(
                 quantity,
@@ -115,11 +125,9 @@ class PulpConverter(Converter):
 
         # Convert relations to constraints
         for relation in entity.relations:
-            variable_mapping = {
-                id: entity_variables.get(id) for id in relation.expression.get_ids()
-            }
+            # Pass the full entity_variables for SelfReference resolution
             relation_constraints = self.convert_relation(
-                relation, variable_mapping, time_set=time_set, new_freq=new_freq
+                relation, entity_variables, time_set=time_set, new_freq=new_freq
             )
             entity_variables.update(relation_constraints)
 
@@ -288,6 +296,9 @@ class PulpConverter(Converter):
             If any entity referenced in the relation is not found in the objects dictionary.
         """
         for entity_id in relation.get_ids():
+            # Skip validation for self-reference markers as they are resolved at conversion time
+            if entity_id == "$":
+                continue
             validate_entity_exists(entity_id, self.__objects)
 
     def _generate_time_step_constraints(
@@ -353,8 +364,20 @@ class PulpConverter(Converter):
         """
         actual_time = t + entity_ref.time_offset
 
-        validate_entity_exists(entity_id, self.__objects)
-        pulp_var = self.__objects[entity_id]
+        # Handle SelfReference-like entity IDs that start with "$."
+        if entity_id.startswith("$."):
+            property_name = entity_id[2:]  # Remove "$." prefix
+            if self.__current_entity_id is None:
+                raise ValueError(
+                    "No current entity context available for SelfReference-like entity resolution"
+                )
+            # Resolve to current entity's property
+            resolved_entity_id = f"{self.__current_entity_id}.{property_name}"
+            validate_entity_exists(resolved_entity_id, self.__objects)
+            pulp_var = self.__objects[resolved_entity_id]
+        else:
+            validate_entity_exists(entity_id, self.__objects)
+            pulp_var = self.__objects[entity_id]
 
         # Handle time-indexed variables
         if isinstance(pulp_var, list):
@@ -406,9 +429,69 @@ class PulpConverter(Converter):
         ValueError
             If the operator is not supported or violates linear programming constraints.
         """
+
         if is_comparison_operator(operator):
             return handle_comparison_operator(operator, left_result, right_result)
         elif is_arithmetic_operator(operator):
             return handle_arithmetic_operator(operator, left_result, right_result)
         else:
             raise ValueError(f"Unsupported operator: {operator}")
+
+    def convert_self_reference(
+        self,
+        self_ref,
+        property_name: str,
+        t: int,
+        time_set: Optional[Union[int, range]] = None,
+        new_freq: Optional[str] = None,
+    ):
+        """
+        Convert a self reference to a PuLP variable for the given time step.
+        Self references ($.property) are resolved to the current entity property.
+        """
+        # Use current entity context to resolve self reference
+        if self.__current_entity_id is None:
+            raise ValueError(
+                "No current entity context available for SelfReference resolution"
+            )
+
+        # Construct the full entity.property key
+        entity_property_key = f"{self.__current_entity_id}.{property_name}"
+
+        # Fall back to convert_entity_reference if the property doesn't exist
+
+        entity_ref = EntityReference(entity_property_key, self_ref.time_offset)
+        return self.convert_entity_reference(
+            entity_ref, entity_property_key, t, time_set, new_freq
+        )
+
+    def convert_literal(
+        self,
+        literal,
+        value,
+        t: int,
+        time_set: Optional[Union[int, range]] = None,
+        new_freq: Optional[str] = None,
+    ):
+        """
+        Convert a literal value to its native representation.
+
+        Parameters
+        ----------
+        literal : Literal
+            The literal object (unused)
+        value : Any
+            The literal value
+        t : int
+            Current time step (unused)
+        time_set : Optional[Union[int, range]], optional
+            Time set (unused)
+        new_freq : Optional[str], optional
+            Frequency (unused)
+
+        Returns
+        -------
+        Any
+            The literal value as-is
+        """
+        return value

@@ -1,10 +1,11 @@
 from typing import Optional
 
-from app.infra.quantity import Parameter
-from app.infra.timeseries_object_factory import (
-    DefaultTimeseriesFactory,
-    TimeseriesFactory,
+from app.infra.parameter import Parameter
+from app.infra.quantity_factory import (
+    DefaultQuantityFactory,
+    QuantityFactory,
 )
+from app.infra.timeseries_object import TimeseriesObject
 from app.model.device import Device, Vector
 
 
@@ -15,16 +16,20 @@ class Load(Device):
     def __init__(
         self,
         id: Optional[str] = None,
-        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
-        **kwargs: object,
+        quantity_factory: QuantityFactory = DefaultQuantityFactory(),
+        **kwargs,
     ):
-        super().__init__(id=id, ts_factory=ts_factory, **kwargs)
-        self.create_quantity("p_cons", **kwargs)
-        self.create_quantity("q_cons", **kwargs)
-        self.quantities.update(
-            {
-                "nominal_power": Parameter(value=kwargs.pop("nominal_power", None)),
-            }
+        super().__init__(id=id, quantity_factory=quantity_factory, **kwargs)
+        self.create_quantity(
+            "p_cons", **kwargs.get("p_cons", {}), default_type=TimeseriesObject
+        )
+        self.create_quantity(
+            "q_cons", **kwargs.get("q_cons", {}), default_type=TimeseriesObject
+        )
+        self.create_quantity(
+            "nominal_power",
+            input=kwargs.pop("nominal_power", None),
+            default_type=Parameter,
         )
 
     def __str__(self):
