@@ -5,7 +5,7 @@
 
 # Omnes 
 
-**Omnes** is an energy system modelling platform that lets you transform structured datasets into solvable energy models using a simple configuration and processing pipeline. Built for flexibility and clarity, Omnes supports modular data uploads, transformation, and model execution — currently with support *PuLP* solver and *Pandapower* simulator.
+**Omnes** is an energy system modelling platform that lets you transform structured datasets into solvable energy models using a simple configuration and processing pipeline. Built for flexibility and clarity, Omnes supports modular data uploads, transformation, and model execution — currently with support *PuLP* solver and *Pandapower* simulator. Read the docs [here](https://ntatrishvili.github.io/Omnes/).
 
 ---
 
