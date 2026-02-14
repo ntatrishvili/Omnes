@@ -10,6 +10,7 @@ import pandas as pd
 from matplotlib import colors as mcolors
 
 from app.infra import visualize
+from dsl.example_model import number_of_time_steps
 
 
 class TestHelperFunctions(unittest.TestCase):
@@ -473,7 +474,7 @@ class TestPlotEnergyFlows(unittest.TestCase):
         mock_pulp.value.side_effect = lambda x: np.random.rand() * 10
 
         kwargs = {
-            "time_set": range(24),
+            "time_set": SimpleNamespace(number_of_time_steps=24),
             "pv1.p_out": [Mock() for _ in range(24)],
             "load1.p_cons": [Mock() for _ in range(24)],
             "bess1.p_in": [Mock() for _ in range(24)],
@@ -518,7 +519,7 @@ class TestPlotEnergyFlows(unittest.TestCase):
         mock_pulp.value.side_effect = lambda x: np.random.rand() * 10
 
         kwargs = {
-            "time_set": range(24),
+            "time_set": SimpleNamespace(number_of_time_steps=24),
             "pv1.p_out": [Mock() for _ in range(24)],
             "load1.p_cons": [Mock() for _ in range(24)],
             "slack1.p_in": [Mock() for _ in range(24)],
@@ -743,7 +744,7 @@ class TestMoreVisualizeBranches(unittest.TestCase):
     def test_plot_energy_flows_tick_spacing_variations(self, mock_pulp, mock_plt):
         # Build large time set to trigger different tick spacing
         mock_pulp.value.side_effect = lambda x: 1.0
-        kwargs = {"time_set": range(0, 200)}
+        kwargs = {"time_set": SimpleNamespace(number_of_time_steps=200)}
         # minimal variable arrays for 200 timesteps
         for key in [
             "pv1.p_out",
