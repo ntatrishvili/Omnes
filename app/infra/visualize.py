@@ -1362,7 +1362,7 @@ def plot_energy_flows(
     output_path=None,
 ):
     time_set = kwargs["time_set"]
-    nT = len(time_set)
+    nT = time_set.number_of_time_steps
     if time_range_to_plot is None:
         time_range_to_plot = range(nT)
 
@@ -1370,7 +1370,12 @@ def plot_energy_flows(
     # --- Extract and sum all variables ---
     # PV production
     pv_profiles = {
-        pv: np.array([pulp.value(kwargs[f"{pv}.p_out"][t]) for t in time_set])
+        pv: np.array(
+            [
+                pulp.value(kwargs[f"{pv}.p_out"][t])
+                for t in range(time_set.number_of_time_steps)
+            ]
+        )
         for pv in pv_names
     }
     pv_sum = sum(pv_profiles.values())
@@ -1378,7 +1383,12 @@ def plot_energy_flows(
 
     # Loads
     load_profiles = {
-        ld: np.array([pulp.value(kwargs[f"{ld}.p_cons"][t]) for t in time_set])
+        ld: np.array(
+            [
+                pulp.value(kwargs[f"{ld}.p_cons"][t])
+                for t in range(time_set.number_of_time_steps)
+            ]
+        )
         for ld in load_names
     }
     load_sum = sum(load_profiles.values())
@@ -1386,29 +1396,54 @@ def plot_energy_flows(
 
     # Battery flows
     bess_in_profiles = {
-        b: np.array([pulp.value(kwargs[f"{b}.p_in"][t]) for t in time_set])
+        b: np.array(
+            [
+                pulp.value(kwargs[f"{b}.p_in"][t])
+                for t in range(time_set.number_of_time_steps)
+            ]
+        )
         for b in bess_names
     }
     bess_out_profiles = {
-        b: np.array([pulp.value(kwargs[f"{b}.p_out"][t]) for t in time_set])
+        b: np.array(
+            [
+                pulp.value(kwargs[f"{b}.p_out"][t])
+                for t in range(time_set.number_of_time_steps)
+            ]
+        )
         for b in bess_names
     }
     e_bess_profiles = {
-        b: np.array([pulp.value(kwargs[f"{b}.e_stor"][t]) for t in time_set])
+        b: np.array(
+            [
+                pulp.value(kwargs[f"{b}.e_stor"][t])
+                for t in range(time_set.number_of_time_steps)
+            ]
+        )
         for b in bess_names
     }
 
     # Slack (import/export)
     slack_in_sum = np.sum(
         [
-            np.array([pulp.value(kwargs[f"{s}.p_in"][t]) for t in time_set])
+            np.array(
+                [
+                    pulp.value(kwargs[f"{s}.p_in"][t])
+                    for t in range(time_set.number_of_time_steps)
+                ]
+            )
             for s in slack_names
         ],
         axis=0,
     )
     slack_out_sum = np.sum(
         [
-            np.array([pulp.value(kwargs[f"{s}.p_out"][t]) for t in time_set])
+            np.array(
+                [
+                    pulp.value(kwargs[f"{s}.p_out"][t])
+                    for t in range(time_set.number_of_time_steps)
+                ]
+            )
             for s in slack_names
         ],
         axis=0,

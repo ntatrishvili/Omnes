@@ -160,7 +160,7 @@ hot_water_storage2 = HotWaterStorage(
     bus="bus_LV2",
     volume=200,
     set_temperature=55,
-    input={
+    p_out={
         "input_path": "config/input.csv",
         "col": "load1",
         "read_kwargs": {"sep": ";"},
@@ -194,7 +194,7 @@ water_heater2 = Transducer(
 load1 = Load(
     id="load1",
     bus="bus_LV1",
-    input={"input_path": "config/input.csv", "read_kwargs": {"sep": ";"}},
+    p_cons={"input_path": "config/input.csv", "read_kwargs": {"sep": ";"}},
     tags={"household": "HH1"},
     relations=[
         Relation("$.p_cons >= 0"),
@@ -204,7 +204,7 @@ load1 = Load(
 load2 = Load(
     id="load2",
     bus="bus_LV2",
-    input={"input_path": "config/input2.csv"},
+    p_cons={"input_path": "config/input2.csv", "read_kwargs": {"sep": ";"}},
     tags={"household": "HH2"},
     relations=[
         Relation("$.p_cons >= 0"),

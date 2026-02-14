@@ -1,12 +1,10 @@
-import json
+import hashlib
 import numbers
 import os
 
-import pandas as pd
 from pandas import date_range
 
 from app.infra.logging_setup import get_logger
-import hashlib
 
 log = get_logger(__name__)
 
@@ -231,7 +229,9 @@ class TimeSet:
             f"{self.start}|{self.end}|{self.resolution}|"
             f"{self.number_of_time_steps}|{self.tz}"
         )
-        hash_digest = hashlib.md5(identity_string.encode()).hexdigest()
+        hash_digest = hashlib.md5(
+            identity_string.encode(), usedforsecurity=False
+        ).hexdigest()
         return hash_digest[:8]
 
     def __repr__(self):
