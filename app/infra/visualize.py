@@ -1464,7 +1464,7 @@ def plot_energy_flows(
     )
 
     # --- Plot PVs ---
-    bottom_pv = np.zeros_like(time_set, dtype=float)
+    bottom_pv = np.zeros_like(range(time_set.number_of_time_steps), dtype=float)
     for color, (pv, p) in zip(colors_pv, pv_profiles.items()):
         plt.bar(
             time_range_to_plot,
@@ -1480,7 +1480,7 @@ def plot_energy_flows(
     )
 
     # --- Plot loads ---
-    bottom_loads = np.zeros_like(time_set, dtype=float)
+    bottom_loads = np.zeros_like(range(time_set.number_of_time_steps), dtype=float)
     for color, (ld, p) in zip(colors_load, load_profiles.items()):
         plt.bar(
             time_range_to_plot,
@@ -1502,8 +1502,8 @@ def plot_energy_flows(
     )
 
     # --- Plot battery charge/discharge ---
-    bottom_charge = np.zeros_like(time_set, dtype=float)
-    bottom_discharge = np.zeros_like(time_set, dtype=float)
+    bottom_charge = np.zeros_like(range(time_set.number_of_time_steps), dtype=float)
+    bottom_discharge = np.zeros_like(range(time_set.number_of_time_steps), dtype=float)
     for color, (b, p_in) in zip(colors_bess, bess_in_profiles.items()):
         plt.bar(
             time_range_to_plot,
