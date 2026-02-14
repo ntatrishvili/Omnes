@@ -35,10 +35,22 @@ class TestPulpConverter(unittest.TestCase):
 
     def test_convert_quantity_empty(self):
         """Test converting empty quantity"""
+        from app.infra.util import TimeSet
+
         mock_quantity = Mock()
         mock_quantity.empty.return_value = True
 
-        result = self.converter.convert_quantity(mock_quantity, "test_name", time_set=3)
+        # Create a TimeSet with 3 time steps
+        time_set = TimeSet(
+            start=None,
+            end=None,
+            resolution="1H",
+            number_of_time_steps=3,
+            time_points=None,
+        )
+        result = self.converter.convert_quantity(
+            mock_quantity, "test_name", time_set=time_set
+        )
 
         self.assertEqual(len(result), 3)
         self.assertIsInstance(result[0], pulp.LpVariable)
@@ -55,16 +67,27 @@ class TestPulpConverter(unittest.TestCase):
 
     def test_convert_quantity_regular(self):
         """Test converting regular quantity"""
+        from app.infra.util import TimeSet
+
         mock_quantity = Mock(spec=Quantity)
         mock_quantity.empty.return_value = False
         mock_quantity.value.return_value = [1, 2, 3, 4, 5]
 
+        # Create a TimeSet with 5 time steps and 1h frequency
+        time_set = TimeSet(
+            start=None,
+            end=None,
+            resolution="1h",
+            number_of_time_steps=5,
+            time_points=None,
+        )
         result = self.converter.convert_quantity(
-            mock_quantity, "test_name", time_set=5, freq="1H"
+            mock_quantity, "test_name", time_set=time_set
         )
 
         self.assertEqual(result, [1, 2, 3, 4, 5])
-        mock_quantity.value.assert_called_once_with(time_set=5, freq="1H")
+        # TimeSet.freq normalizes frequency to include multiplier (e.g., 'h' -> '1h')
+        mock_quantity.value.assert_called_once_with(time_set=5, freq="1h")
 
 
 class TestDynamicConstraintBuilding(unittest.TestCase):
@@ -432,8 +455,8 @@ class TestLegacyIntegration(unittest.TestCase):
     def setUp(self):
         self.converter = PulpConverter()
 
-    def test_convert_relation_default_time_set(self):
-        """Test that converter uses default time_set when none provided"""
+    def test_convert_relation_default_time_range(self):
+        """Test that converter uses default time_range when none provided"""
         relation = Relation("x <= y", "simple_constraint")
 
         x_vars = [pulp.LpVariable(f"x_{t}") for t in range(10)]  # Default is 10
@@ -510,18 +533,16 @@ class TestComprehensiveCoverage(unittest.TestCase):
     def test_convert_model_comprehensive(self):
         """Test convert_model with various scenarios to improve coverage"""
         from app.infra.quantity import Quantity
-        from app.infra.util import TimesetBuilder
+        from app.infra.util import TimesetBuilder, TimeSet
         from app.model.entity import Entity
         from app.model.model import Model
+        import pandas as pd
 
         # Create a dummy timeset builder for testing
         class DummyTimesetBuilder(TimesetBuilder):
             def create(self, time_kwargs=None, **kwargs):
                 if time_kwargs is None:
                     time_kwargs = {}
-                import pandas as pd
-
-                from app.infra.util import TimeSet
 
                 dates = pd.date_range(start="2023-01-01", periods=5, freq="1h")
                 return TimeSet(
@@ -530,7 +551,6 @@ class TestComprehensiveCoverage(unittest.TestCase):
                     resolution="1H",
                     number_of_time_steps=5,
                     time_points=dates,
-                    **time_kwargs,
                 )
 
         dummy_builder = DummyTimesetBuilder()
@@ -548,9 +568,15 @@ class TestComprehensiveCoverage(unittest.TestCase):
         self.assertIn("time_set", result)
         self.assertIn("test_entity.power", result)
 
-        result_custom = self.converter.convert_model(
-            model, time_set=3, new_freq="30min"
+        # Create a custom TimeSet for testing
+        custom_time_set = TimeSet(
+            start="2023-01-01",
+            end="2023-01-01 02:00:00",
+            resolution="30min",
+            number_of_time_steps=3,
+            time_points=pd.date_range(start="2023-01-01", periods=3, freq="30min"),
         )
+        result_custom = self.converter.convert_model(model, time_set=custom_time_set)
         self.assertIsInstance(result_custom, dict)
         self.assertIn("time_set", result_custom)
 

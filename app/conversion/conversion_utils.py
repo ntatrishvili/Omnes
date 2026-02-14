@@ -145,6 +145,7 @@ def handle_arithmetic_operator(operator, left_result, right_result):
     elif operator == Operator.DIVIDE:
         validate_linear_division(right_result)
         return left_result * (1.0 / right_result)
+    return None
 
 
 def warn_about_not_equal_constraint() -> None:

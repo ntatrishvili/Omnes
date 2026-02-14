@@ -55,11 +55,18 @@ class Entity(metaclass=InitializingMeta):
     def get_sub_entity(self, id):
         return self.sub_entities[id]
 
-    def convert(self, time_set: int, new_freq: str, converter):
+    def convert(self, time_set, converter):
         """
         Delegate to a visitor for conversion.
+
+        Parameters
+        ----------
+        time_set : TimeSet
+            TimeSet object containing time configuration (number of steps, frequency, etc.)
+        converter : Converter
+            The converter object to use for conversion
         """
-        return converter.convert_entity(self, time_set, new_freq)
+        return converter.convert_entity(self, time_set)
 
     def __str__(self):
         """

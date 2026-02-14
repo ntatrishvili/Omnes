@@ -139,7 +139,7 @@ hot_water_storage1 = HotWaterStorage(
 )
 
 relation3 = Relation("heater1.p_in enabled from 10:00 to 16:00")
-relation4 = Relation("heater1.min_on_duration = 2h")
+# relation4 = Relation("heater1.min_on_duration = 2h")
 water_heater1 = Transducer(
     id="heater1",
     controllable=True,
@@ -148,8 +148,8 @@ water_heater1 = Transducer(
     conversion_efficiency=0.95,
     tags={"household": "HH1"},
     relations=[
-        relation3,
-        relation4,
+        # relation3,
+        # relation4,
         # Relation("$.p_in = hot_water1.p_in / $.efficiency"),
         Relation("$.p_in >= 0"),
     ],
@@ -175,7 +175,7 @@ hot_water_storage2 = HotWaterStorage(
 )
 
 relation5 = Relation("heater2.p_in enabled from 10:00 to 16:00")
-relation6 = Relation("heater2.min_on_duration = 2h")
+# relation6 = Relation("heater2.min_on_duration = 2h")
 water_heater2 = Transducer(
     id="heater2",
     charges="hot_water2",
@@ -184,7 +184,7 @@ water_heater2 = Transducer(
     tags={"household": "HH2"},
     relations=[
         relation5,
-        relation6,
+        # relation6,
         Relation("$.p_in <= 3"),
         # Relation("if hot_water2.state_of_charge > 0.9 * hot_water2.volume then $.p_in = 0"),
     ],
@@ -197,8 +197,8 @@ load1 = Load(
     input={"input_path": "config/input.csv", "read_kwargs": {"sep": ";"}},
     tags={"household": "HH1"},
     relations=[
-        Relation("$.p_in >= 0"),
-        Relation("$.p_in <= 5"),
+        Relation("$.p_cons >= 0"),
+        Relation("$.p_cons <= 5"),
     ],
 )
 load2 = Load(
@@ -207,8 +207,8 @@ load2 = Load(
     input={"input_path": "config/input2.csv"},
     tags={"household": "HH2"},
     relations=[
-        Relation("$.electricity >= 0"),
-        Relation("$.electricity <= 4"),
+        Relation("$.p_cons >= 0"),
+        Relation("$.p_cons <= 4"),
     ],
 )
 
@@ -216,7 +216,7 @@ load2 = Load(
 # e = Entity(relations=[relation1,])
 
 # Global relations
-global_relation1 = Relation("pv1.p_out + wind1.p_out >= load1.p_in + battery1.p_in")
+global_relation1 = Relation("pv1.p_out + wind1.p_out >= load1.p_cons + battery1.p_in")
 global_relation2 = Relation("battery1.p_out * 0.95 <= battery1.capacity / 4")
 
 time_resolution = "1h"

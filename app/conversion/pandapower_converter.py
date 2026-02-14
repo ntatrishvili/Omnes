@@ -21,12 +21,13 @@ from pandas import DataFrame
 
 from app.conversion.converter import Converter
 from app.conversion.validation_utils import (
-    validate_and_normalize_time_set,
+    validate_and_normalize_time_range,
     extract_effective_time_properties,
 )
 from app.infra.quantity import Quantity
 from app.infra.parameter import Parameter
 from app.infra.timeseries_object import TimeseriesObject
+from app.infra.util import TimeSet
 from app.model.entity import Entity
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
@@ -53,8 +54,8 @@ class PandapowerConverter(Converter):
 
     Attributes
     ----------
-    DEFAULT_TIME_SET_SIZE : int
-        Default fallback size for time sets when needed.
+    DEFAULT_TIME_RANGE_SIZE : int
+        Default fallback size for time ranges when needed.
     net : pandapowerNet
         The pandapower network being constructed.
     bus_map : dict
@@ -108,8 +109,7 @@ class PandapowerConverter(Converter):
     def convert_model(
         self,
         model: Model,
-        time_set: Optional[Union[int, range]] = None,
-        new_freq: Optional[str] = None,
+        time_set: Optional["TimeSet"] = None,
         **kwargs,
     ) -> pandapowerNet:
         """
@@ -119,11 +119,9 @@ class PandapowerConverter(Converter):
         ----------
         model
             The Omnes Model to convert.
-        time_set
-            Optional time set specification (int or range). If None the model's
+        time_set : TimeSet, optional
+            TimeSet object containing time configuration. If None the model's
             defaults are used.
-        new_freq
-            Optional target frequency for resampling time series (e.g., '15min').
 
         Returns
         -------
@@ -131,10 +129,8 @@ class PandapowerConverter(Converter):
             The constructed pandapower network with 'profiles' and 'time_set'
             attributes populated.
         """
-        # Use model defaults if not specified
-        effective_freq, effective_time_set = extract_effective_time_properties(
-            model, new_freq, time_set
-        )
+        # Use model defaults if not specified, creates effective TimeSet
+        effective_time_set = extract_effective_time_properties(model, time_set)
 
         # Reset network state for new conversion
         self.net = self.create_empty_net()
@@ -143,21 +139,17 @@ class PandapowerConverter(Converter):
         # Convert all entities to model variables
         for _, entity in model.entities.items():
             logger.info(f"Converting entity '{entity.id}'")
-            entity.convert(effective_time_set, effective_freq, self)
+            entity.convert(effective_time_set, self)
 
         # Add time set information
-        time_range = validate_and_normalize_time_set(
-            effective_time_set, self.DEFAULT_TIME_SET_SIZE
-        )
-        self.net.time_set = time_range
+        self.net.time_set = effective_time_set
 
         return self.net
 
     def _convert_entity_default(
         self,
         entity: Entity,
-        time_set: Optional[Union[int, range]] = None,
-        new_freq: Optional[str] = None,
+        time_set: Optional["TimeSet"] = None,
         **kwargs,
     ):
         """
@@ -171,10 +163,8 @@ class PandapowerConverter(Converter):
         ----------
         entity
             The entity to process.
-        time_set
-            Optional time-step specification forwarded to quantity conversion.
-        new_freq
-            Optional frequency forwarded to quantity conversion.
+        time_set : TimeSet, optional
+            TimeSet object containing time configuration.
         kwargs
             Internal options: 'entity_type', 'idx', and 'profile_type'.
         """
@@ -183,7 +173,9 @@ class PandapowerConverter(Converter):
         profile_type = kwargs.pop("profile_type", entity_type)
         for key, quantity in entity.quantities.items():
             converted_value = self.convert_quantity(
-                quantity, name=f"{entity.id}_{key}", time_set=time_set, freq=new_freq
+                quantity,
+                name=f"{entity.id}_{key}",
+                time_set=time_set,
             )
             if converted_value is None:
                 continue
@@ -195,89 +187,77 @@ class PandapowerConverter(Converter):
                 ] = converted_value
 
     # Wrapper methods that create network elements AND extract quantities
-    def _convert_bus_entity(self, bus: Bus, time_set=None, new_freq=None):
+    def _convert_bus_entity(self, bus: Bus, time_set=None):
         """Create a pandapower bus for the given Bus entity and extract quantities."""
         idx = self._convert_bus(bus)
-        self._convert_entity_default(
-            bus, time_set, new_freq, entity_type="bus", idx=idx
-        )
+        self._convert_entity_default(bus, time_set, entity_type="bus", idx=idx)
 
-    def _convert_line_entity(self, line: Line, time_set=None, new_freq=None):
+    def _convert_line_entity(self, line: Line, time_set=None):
         """Create a pandapower line or switch for the given Line entity and extract quantities."""
         idx, kind = self._convert_line(line)
-        self._convert_entity_default(
-            line, time_set, new_freq, entity_type=kind, idx=idx
-        )
+        self._convert_entity_default(line, time_set, entity_type=kind, idx=idx)
 
-    def _convert_slack_entity(self, slack: Slack, time_set=None, new_freq=None):
+    def _convert_slack_entity(self, slack: Slack, time_set=None):
         """Create an external grid (slack) element and extract quantities."""
         idx = self._convert_slack(slack)
         self._convert_entity_default(
             slack,
             time_set,
-            new_freq,
             entity_type="ext_grid",
             idx=idx,
             profile_type="powerplants",
         )
 
-    def _convert_pv_entity(self, pv: PV, time_set=None, new_freq=None):
+    def _convert_pv_entity(self, pv: PV, time_set=None):
         """Create a PV static generator element and extract quantities."""
         idx = self._convert_pv(pv)
         self._convert_entity_default(
             pv,
             time_set,
-            new_freq,
             entity_type="sgen",
             idx=idx,
             profile_type="renewables",
         )
 
-    def _convert_wind_entity(self, wind: Wind, time_set=None, new_freq=None):
+    def _convert_wind_entity(self, wind: Wind, time_set=None):
         """Create a wind static generator element and extract quantities."""
         idx = self._convert_wind(wind)
         self._convert_entity_default(
             wind,
             time_set,
-            new_freq,
             entity_type="sgen",
             idx=idx,
             profile_type="renewables",
         )
 
-    def _convert_battery_entity(self, battery: Battery, time_set=None, new_freq=None):
+    def _convert_battery_entity(self, battery: Battery, time_set=None):
         """Create a battery static generator element (modeled as sgen) and extract quantities."""
         idx = self._convert_battery(battery)
         self._convert_entity_default(
             battery,
             time_set,
-            new_freq,
             entity_type="sgen",
             idx=idx,
             profile_type="storage",
         )
 
-    def _convert_load_entity(self, load: Load, time_set=None, new_freq=None):
+    def _convert_load_entity(self, load: Load, time_set=None):
         """Create a load element and extract quantities."""
         idx = self._convert_load(load)
         self._convert_entity_default(
             load,
             time_set,
-            new_freq,
             entity_type="load",
             idx=idx,
         )
 
-    def _convert_transformer_entity(
-        self, trafo: Transformer, time_set=None, new_freq=None
-    ):
+    def _convert_transformer_entity(self, trafo: Transformer, time_set=None):
         """Create a pandapower transformer (trafo) and extract quantities (if any)."""
         idx = self._convert_transformer(trafo)
         # Use 'trafo' as the pandapower table name
         self._convert_entity_default(
             trafo,
             time_set,
-            new_freq,
             entity_type="trafo",
             idx=idx,
         )
@@ -568,8 +548,7 @@ class PandapowerConverter(Converter):
         self,
         quantity: Quantity,
         name: str,
-        time_set: Optional[Union[int, range]] = None,
-        freq: Optional[str] = None,
+        time_set: Optional["TimeSet"] = None,
     ) -> Optional[ndarray]:
         """
         Convert a Quantity to a numpy array suitable for pandapower profiles.
@@ -577,7 +556,7 @@ class PandapowerConverter(Converter):
         - Returns None if the quantity is empty.
         - For Parameter instances, returns the parameter's scalar or array value.
         - For Timeseries-like quantities, returns values resampled to the
-          requested time_set and frequency.
+          requested time set configuration.
 
         Parameters
         ----------
@@ -585,22 +564,23 @@ class PandapowerConverter(Converter):
             The Quantity to convert.
         name
             Human-readable identifier used for logging/debugging.
-        time_set
-            Optional time set specification for resampling.
-        freq
-            Optional frequency for resampling.
+        time_set : TimeSet, optional
+            TimeSet object containing time configuration.
 
         Returns
         -------
         numpy.ndarray or None
-            Array of values across the time set, or None if empty.
+            Array of values across the time range, or None if empty.
         """
         if quantity.empty():
             return None
         if isinstance(quantity, Parameter):
             return quantity.value
         else:
-            return quantity.value(time_set=time_set, freq=freq)
+            # Extract time range and frequency from TimeSet
+            time_range = time_set.number_of_time_steps if time_set else None
+            freq = time_set.freq if time_set else None
+            return quantity.value(time_set=time_range, freq=freq)
 
     def convert_back(self, model: Model) -> None:
         """

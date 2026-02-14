@@ -45,6 +45,8 @@ class TestPandapowerConverter(unittest.TestCase):
         self.conv.bus_map = {}
 
     def test_convert_quantity_empty_and_regular(self):
+        from app.infra.util import TimeSet
+
         # empty quantity -> None
         empty_q = Mock()
         empty_q.empty.return_value = True
@@ -53,7 +55,14 @@ class TestPandapowerConverter(unittest.TestCase):
 
         # non-Parameter quantity: should call .value(time_set=..., freq=...)
         q = DummyWithValue([1, 2, 3], empty=False)
-        result2 = self.conv.convert_quantity(q, "regular", time_set=5, freq="1h")
+        time_set = TimeSet(
+            start=None,
+            end=None,
+            resolution="1h",
+            number_of_time_steps=5,
+            time_points=None,
+        )
+        result2 = self.conv.convert_quantity(q, "regular", time_set=time_set)
         self.assertEqual(result2, [1, 2, 3])
 
         # Parameter branch: converter returns quantity.value (may be callable or attribute)
@@ -254,7 +263,7 @@ class TestPandapowerConverter(unittest.TestCase):
                 self.sub_entities = {}
                 self.relations = []
 
-            def convert(self, time_set, freq, converter):
+            def convert(self, time_set, converter):
                 # create a bus for demonstration by calling converter API
                 b = SimpleNamespace(
                     id=self.id,
@@ -265,10 +274,12 @@ class TestPandapowerConverter(unittest.TestCase):
 
         model_like = SimpleNamespace(
             entities={"m1": SimpleEntity("m1"), "m2": SimpleEntity("m2")},
-            time_start="2020-01-01",
-            time_end="2020-01-02",
-            number_of_time_steps=8740,
-            frequency="1h",
+            time_set=SimpleNamespace(
+                time_start="2020-01-01",
+                time_end="2020-01-02",
+                number_of_time_steps=8740,
+                frequency="1h",
+            ),
         )
         net = self.conv.convert_model(model_like)
         # Should be a pandapower net and have time_set attribute on it
