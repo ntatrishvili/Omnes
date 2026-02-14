@@ -41,7 +41,7 @@ def optimize_energy_system(**kwargs):
     prob = pulp.LpProblem("CSCopt", pulp.LpMinimize)
 
     # Global energy balance
-    for t in time_set:
+    for t in range(time_set.number_of_time_steps):
         total_pv = np.sum(kwargs[f"{pv}.p_out"][t] for pv in pv_names)
         total_load = np.sum(kwargs[f"{load}.p_cons"][t] for load in load_names)
         total_bess_in = pulp.lpSum(kwargs[f"{b}.p_in"][t] for b in bess_names)
@@ -66,7 +66,7 @@ def optimize_energy_system(**kwargs):
             max_p = kwargs[f"{b}.max_charge_rate"]
 
             # maximum input and output power and mutual exclusivity
-            k = (t + 1) % len(time_set)
+            k = (t + 1) % time_set.number_of_time_steps
             prob += e_stor[k] - e_stor[t] == p_in[t] - p_out[t]
             prob += e_stor[t] <= cap
             prob += p_in[t] <= min(
@@ -80,7 +80,7 @@ def optimize_energy_system(**kwargs):
     prob += pulp.lpSum(
         kwargs[f"{s}.p_in"][t] + kwargs[f"{s}.p_out"][t]
         for s in slack_names
-        for t in time_set
+        for t in range(time_set.number_of_time_steps)
     )
 
     status = prob.solve(pulp.GUROBI_CMD(msg=True))
@@ -102,13 +102,19 @@ def optimize_energy_system(**kwargs):
     for b in bess_names:
         for name in ["p_in", "p_out", "e_stor"]:
             kwargs[f"{b}.{name}"] = np.array(
-                [pulp.value(kwargs[f"{b}.{name}"][t]) for t in time_set]
+                [
+                    pulp.value(kwargs[f"{b}.{name}"][t])
+                    for t in range(time_set.number_of_time_steps)
+                ]
             )
 
     for s in slack_names:
         for name in ["p_in", "p_out"]:
             kwargs[f"{s}.{name}"] = np.array(
-                [pulp.value(kwargs[f"{s}.{name}"][t]) for t in time_set]
+                [
+                    pulp.value(kwargs[f"{s}.{name}"][t])
+                    for t in range(time_set.number_of_time_steps)
+                ]
             )
 
     return {

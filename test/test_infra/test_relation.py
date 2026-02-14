@@ -172,19 +172,21 @@ class TestBinaryExpressionParsing(unittest.TestCase):
 
     def test_parse_addition_subtraction(self):
         """Test parsing addition and subtraction with correct precedence"""
-        expr = BinaryExpression.parse_binary("battery.soc(t) >= battery.soc(t-1) + 0.1")
+        expr = BinaryExpression.parse_binary(
+            "battery.state_of_charge(t) >= battery.state_of_charge(t-1) + 0.1"
+        )
 
         self.assertIsInstance(expr, BinaryExpression)
         self.assertEqual(expr.operator, Operator.GREATER_THAN_OR_EQUAL)
 
-        # Left side: battery.soc(t)
-        self.assertEqual(expr.left.entity_id, "battery.soc")
+        # Left side: battery.state_of_charge(t)
+        self.assertEqual(expr.left.entity_id, "battery.state_of_charge")
         self.assertEqual(expr.left.time_offset, 0)
 
-        # Right side: battery.soc(t-1) + 0.1
+        # Right side: battery.state_of_charge(t-1) + 0.1
         self.assertIsInstance(expr.right, BinaryExpression)
         self.assertEqual(expr.right.operator, Operator.ADD)
-        self.assertEqual(expr.right.left.entity_id, "battery.soc")
+        self.assertEqual(expr.right.left.entity_id, "battery.state_of_charge")
         self.assertEqual(expr.right.left.time_offset, -1)
         self.assertEqual(expr.right.right.value, 0.1)
 
@@ -282,14 +284,14 @@ class TestAdditionalRelationCases(unittest.TestCase):
             def __init__(self):
                 self.called = None
 
-            def convert_literal(self, literal_obj, value, t, time_set, new_freq):
+            def convert_literal(self, literal_obj, value, t, time_set):
                 # record and return an identifiable value
-                self.called = (literal_obj, value, t, time_set, new_freq)
+                self.called = (literal_obj, value, t, time_set)
                 return ("lit_conv", value)
 
         conv = C()
         lit = Literal(7)
-        res = lit.convert(conv, t=3, time_set=None, new_freq=None)
+        res = lit.convert(conv, t=3, time_set=None)
         self.assertEqual(res, ("lit_conv", 7))
         self.assertIs(conv.called[0], lit)
         self.assertEqual(conv.called[2], 3)
@@ -299,26 +301,24 @@ class TestAdditionalRelationCases(unittest.TestCase):
             def __init__(self):
                 self.called = None
 
-            def convert_entity_reference(
-                self, entity_ref_obj, entity_id, t, time_set, new_freq
-            ):
+            def convert_entity_reference(self, entity_ref_obj, entity_id, t, time_set):
                 self.called = (entity_ref_obj, entity_id, t)
                 return ("ent_conv", entity_id)
 
         conv = C()
         ref = EntityReference("some.device", -1)
-        res = ref.convert(conv, t=5, time_set=10, new_freq="1h")
+        res = ref.convert(conv, t=5, time_set=10)
         self.assertEqual(res, ("ent_conv", "some.device"))
         self.assertIs(conv.called[0], ref)
         self.assertEqual(conv.called[2], 5)
 
     def test_binary_expression_convert_delegates(self):
         class C:
-            def convert_literal(self, literal_obj, value, t, time_set, new_freq):
+            def convert_literal(self, literal_obj, value, t, time_set):
                 return value * 10
 
             def convert_binary_expression(
-                self, expr_obj, left_res, right_res, operator, t, time_set, new_freq
+                self, expr_obj, left_res, right_res, operator, t, time_set
             ):
                 return (expr_obj, left_res, right_res, operator)
 
@@ -335,16 +335,14 @@ class TestAdditionalRelationCases(unittest.TestCase):
             def __init__(self):
                 self.called = None
 
-            def convert_entity_reference(
-                self, entity_ref_obj, entity_id, t, time_set, new_freq
-            ):
+            def convert_entity_reference(self, entity_ref_obj, entity_id, t, time_set):
                 return "E", entity_id
 
-            def convert_literal(self, literal_obj, value, t, time_set, new_freq):
+            def convert_literal(self, literal_obj, value, t, time_set):
                 return "L", value
 
             def convert_binary_expression(
-                self, expr_obj, left_res, right_res, operator, t, time_set, new_freq
+                self, expr_obj, left_res, right_res, operator, t, time_set
             ):
                 # return a compact tuple for assertions
                 return left_res, right_res, operator
@@ -353,14 +351,19 @@ class TestAdditionalRelationCases(unittest.TestCase):
         assign = AssignmentExpression("sensor.temp", "25")
         res = assign.convert(conv, t=1)
         # left should be handled via convert_entity_reference and right via convert_literal
+        # Note: "25" gets parsed as integer 25 by the _convert method
         self.assertEqual(res[0], ("E", "sensor.temp"))
-        self.assertEqual(res[1], ("L", "25"))
+        self.assertEqual(res[1], ("L", 25))
         self.assertEqual(res[2], Operator.EQUAL)
 
-    def test_time_condition_convert_not_implemented(self):
+    def test_time_condition_convert_requires_time_set(self):
+        """TimeConditionExpression.convert requires a TimeSet object"""
         tc = TimeConditionExpression("heater", "enabled", "08:00", "12:00")
-        with self.assertRaises(NotImplementedError):
+        with self.assertRaises(ValueError) as context:
             tc.convert(None, 0)
+        self.assertIn(
+            "TimeConditionExpression requires a TimeSet object", str(context.exception)
+        )
 
     def test_parse_numeric_literals_int_and_float(self):
         expr_int = BinaryExpression.parse_binary("2.0")
@@ -435,19 +438,18 @@ class TestAdditionalRelationCases(unittest.TestCase):
             def __init__(self):
                 self.called = None
 
-            def convert_relation(self, relation_obj, objects, time_set, new_freq):
-                self.called = (relation_obj, objects, time_set, new_freq)
+            def convert_relation(self, relation_obj, objects, time_set):
+                self.called = (relation_obj, objects, time_set)
                 return {"converted": True}
 
         conv = C()
         rel = Relation("a <= b", "deleg")
         objects = {"a": 1, "b": 2}
-        res = rel.convert(conv, objects, time_set=10, new_freq="1h")
+        res = rel.convert(conv, objects, time_set=10)
         self.assertEqual(res, {"converted": True})
         self.assertIs(conv.called[0], rel)
         self.assertEqual(conv.called[1], objects)
         self.assertEqual(conv.called[2], 10)
-        self.assertEqual(conv.called[3], "1h")
 
 
 if __name__ == "__main__":

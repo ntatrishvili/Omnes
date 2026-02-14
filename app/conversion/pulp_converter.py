@@ -12,12 +12,15 @@ from app.conversion.conversion_utils import (
 from app.conversion.converter import Converter
 from app.conversion.validation_utils import (
     handle_time_bounds,
-    validate_and_normalize_time_set,
+    validate_and_normalize_time_range,
     validate_entity_exists,
     extract_effective_time_properties,
 )
-from app.infra.quantity import Parameter, Quantity
+from app.infra.parameter import Parameter
+from app.infra.quantity import Quantity
+from app.infra.relation import EntityReference
 from app.infra.relation import Relation
+from app.infra.util import TimeSet
 from app.model.entity import Entity
 from app.model.model import Model
 
@@ -40,7 +43,7 @@ class PulpConverter(Converter):
 
     Attributes
     ----------
-    DEFAULT_TIME_SET_SIZE : int
+    DEFAULT_TIME_RANGE_SIZE : int
         Default number of time steps when none is specified (10)
 
     Notes
@@ -58,6 +61,9 @@ class PulpConverter(Converter):
     def __init__(self):
         super().__init__()
         self.__objects: Dict[str, Any] = {}
+        self.__current_entity_id: Optional[str] = (
+            None  # Track current entity being processed
+        )
 
     def _register_converters(self):
         """
@@ -70,8 +76,7 @@ class PulpConverter(Converter):
     def _convert_entity_default(
         self,
         entity: Entity,
-        time_set: Optional[Union[int, range]] = None,
-        new_freq: Optional[str] = None,
+        time_set: Optional[TimeSet] = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """
@@ -85,11 +90,9 @@ class PulpConverter(Converter):
         ----------
         entity : Entity
             The root entity to convert (may have sub-entities).
-        time_set : Optional[Union[int, range]], optional
-            The number of time steps to represent in the pulp variables.
-            If None, uses the default time set size.
-        new_freq : Optional[str], optional
-            The target frequency to resample time series data to (e.g., '15min', '1H').
+        time_set : TimeSet, optional
+            TimeSet object containing time configuration (number of steps, frequency, etc.).
+            If None, uses the default time range size.
 
         Returns
         -------
@@ -98,28 +101,28 @@ class PulpConverter(Converter):
             Keys are in the format 'entity_id.quantity_name' for quantities and 'relation_name'
             for constraints.
         """
+        # Set current entity context for SelfReference resolution
+        self.__current_entity_id = entity.id
+
         # Convert entity quantities
         entity_variables = {
             f"{entity.id}.{key}": self.convert_quantity(
                 quantity,
                 name=f"{entity.id}.{key}",
                 time_set=time_set,
-                freq=new_freq,
             )
             for key, quantity in entity.quantities.items()
         }
 
         # Recursively convert sub-entities
         for _, sub_entity in entity.sub_entities.items():
-            entity_variables.update(self.convert_entity(sub_entity, time_set, new_freq))
+            entity_variables.update(self.convert_entity(sub_entity, time_set))
 
         # Convert relations to constraints
         for relation in entity.relations:
-            variable_mapping = {
-                id: entity_variables.get(id) for id in relation.expression.get_ids()
-            }
+            # Pass the full entity_variables for SelfReference resolution
             relation_constraints = self.convert_relation(
-                relation, variable_mapping, time_set=time_set, new_freq=new_freq
+                relation, entity_variables, time_set=time_set
             )
             entity_variables.update(relation_constraints)
 
@@ -128,8 +131,7 @@ class PulpConverter(Converter):
     def convert_model(
         self,
         model: Model,
-        time_set: Optional[Union[int, range]] = None,
-        new_freq: Optional[str] = None,
+        time_set: Optional[TimeSet] = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """
@@ -137,29 +139,24 @@ class PulpConverter(Converter):
 
         Converts the model's entities and their quantities into a flat dictionary
         of pulp variables suitable for optimization. It also handles the resampling of time series
-        data to the specified frequency and time set.
+        data to the specified frequency and time range.
 
         Parameters
         ----------
         model : Model
             The model to convert.
-        time_set : Optional[Union[int, range]], optional
-            The number of time steps to represent in the pulp variables.
-            If None, uses model.number_of_time_steps.
-        new_freq : Optional[str], optional
-            The target frequency to resample time series data to (e.g., '15min', '1H').
-            If None, uses model.frequency.
+        time_set : TimeSet, optional
+            TimeSet object containing time configuration (number of steps, frequency, etc.).
+            If None, uses model defaults.
 
         Returns
         -------
         Dict[str, Any]
             Dictionary containing all pulp variables and time set information.
-            Includes a 'time_set' key with the range of time steps.
+            Includes a 'time_set' key with the TimeSet object.
         """
-        # Use model defaults if not specified
-        effective_freq, effective_time_set = extract_effective_time_properties(
-            model, new_freq, time_set
-        )
+        # Use model defaults if not specified, creates effective TimeSet
+        effective_time_set = extract_effective_time_properties(model, time_set)
 
         # Convert all entities
         skip_entities = kwargs.get("skip_entities", set())
@@ -167,15 +164,10 @@ class PulpConverter(Converter):
         for _, entity in model.entities.items():
             if type(entity) in skip_entities:
                 continue
-            model_variables.update(
-                entity.convert(effective_time_set, effective_freq, self)
-            )
+            model_variables.update(entity.convert(effective_time_set, self))
 
         # Add time set information
-        time_range = validate_and_normalize_time_set(
-            effective_time_set, self.DEFAULT_TIME_SET_SIZE
-        )
-        model_variables["time_set"] = time_range
+        model_variables["time_set"] = effective_time_set
 
         return model_variables
 
@@ -183,15 +175,14 @@ class PulpConverter(Converter):
         self,
         quantity: Quantity,
         name: str,
-        time_set: Optional[Union[int, range]] = None,
-        freq: Optional[str] = None,
+        time_set: Optional[TimeSet] = None,
     ) -> Union[List[pulp.LpVariable], Any]:
         """
         Convert the time series data to a format suitable for pulp optimization.
 
         If the quantity is empty, create an empty pulp variable.
         If the quantity is a Parameter, return its value directly.
-        Otherwise, return the values resampled to the specified time set and frequency.
+        Otherwise, return the values resampled to the specified time range and frequency.
 
         Parameters
         ----------
@@ -199,10 +190,8 @@ class PulpConverter(Converter):
             The quantity to convert
         name : str
             The name for the generated variables
-        time_set : Optional[Union[int, range]], optional
-            The time set specification. If None, uses default size.
-        freq : Optional[str], optional
-            The frequency for resampling
+        time_set : TimeSet, optional
+            TimeSet object containing time configuration. If None, uses default size.
 
         Returns
         -------
@@ -212,19 +201,21 @@ class PulpConverter(Converter):
         if isinstance(quantity, Parameter):
             return quantity.value
         elif quantity.empty():
-            normalized_time_set = validate_and_normalize_time_set(
-                time_set, self.DEFAULT_TIME_SET_SIZE
+            normalized_time_range = validate_and_normalize_time_range(
+                time_set, self.DEFAULT_TIME_RANGE_SIZE
             )
-            return create_empty_pulp_var(name, len(normalized_time_set))
+            return create_empty_pulp_var(name, len(normalized_time_range))
         else:
-            return quantity.value(time_set=time_set, freq=freq)
+            # Extract time range and frequency from TimeSet
+            time_range = time_set.number_of_time_steps if time_set else None
+            freq = time_set.freq if time_set else None
+            return quantity.value(time_set=time_range, freq=freq)
 
     def convert_relation(
         self,
         relation: Relation,
         entity_variables: Dict[str, Any],
-        time_set: Optional[Union[int, range]] = None,
-        new_freq: Optional[str] = None,
+        time_set: Optional[TimeSet] = None,
     ) -> Dict[str, List]:
         """
         Convert a Relation to PuLP constraints for each time step.
@@ -232,7 +223,7 @@ class PulpConverter(Converter):
         This method dynamically assembles relations based on identified entity references
         and operations. For example:
         "battery1.discharge_power(t)<2*battery1.discharge_power(t-1)" becomes:
-        for t in time_set:
+        for t in time_range:
             constraint = battery1.discharge_power[t] < 2 * battery1.discharge_power[t-1]
 
         Parameters
@@ -241,10 +232,9 @@ class PulpConverter(Converter):
             The relation to convert
         entity_variables : Dict[str, Any]
             Dictionary mapping entity IDs to their PuLP variables
-        time_set : Optional[Union[int, range]], optional
-            The time set to iterate over. If None, uses default size.
-        new_freq : Optional[str], optional
-            Frequency (kept for consistency with interface)
+        time_set : TimeSet, optional
+            The TimeSet object containing full time information including time_points.
+            Required for TimeConditionExpression conversions.
 
         Returns
         -------
@@ -256,9 +246,6 @@ class PulpConverter(Converter):
         ValueError
             If any entity referenced in the relation is not found in entity_variables.
         """
-        time_range = validate_and_normalize_time_set(
-            time_set, self.DEFAULT_TIME_SET_SIZE
-        )
 
         # Store entity variables for use by convert methods
         self.__objects = entity_variables
@@ -267,9 +254,7 @@ class PulpConverter(Converter):
         self._validate_relation_entities(relation)
 
         # Generate constraints for each time step
-        constraints = self._generate_time_step_constraints(
-            relation, time_range, new_freq
-        )
+        constraints = self._generate_time_step_constraints(relation, time_set)
 
         return {relation.name: constraints}
 
@@ -288,10 +273,15 @@ class PulpConverter(Converter):
             If any entity referenced in the relation is not found in the objects dictionary.
         """
         for entity_id in relation.get_ids():
+            # Skip validation for self-reference markers as they are resolved at conversion time
+            if entity_id == "$":
+                continue
             validate_entity_exists(entity_id, self.__objects)
 
     def _generate_time_step_constraints(
-        self, relation: Relation, time_range: range, new_freq: Optional[str]
+        self,
+        relation: Relation,
+        time_set,
     ) -> List:
         """
         Generate constraints for each time step in the range.
@@ -300,19 +290,25 @@ class PulpConverter(Converter):
         ----------
         relation : Relation
             The relation to generate constraints for
-        time_range : range
-            The range of time steps to iterate over
-        new_freq : Optional[str]
-            Target frequency for time series data
+        time_set : TimeSet or int, optional
+            The full TimeSet object (required for TimeConditionExpression) or number of steps
 
         Returns
         -------
         List
             List of PuLP constraints, one for each time step where the constraint is not None
         """
+        # Get number of time steps from TimeSet or use int directly
+        if hasattr(time_set, "number_of_time_steps"):
+            num_steps = time_set.number_of_time_steps
+        elif isinstance(time_set, int):
+            num_steps = time_set
+        else:
+            num_steps = self.DEFAULT_TIME_RANGE_SIZE
+
         constraints = []
-        for t in time_range:
-            constraint = relation.expression.convert(self, t, len(time_range), new_freq)
+        for t in range(num_steps):
+            constraint = relation.expression.convert(self, t, time_set)
             if constraint is not None:
                 constraints.append(constraint)
         return constraints
@@ -322,8 +318,7 @@ class PulpConverter(Converter):
         entity_ref,
         entity_id: str,
         t: int,
-        time_set: Optional[Union[int, range]] = None,
-        new_freq: Optional[str] = None,
+        time_set: Optional[TimeSet] = None,
     ):
         """
         Convert an entity reference to a PuLP variable for the given time step.
@@ -336,10 +331,8 @@ class PulpConverter(Converter):
             The entity ID to look up in the variables dictionary
         t : int
             Current time step
-        time_set : Optional[Union[int, range]], optional
-            Total time set (unused here but kept for consistency)
-        new_freq : Optional[str], optional
-            Frequency (unused here but kept for consistency)
+        time_set : TimeSet, optional
+            TimeSet object (unused here but kept for consistency)
 
         Returns
         -------
@@ -353,8 +346,20 @@ class PulpConverter(Converter):
         """
         actual_time = t + entity_ref.time_offset
 
-        validate_entity_exists(entity_id, self.__objects)
-        pulp_var = self.__objects[entity_id]
+        # Handle SelfReference-like entity IDs that start with "$."
+        if entity_id.startswith("$."):
+            property_name = entity_id[2:]  # Remove "$." prefix
+            if self.__current_entity_id is None:
+                raise ValueError(
+                    "No current entity context available for SelfReference-like entity resolution"
+                )
+            # Resolve to current entity's property
+            resolved_entity_id = f"{self.__current_entity_id}.{property_name}"
+            validate_entity_exists(resolved_entity_id, self.__objects)
+            pulp_var = self.__objects[resolved_entity_id]
+        else:
+            validate_entity_exists(entity_id, self.__objects)
+            pulp_var = self.__objects[entity_id]
 
         # Handle time-indexed variables
         if isinstance(pulp_var, list):
@@ -373,8 +378,7 @@ class PulpConverter(Converter):
         right_result,
         operator,
         t: int,
-        time_set: Optional[Union[int, range]] = None,
-        new_freq: Optional[str] = None,
+        time_set: Optional[TimeSet] = None,
     ):
         """
         Convert a binary expression to PuLP constraint or arithmetic operation.
@@ -391,10 +395,8 @@ class PulpConverter(Converter):
             The operator to apply between left and right operands
         t : int
             Current time step (unused)
-        time_set : Optional[Union[int, range]], optional
-            Time set (unused)
-        new_freq : Optional[str], optional
-            Frequency (unused)
+        time_set : TimeSet, optional
+            TimeSet object (unused)
 
         Returns
         -------
@@ -406,9 +408,116 @@ class PulpConverter(Converter):
         ValueError
             If the operator is not supported or violates linear programming constraints.
         """
+
         if is_comparison_operator(operator):
             return handle_comparison_operator(operator, left_result, right_result)
         elif is_arithmetic_operator(operator):
             return handle_arithmetic_operator(operator, left_result, right_result)
         else:
             raise ValueError(f"Unsupported operator: {operator}")
+
+    def convert_self_reference(
+        self,
+        self_ref,
+        property_name: str,
+        t: int,
+        time_set: Optional[TimeSet] = None,
+    ):
+        """
+        Convert a self reference to a PuLP variable for the given time step.
+        Self references ($.property) are resolved to the current entity property.
+
+        Parameters
+        ----------
+        self_ref : SelfReference
+            The self reference object
+        property_name : str
+            The property name to resolve
+        t : int
+            Current time step
+        time_set : TimeSet, optional
+            TimeSet object (passed to convert_entity_reference)
+        """
+        # Use current entity context to resolve self reference
+        if self.__current_entity_id is None:
+            raise ValueError(
+                "No current entity context available for SelfReference resolution"
+            )
+
+        # Construct the full entity.property key
+        entity_property_key = f"{self.__current_entity_id}.{property_name}"
+
+        # Fall back to convert_entity_reference if the property doesn't exist
+
+        entity_ref = EntityReference(entity_property_key, self_ref.time_offset)
+        return self.convert_entity_reference(
+            entity_ref, entity_property_key, t, time_set
+        )
+
+    def convert_literal(
+        self,
+        literal,
+        value,
+        t: int,
+        time_set: Optional[TimeSet] = None,
+    ):
+        """
+        Convert a literal value to its native representation.
+
+        Parameters
+        ----------
+        literal : Literal
+            The literal object (unused)
+        value : Any
+            The literal value
+        t : int
+            Current time step (unused)
+        time_set : TimeSet, optional
+            TimeSet object (unused)
+
+        Returns
+        -------
+        Any
+            The literal value as-is
+        """
+        return value
+
+    def convert_time_condition_expression(
+        self,
+        time_condition_expression,
+        entity: str,
+        condition: str,
+        between_time_index,
+        t: int,
+    ):
+        """
+        Convert a time condition expression to PuLP constraints based on time windows.
+
+        For 'enabled' conditions, the entity variable is constrained to be non-zero
+        within the time window and zero outside it. For 'disabled' conditions,
+        the opposite applies.
+
+        Parameters
+        ----------
+        time_condition_expression : TimeConditionExpression
+            The time condition expression object
+        entity : str
+            The entity ID (e.g., 'heater1.p_in')
+        condition : str
+            The condition type ('enabled', 'disabled', etc.)
+        between_time_index : array-like
+            Index array of time steps that fall within the time window
+        t : int
+            Current time step
+        """
+        if condition == "enabled" and not between_time_index[t]:
+            return (
+                self.convert_entity_reference(EntityReference(entity, 0), entity, t)
+                == 0
+            )
+        if condition == "disabled" and between_time_index[t]:
+            return (
+                self.convert_entity_reference(EntityReference(entity, 0), entity, t)
+                == 0
+            )
+        return None
