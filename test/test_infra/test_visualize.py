@@ -4,13 +4,11 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib import colors as mcolors
 
 from app.infra import visualize
-from dsl.example_model import number_of_time_steps
 
 
 class TestHelperFunctions(unittest.TestCase):
