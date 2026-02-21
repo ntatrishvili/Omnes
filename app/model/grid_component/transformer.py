@@ -1,9 +1,9 @@
 from typing import Optional
 
-from app.infra.quantity import Parameter
-from app.infra.timeseries_object_factory import (
-    DefaultTimeseriesFactory,
-    TimeseriesFactory,
+from app.infra.parameter import Parameter
+from app.infra.quantity_factory import (
+    DefaultQuantityFactory,
+    QuantityFactory,
 )
 from app.model.grid_component.connector import Connector
 
@@ -15,9 +15,9 @@ class Transformer(Connector):
     ----------
     id : str | None
         Optional identifier for the transformer.
-    ts_factory : TimeseriesFactory, optional
+    quantity_factory : QuantityFactory, optional
         Factory used to create time-series objects for this component. If not
-        provided the DefaultTimeseriesFactory is used.
+        provided the DefaultQuantityFactory is used.
     **kwargs :
         Additional keyword arguments accepted (commonly present in SimBench
         CSV parsing)
@@ -43,14 +43,17 @@ class Transformer(Connector):
         Mapping of quantity names to Parameter objects created from kwargs.
     """
 
+    _quantity_excludes = ["default_type"]
+
     default_nominal_power: float = 0.16  # MVA
     default_nominal_voltage_hv_side: float = 20.0  # kV
     default_nominal_voltage_lv_side: float = 0.4  # kV
+    default_type: str = ""
 
     def __init__(
         self,
         id: Optional[str] = None,
-        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        quantity_factory: QuantityFactory = DefaultQuantityFactory(),
         **kwargs,
     ):
         """Initialize a Transformer instance.
@@ -59,22 +62,27 @@ class Transformer(Connector):
         the class defaults. Any remaining kwargs are passed to the Connector
         base class.
         """
-        super().__init__(id=id, ts_factory=ts_factory, **kwargs)
-        self.quantities.update(
-            {
-                "nominal_power": Parameter(
-                    value=kwargs.pop("nominal_power", self.default_nominal_power)
+        super().__init__(id=id, quantity_factory=quantity_factory, **kwargs)
+        for quantity_name in (
+            "nominal_power",
+            "nominal_voltage_hv_side",
+            "nominal_voltage_lv_side",
+            "type",
+        ):
+            self.create_quantity(
+                quantity_name,
+                input=kwargs.pop(
+                    quantity_name, getattr(self, f"default_{quantity_name}")
                 ),
-                "nominal_voltage_hv_side": Parameter(
-                    value=kwargs.pop(
-                        "nominal_voltage_hv_side", self.default_nominal_voltage_hv_side
-                    )
-                ),
-                "nominal_voltage_lv_side": Parameter(
-                    value=kwargs.pop(
-                        "nominal_voltage_lv_side", self.default_nominal_voltage_lv_side
-                    )
-                ),
-                "type": Parameter(value=kwargs.pop("type", "")),
-            }
+                default_type=Parameter,
+            )
+
+    def __str__(self):
+        """String representation of the Transformer entity."""
+        return (
+            f"Transformer '{self.id}' {self.from_bus}--{self.to_bus} with "
+            f"nominal power {self.nominal_power} MVA, "
+            f"HV side nominal voltage {self.nominal_voltage_hv_side} kV, "
+            f"LV side nominal voltage {self.nominal_voltage_lv_side} kV, "
+            f"type '{self.type}'"
         )

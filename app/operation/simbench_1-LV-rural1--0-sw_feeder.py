@@ -4,6 +4,7 @@ import pandas as pd
 
 from app.conversion.pandapower_converter import PandapowerConverter
 from app.conversion.pulp_converter import PulpConverter
+from app.infra.timeseries_object import TimeseriesObject
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
 from app.model.generic_entity import GenericEntity
@@ -61,8 +62,6 @@ def build_model_from_simbench(**kwargs):
     # Buses
     Bus.default_nominal_voltage = 400
     Bus.default_phase = "A"
-    # Symmetric network
-    Bus.default_phase_count = 1
 
     buses = []
     for _, row in nodes.iterrows():
@@ -126,27 +125,29 @@ def build_model_from_simbench(**kwargs):
             node = row["node"]
             p_peak_kw = float(row.get("pRES", 0.0)) * 1000  # SimBench uses MW
 
-            if "pv" in tech or "solar" in tech:
-                pvs.append(
-                    PV(
-                        id=row["id"],
-                        bus=node,
-                        peak_power=p_peak_kw,  # convert to kW for Omnes
-                        p_out={
-                            "input_path": join(root, "RESProfile.csv"),
-                            "col": row["profile"],
-                            "scale": p_peak_kw * kwargs.get("pv_scale", 1.0),
-                            **datetime_properties,
-                        },
-                        tags={
-                            "source": "simbench",
-                            "sR": row["sR"],
-                            "household": node,
-                            "profile": row["profile"],
-                        },
-                    )
+            pvs.append(
+                PV(
+                    id=row["id"],
+                    bus=node,
+                    peak_power=p_peak_kw,  # convert to kW for Omnes
+                    p_out={
+                        "input_path": join(root, "RESProfile.csv"),
+                        "col": row["profile"],
+                        "scale": p_peak_kw * kwargs.get("pv_scale", 1.0),
+                        "read_kwargs": {"sep": ";"},
+                        **datetime_properties,
+                    },
+                    tags={
+                        "source": "simbench",
+                        "sR": row["sR"],
+                        "household": node,
+                        "profile": row["profile"],
+                    },
                 )
+            )
+            if "pv" in tech or "solar" in tech:
 
+                pass
             elif "wind" in tech:
                 winds.append(
                     Wind(
@@ -187,6 +188,7 @@ def build_model_from_simbench(**kwargs):
                         "input_path": join(root, "LoadProfile.csv"),
                         "col": f'{row["profile"]}_pload',
                         "scale": p_peak_kw,
+                        "read_kwargs": {"sep": ";"},
                         **datetime_properties,
                     },
                     q_cons={
@@ -236,6 +238,11 @@ def build_model_from_simbench(**kwargs):
         max_charge_rate=kwargs.get("charge_rate", 10),
         max_discharge_rate=kwargs.get("charge_rate", 10),
     )
+    Battery.default_charge_efficiency = {
+        "input_file": "input.csv",
+        "column": "charge_efficiency",
+    }
+
     # -----------------------------
     # Build model
     model = Model(

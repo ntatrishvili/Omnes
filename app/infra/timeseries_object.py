@@ -105,7 +105,9 @@ class TimeseriesObject(Quantity):
             "freq": kwargs.pop("freq", None),
             "dims": kwargs.pop("dims", None),
             "coords": kwargs.pop("coords", None),
+            "read_kwargs": kwargs.pop("read_kwargs", {}),
             "attrs": attrs,
+            "entity_id": kwargs.pop("entity_id", None),
         }
 
     def _initialize_data_array(self, params):
@@ -124,13 +126,19 @@ class TimeseriesObject(Quantity):
             return self._dataframe_to_xarray(
                 DataFrame(params["data"], index=params["coords"], columns=["timestamp"])
             )
-        elif params["input_path"] is not None and params["col"] is not None:
+        elif params["input_path"] is not None:
+            if params["col"] is None and params["entity_id"] is None:
+                raise ValueError(
+                    "Column name 'col' or 'entity_id' must be provided when reading from CSV."
+                )
+            col = params["col"] or params["entity_id"]
             df_data = self._read_csv_to_dataframe(
                 params["input_path"],
-                params["col"],
+                col,
                 datetime_column=params.get("datetime_column", None),
                 datetime_format=params.get("datetime_format", None),
                 tz=params.get("tz", None),
+                **params.get("read_kwargs", {}),
             ) * params.get("scale", 1.0)
             return self._dataframe_to_xarray(df_data, params["attrs"])
         else:
@@ -464,9 +472,9 @@ class TimeseriesObject(Quantity):
         :param int time_set: Number of time steps (optional)
         :returns np.ndarray: Array of values
         """
-        freq = kwargs.get("freq", self.freq)
+        freq = kwargs.pop("freq", self.freq)
         # If time_set is not provided, use full length, -1 indicates no slicing
-        time_set = kwargs.get("time_set", -1)
+        time_set = kwargs.pop("time_set", -1)
 
         if freq != self.freq:
             resampled = self.resample_to(freq, **kwargs)

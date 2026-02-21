@@ -1,15 +1,13 @@
 import secrets
-from typing import Dict, Optional
+from typing import Optional
 
 from app.infra.quantity import Quantity
+from app.infra.quantity_factory import QuantityFactory, DefaultQuantityFactory
 from app.infra.relation import Relation
-from app.infra.timeseries_object_factory import (
-    DefaultTimeseriesFactory,
-    TimeseriesFactory,
-)
+from app.model.util import InitializingMeta
 
 
-class Entity:
+class Entity(metaclass=InitializingMeta):
     """
     Represents any modelled object (e.g., component, device, node) in the system.
 
@@ -23,13 +21,13 @@ class Entity:
         - sub_entities (dict[str, Entity]): Optional nested child entities.
         - relations (list[Relation]): Constraints or rules related to this entity.
         - tags (dict): Dictionary of tags associated with this entity.
-        - ts_factory (TimeseriesFactory): Used to generate time series objects in an advanced manner.
+        - quantity_factory (QuantityFactory): Used to generate time series objects in an advanced manner.
     """
 
     def __init__(
         self,
         id: Optional[str] = None,
-        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        quantity_factory: QuantityFactory = DefaultQuantityFactory(),
         **kwargs,
     ):
         """
@@ -40,7 +38,7 @@ class Entity:
         self.sub_entities: dict[str, Entity] = {}
         self.relations: list[Relation] = []
         self.parent = None
-        self.ts_factory = ts_factory or DefaultTimeseriesFactory()
+        self.quantity_factory = quantity_factory or DefaultQuantityFactory()
         self.relations = kwargs.pop("relations", [])
         self.tags = kwargs.pop("tags", {})
         if "input" in kwargs and "col" not in kwargs.get("input", {}):
@@ -57,11 +55,18 @@ class Entity:
     def get_sub_entity(self, id):
         return self.sub_entities[id]
 
-    def convert(self, time_set: int, new_freq: str, converter):
+    def convert(self, time_set, converter):
         """
         Delegate to a visitor for conversion.
+
+        Parameters
+        ----------
+        time_set : TimeSet
+            TimeSet object containing time configuration (number of steps, frequency, etc.)
+        converter : Converter
+            The converter object to use for conversion
         """
-        return converter.convert_entity(self, time_set, new_freq)
+        return converter.convert_entity(self, time_set)
 
     def __str__(self):
         """
@@ -98,9 +103,10 @@ class Entity:
         """
         Extend the default dir to include parameters and quantities.
         """
-        return super().__dir__() + list(self.quantities.keys())
+        base = super().__dir__() or []
+        return base + list(self.quantities.keys())
 
     def create_quantity(self, name: str, **kwargs):
         self.quantities.update(
-            {name: self.ts_factory.create(name, **kwargs.get(name, {}))}
+            {name: self.quantity_factory.create(name, **kwargs, entity_id=self.id)}
         )

@@ -1,8 +1,8 @@
 from typing import Optional
 
-from app.infra.timeseries_object_factory import (
-    DefaultTimeseriesFactory,
-    TimeseriesFactory,
+from app.infra.quantity_factory import (
+    DefaultQuantityFactory,
+    QuantityFactory,
 )
 from app.model.grid_component.grid_component import GridComponent
 
@@ -11,10 +11,10 @@ class Connector(GridComponent):
     def __init__(
         self,
         id: Optional[str] = None,
-        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        quantity_factory: QuantityFactory = DefaultQuantityFactory(),
         **kwargs,
     ):
-        super().__init__(id=id, ts_factory=ts_factory, **kwargs)
+        super().__init__(id=id, quantity_factory=quantity_factory, **kwargs)
         self.from_bus = kwargs.pop("from_bus")
         self.to_bus = kwargs.pop("to_bus")
 

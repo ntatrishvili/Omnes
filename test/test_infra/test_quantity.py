@@ -1,6 +1,7 @@
 import unittest
 
-from app.infra.quantity import Parameter, Quantity
+from app.infra.quantity import Quantity
+from app.infra.parameter import Parameter
 
 
 class TestParameter(unittest.TestCase):

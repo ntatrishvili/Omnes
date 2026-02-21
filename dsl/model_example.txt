@@ -1,14 +1,14 @@
-model:
+Model:
   name: Energy_Community
   start: 2025-01-01 00:00
   end: 2025-01-02 00:00
   resolution: 1h
+  timezone: Europe/Budapest
 
-buses:
+Bus:
   nominal_voltage: 400
 
   # 3-phase bus
-  # If phase_counts 3, do not specify phase name
   - bus_MV -> 3
     type: Slack
     # This overloads default voltage, which is 400
@@ -24,7 +24,7 @@ buses:
   # 3-phase bus
   - bus_LV3 -> 3
 
-lines:
+Line:
     # km
     line_length: 0.1
     # Ohm/km
@@ -36,46 +36,61 @@ lines:
   - line2 from bus_LV1 to bus_LV2
   - line3 bus_LV1 to bus_LV3
 
-devices:
-generators:
+Device:
+Generator:
     efficiency: 0.9
 
   PV:
   - pv1 on bus_LV1
     peak_power: 4
     # pv power input is in data/input.csv in column "pv1"
-    power: data/input.csv
+    p_out: data/pv1.csv in_column p
+    q_out: data/pv1.csv in_column q
     tags:
       # Validate this: vector can only be electricity
       # Default vector: electricity; possible values of vector: electricity, heat, material,
       # Default contributes_to: electric_power_balance
       household: HH1
     relations:
-      battery1.max_charge_rate < 2 * pv1.power
+      $.p_out <= $.peak_power
+      $.p_out >= 0
+      $.q_out <= 0.3 * $.p_out
 
   - pv2 on bus_LV2
     peak_power: 3
     # pv power input is in data/input.csv in column "pv2"
-    power: input/pv2.csv
+    p_out: data/pv2.csv in_column p_out
+    q_out: data/pv2.csv in_column q_out
     tags:
       # Validate this: can only be electricity
       #Default vector: electricity
       #Default contributes_to: electric_power_balance
       household: HH2
+    relations:
+      $.p_out <= $.peak_power
+      $.p_out >= 0
+      $.q_out >= -0.4 * $.p_out
+      $.q_out <= 0.4 * $.p_out
 
-  wind:
+  Wind:
   - id: wind1 on bus_LV3
     peak_power: 5
     efficiency: 0.95
     # wind power input is in data/input.csv in column "wind"
-    power: data/input.csv -> wind
+    p_out: data/wind.csv in_column p_out
+    q_out: data/wind.csv in_column q_out
     tags:
       # Default vector: electricity
       # Default contributes_to: electric_power_balance
       # No household here, does not belong to any specific household
+    relations:
+      $.p_out <= $.peak_power
+      $.p_out >= 0
+      $.p_out * $.efficiency <= $.peak_power
+      $.q_out <= 0.2 * $.p_out
 
-storages:
- batteries:
+Storage:
+ Battery:
   - battery1 on bus_LV3
     capacity: 5
     max_charge_rate: 2
@@ -87,21 +102,34 @@ storages:
     discharge_efficiency: 0.95
     # default: 1
     storage_efficiency: 0.995
+    p_in: input/battery1.csv in_column p_in
+    p_out: input/battery1.csv in_column p_out
     tags:
         # Default vector: electricity
         # Default contributes_to: electric_power_balance
-  - relations:
-      if battery1.capacity < 6 then battery1.max_discharge_rate = 3, "Battery1.CapacityRelation"
+    relations:
+      $.p_in <= $.max_charge_rate
+      $.p_out <= $.max_discharge_rate
+      $.state_of_charge = $.state_of_charge(t-1) * $.storage_efficiency + $.p_in * $.charge_efficiency - $.p_out / $.discharge_efficiency
+      $.state_of_charge >= 0.1 * $.capacity
+      $.state_of_charge <= $.capacity
+      if $.state_of_charge < 0.2 * $.capacity then $.max_discharge_rate = 1
 
   - hot_water1 on bus_LV1
     # l
     volume: 120
     set_temperature: 60
-    heat: input/input.csv -> hot_water1
+    p_in: input/hot_water1.csv in_column p_in
+    p_out: input/hot_water1.csv in_column p_out
     tags:
       #Default vector: heat
       #Default contributes_to: heat_balance
       household: HH1
+    relations:
+      $.p_in >= 0
+      $.p_out >= 0
+      $.state_of_charge <= $.volume
+      $.state_of_charge >= 0.1 * $.volume
 
   - hot_water2 on bus_LV2
     type: HotWater
@@ -111,13 +139,19 @@ storages:
     max_discharge_rate: 2
     material: Water
     set_temperature: 55
-    heat: input/hot_water2.csv
+    p_in: input/hot_water2.csv in_column p_in
+    p_out: input/hot_water2.csv in_column p_out
     tags:
       # Default vector: heat
       # Default contributes_to: heat_balance
       household: HH2
+    relations:
+      $.p_in <= $.max_charge_rate
+      $.p_out <= $.max_discharge_rate
+      $.state_of_charge <= $.volume
+      $.state_of_charge >= 0.15 * $.volume
 
-loads:
+Load:
   - load1 on bus_LV1
     type: Load
     power: input/load1.csv
@@ -125,14 +159,20 @@ loads:
       # Default vector: electricity
       # Default contributes_to: electric_power_balance
       household: HH1
+    relations:
+      $.power >= 0
+      $.power <= 5
 
   - load2 on bus_LV2
     type: Load
     electricity: input/load2.csv
     tags:
       household: HH2
+    relations:
+      $.electricity >= 0
+      $.electricity <= 4
 
-  transducers:
+  Transducer:
   - heater1 on bus_LV1 charges hot_water1
     # input and output are only valid options for a transducer (previously converter)
     controllable
@@ -141,10 +181,11 @@ loads:
       # Default vector: electricity
       # Default contributes_to: electric_power_balance
       household: HH1
-
     relations:
-      power enabled from 10:00 to 16:00
-      min_on_duration = 2h
+      $.power enabled from 10:00 to 16:00
+      $.min_on_duration = 2
+      $.power = hot_water1.p_in / $.efficiency
+      $.power >= 0
 
   - heater2 on bus_LV2 charges hot_water2
     # this is not controllable, so 'controllable' is not specified
@@ -153,13 +194,22 @@ loads:
       # Default vector: electricity
       # Default contributes_to: electric_power_balance
       household: HH2
-
     relations:
-      power enabled from 10:00 to 16:00
-      min_on_duration = 2h
+      $.power enabled from 10:00 to 16:00
+      $.min_on_duration = 2
+      $.power <= 3
+      if hot_water2.state_of_charge > 0.9 * hot_water2.volume then $.power = 0
 
-slacks:
+Slack:
   - slack on bus_MV
     # tags:
       # Default vector: electricity
       # Default contributes_to: electric_power_balance
+    relations:
+      $.power >= -10
+      $.power <= 15
+
+Relations:
+  pv1.p_out + wind1.p_out >= load1.power + battery1.p_in
+  battery1.p_out * 0.95 <= battery1.capacity / 4
+
