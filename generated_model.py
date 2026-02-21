@@ -19,7 +19,7 @@ Bus.default_nominal_voltage = 400
 bus_MV = Bus(
     id="bus_MV",
     phase="3",
-    type=BusType.SLACK,
+    type="SLACK",
     nominal_voltage=10000,
 )
 bus_LV1 = Bus(

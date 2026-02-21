@@ -1,4 +1,3 @@
-from email.policy import default
 from typing import Optional
 
 from app.infra.parameter import Parameter

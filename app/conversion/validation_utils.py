@@ -88,7 +88,7 @@ def extract_effective_time_properties(model, time_set):
     return TimesetBuilder.create(
         time_start=time_set.start or model.time_set.start,
         time_end=time_set.end or model.time_set.end,
-        resolution=time_set.freq or model.frequencyt,
+        resolution=time_set.freq or model.frequency,
         number_of_time_steps=time_set.number_of_time_steps
         or model.number_of_time_steps,
         tz=time_set.tz or model.time_set.tz,

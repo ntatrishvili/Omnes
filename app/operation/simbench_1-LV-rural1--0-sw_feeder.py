@@ -238,9 +238,10 @@ def build_model_from_simbench(**kwargs):
         max_charge_rate=kwargs.get("charge_rate", 10),
         max_discharge_rate=kwargs.get("charge_rate", 10),
     )
-    Battery.default_charge_efficiency(
-        input_file="input.csv", column="charge_efficiency"
-    )
+    Battery.default_charge_efficiency = {
+        "input_file": "input.csv",
+        "column": "charge_efficiency",
+    }
 
     # -----------------------------
     # Build model
