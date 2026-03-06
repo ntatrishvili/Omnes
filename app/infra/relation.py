@@ -531,7 +531,7 @@ class BinaryExpression(Expression):
 
         # Don't try to create EntityReference with empty string
         if not expr or expr.isspace():
-            raise ValueError(f"Cannot parse empty expression term")
+            raise ValueError("Cannot parse empty expression term")
 
         # If EntityReference initialization changes, we have to modify only one place in the code
         return EntityReference(expr, time_offset)

@@ -1362,9 +1362,9 @@ def plot_energy_flows(
     output_path=None,
 ):
     time_set = kwargs["time_set"]
-    nT = time_set.number_of_time_steps
+    number_of_time_steps = time_set.number_of_time_steps
     if time_range_to_plot is None:
-        time_range_to_plot = range(nT)
+        time_range_to_plot = range(number_of_time_steps)
 
     ax, twin_ax = None, None
     # --- Extract and sum all variables ---

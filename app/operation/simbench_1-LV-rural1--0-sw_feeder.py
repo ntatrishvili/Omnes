@@ -4,7 +4,9 @@ import pandas as pd
 
 from app.conversion.pandapower_converter import PandapowerConverter
 from app.conversion.pulp_converter import PulpConverter
-from app.infra.timeseries_object import TimeseriesObject
+from app.infra.configuration import Config
+from app.infra.logging_setup import get_logger, init_logging
+from app.infra.visualize import elegant_draw_network
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
 from app.model.generic_entity import GenericEntity
@@ -17,9 +19,6 @@ from app.model.slack import Slack
 from app.model.storage.battery import Battery
 from app.operation.example_optimization import optimize_energy_system
 from app.operation.example_simulation import simulate_energy_system
-from app.infra.configuration import Config
-from app.infra.logging_setup import get_logger, init_logging
-from app.infra.visualize import elegant_draw_network
 
 
 def build_model_from_simbench(**kwargs):
@@ -145,10 +144,7 @@ def build_model_from_simbench(**kwargs):
                     },
                 )
             )
-            if "pv" in tech or "solar" in tech:
-
-                pass
-            elif "wind" in tech:
+            if "wind" in tech:
                 winds.append(
                     Wind(
                         id=row["id"],

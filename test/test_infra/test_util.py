@@ -161,7 +161,7 @@ class TestTimeSet(unittest.TestCase):
         )
         freq = ts.freq
         self.assertIsInstance(freq, str)
-        self.assertTrue(len(freq) > 0)
+        self.assertGreater(len(freq), 0)
 
 
 class TestTimesetBuilder(unittest.TestCase):

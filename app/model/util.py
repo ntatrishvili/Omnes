@@ -38,9 +38,12 @@ class InitializingMeta(type):
                 excluded.update(getattr(ancestor, "_quantity_excludes", []))
 
         # Convert default_ fields to Quantity at class level
-        for key, value in list(namespace.items()):
-            if key.startswith("default_") and key not in excluded:
-                if not isinstance(value, Quantity):
-                    namespace[key] = create_default_quantity(value)
+        for key, value in namespace.items():
+            if (
+                key.startswith("default_")
+                and key not in excluded
+                and not isinstance(value, Quantity)
+            ):
+                namespace[key] = create_default_quantity(value)
 
         return super().__new__(mcs, name, bases, namespace)
