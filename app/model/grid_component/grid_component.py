@@ -15,6 +15,8 @@ class GridComponent(Entity):
 
     default_phase: Optional[str | int] = 3
 
+    PHASE_VALUES = ("A", "B", "C", 3, "3")
+
     def __init__(
         self,
         id: Optional[str] = None,
@@ -32,5 +34,7 @@ class GridComponent(Entity):
     @classmethod
     def check_kwargs(cls, **kwargs):
         phase = kwargs.get("phase", cls.default_phase)
-        if phase not in ("A", "B", "C", 3, "3"):
-            raise ValueError(f"Phase must be 'A', 'B', 'C', or 3, but got {phase!r}")
+        if phase not in cls.PHASE_VALUES:
+            raise ValueError(
+                f"Phase must be one of {cls.PHASE_VALUES}, but got {phase!r}"
+            )

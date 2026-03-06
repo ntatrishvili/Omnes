@@ -15,6 +15,13 @@ class Line(Connector):
     default_reactance: Optional[float] = None
     default_max_current: Optional[float] = None
     default_capacitance: Optional[float] = None
+    QUANTITY_NAMES = (
+        "line_length",
+        "resistance",
+        "reactance",
+        "max_current",
+        "capacitance",
+    )
 
     def __init__(
         self,
@@ -26,13 +33,7 @@ class Line(Connector):
         self.create_quantity(
             "current", **kwargs.get("current", {}), default_type=TimeseriesObject
         )
-        for quantity_name in (
-            "line_length",
-            "resistance",
-            "reactance",
-            "max_current",
-            "capacitance",
-        ):
+        for quantity_name in self.QUANTITY_NAMES:
             self.create_quantity(
                 quantity_name,
                 input=kwargs.pop(

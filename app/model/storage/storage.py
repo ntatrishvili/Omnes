@@ -18,6 +18,15 @@ class Storage(Device):
     default_discharge_efficiency: Optional[Quantity] = 1.0
     default_storage_efficiency: Optional[Quantity] = 1.0
     default_state_of_charge: Optional[Quantity] = 1.0
+    QUANTITY_NAMES = (
+        "capacity",
+        "max_charge_rate",
+        "max_discharge_rate",
+        "charge_efficiency",
+        "discharge_efficiency",
+        "storage_efficiency",
+        "state_of_charge",
+    )
 
     def __init__(
         self,
@@ -35,15 +44,7 @@ class Storage(Device):
         self.create_quantity(
             "e_stor", **kwargs.get("e_stor", {}), default_type=TimeseriesObject
         )
-        for quantity_name in (
-            "capacity",
-            "max_charge_rate",
-            "max_discharge_rate",
-            "charge_efficiency",
-            "discharge_efficiency",
-            "storage_efficiency",
-            "state_of_charge",
-        ):
+        for quantity_name in self.QUANTITY_NAMES:
             self.create_quantity(
                 quantity_name,
                 input=kwargs.pop(

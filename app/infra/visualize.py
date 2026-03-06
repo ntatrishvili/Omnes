@@ -8,13 +8,16 @@ from typing import List, Union, Tuple, Optional
 import matplotlib as mpl
 import networkx as nx
 import numpy as np
+import pandapower.plotting as pplot
 import pandas as pd
 import pulp
+import simbench
 from matplotlib import pyplot as plt, dates as mdates, cm as cm
 from matplotlib.legend_handler import HandlerTuple
 from matplotlib.lines import Line2D
 from matplotlib.patches import PathPatch, Patch
 from matplotlib.path import Path
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pandas import Timestamp, Timedelta
 
 from app.infra.configuration import Config
@@ -479,8 +482,6 @@ def compute_spans(bus_coords, net, idx):
 
 
 if __name__ == "__main__":
-    import simbench
-
     net = simbench.get_simbench_net("1-LV-rural1--0-sw")
     elegant_draw_network(net, output_path=Config().get("path", "output"))
 
@@ -1103,7 +1104,6 @@ def visualize_high_voltage_day(
 
     # --- Draw network ---
     # --- Draw network with pandapower ---
-    import pandapower.plotting as pplot
 
     # Compute color maps for bus voltages and line loadings
     net.res_bus = pd.DataFrame(
@@ -1203,8 +1203,6 @@ def visualize_high_voltage_day(
     ax_net.set_title(f"Node color=Voltage [pu], Edge color=Current [A]")
     ax_net.set_xlabel("Longitude")
     ax_net.set_ylabel("Latitude")
-
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     sm = mpl.cm.ScalarMappable(cmap=cmap_obj, norm=norm)
     sm.set_array([])

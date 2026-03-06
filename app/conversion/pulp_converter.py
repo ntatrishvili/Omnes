@@ -348,20 +348,31 @@ class PulpConverter(Converter):
 
         # Handle SelfReference-like entity IDs that start with "$."
         if entity_id.startswith("$."):
-            property_name = entity_id[2:]  # Remove "$." prefix
-            if self.__current_entity_id is None:
-                raise ValueError(
-                    "No current entity context available for SelfReference-like entity resolution"
-                )
-            # Resolve to current entity's property
-            resolved_entity_id = f"{self.__current_entity_id}.{property_name}"
-            validate_entity_exists(resolved_entity_id, self.__objects)
-            pulp_var = self.__objects[resolved_entity_id]
-        else:
-            validate_entity_exists(entity_id, self.__objects)
-            pulp_var = self.__objects[entity_id]
+            return self.convert_self_reference(entity_ref, entity_id[2:], t, time_set)
 
-        # Handle time-indexed variables
+        validate_entity_exists(entity_id, self.__objects)
+        pulp_var = self.__objects[entity_id]
+
+        return self._get_time_indexed_value(pulp_var, actual_time, entity_id)
+
+    def _get_time_indexed_value(self, pulp_var, actual_time: int, entity_id: str):
+        """
+        Get the value from a time-indexed variable at the specified time step.
+
+        Parameters
+        ----------
+        pulp_var : Any
+            The PuLP variable or collection to access
+        actual_time : int
+            The time index to access
+        entity_id : str
+            The entity ID for error messages
+
+        Returns
+        -------
+        Any
+            The value at the specified time index, or the variable itself if not time-indexed
+        """
         if isinstance(pulp_var, list):
             actual_time = handle_time_bounds(actual_time, pulp_var, entity_id)
             return pulp_var[actual_time]
@@ -430,13 +441,23 @@ class PulpConverter(Converter):
         Parameters
         ----------
         self_ref : SelfReference
-            The self reference object
+            The self reference object containing time offset information
         property_name : str
             The property name to resolve
         t : int
             Current time step
         time_set : TimeSet, optional
-            TimeSet object (passed to convert_entity_reference)
+            TimeSet object (unused here but kept for consistency)
+
+        Returns
+        -------
+        Union[pulp.LpVariable, Any]
+            PuLP variable or expression for the specified time step
+
+        Raises
+        ------
+        ValueError
+            If no current entity context is available for resolution.
         """
         # Use current entity context to resolve self reference
         if self.__current_entity_id is None:
@@ -446,13 +467,13 @@ class PulpConverter(Converter):
 
         # Construct the full entity.property key
         entity_property_key = f"{self.__current_entity_id}.{property_name}"
+        validate_entity_exists(entity_property_key, self.__objects)
+        pulp_var = self.__objects[entity_property_key]
 
-        # Fall back to convert_entity_reference if the property doesn't exist
+        # Calculate actual time with offset
+        actual_time = t + self_ref.time_offset
 
-        entity_ref = EntityReference(entity_property_key, self_ref.time_offset)
-        return self.convert_entity_reference(
-            entity_ref, entity_property_key, t, time_set
-        )
+        return self._get_time_indexed_value(pulp_var, actual_time, entity_property_key)
 
     def convert_literal(
         self,

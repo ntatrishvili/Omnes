@@ -49,6 +49,12 @@ class Transformer(Connector):
     default_nominal_voltage_hv_side: float = 20.0  # kV
     default_nominal_voltage_lv_side: float = 0.4  # kV
     default_type: str = ""
+    QUANTITY_NAMES = (
+        "nominal_power",
+        "nominal_voltage_hv_side",
+        "nominal_voltage_lv_side",
+        "type",
+    )
 
     def __init__(
         self,
@@ -63,12 +69,7 @@ class Transformer(Connector):
         base class.
         """
         super().__init__(id=id, quantity_factory=quantity_factory, **kwargs)
-        for quantity_name in (
-            "nominal_power",
-            "nominal_voltage_hv_side",
-            "nominal_voltage_lv_side",
-            "type",
-        ):
+        for quantity_name in self.QUANTITY_NAMES:
             self.create_quantity(
                 quantity_name,
                 input=kwargs.pop(

@@ -2,7 +2,7 @@ import hashlib
 import numbers
 import os
 
-from pandas import date_range
+from pandas import date_range, tseries
 
 from app.infra.logging_setup import get_logger
 
@@ -207,8 +207,6 @@ class TimeSet:
 
         else:
             try:
-                from pandas import tseries
-
                 offset = tseries.frequencies.to_offset(self.resolution).freqstr
             except (ValueError, TypeError, AttributeError):
                 offset = str(self.resolution)

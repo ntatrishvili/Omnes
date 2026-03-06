@@ -22,7 +22,7 @@ class DefaultQuantityFactory(QuantityFactory):
                 kwargs.update(raw)
             elif isinstance(raw, (int, float, str)) and not isinstance(raw, bool):
                 kwargs["value"] = raw
-            elif isinstance(raw, Iterable):
+            elif isinstance(raw, Iterable) and not isinstance(raw, str):
                 kwargs["data"] = raw
             else:
                 kwargs["value"] = raw
