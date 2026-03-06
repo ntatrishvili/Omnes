@@ -11,7 +11,7 @@ import numpy as np
 import pandapower.plotting as pplot
 import pandas as pd
 import pulp
-import simbench
+
 from matplotlib import pyplot as plt, dates as mdates, cm as cm
 from matplotlib.legend_handler import HandlerTuple
 from matplotlib.lines import Line2D
@@ -482,6 +482,8 @@ def compute_spans(bus_coords, net, idx):
 
 
 if __name__ == "__main__":
+    import simbench
+
     net = simbench.get_simbench_net("1-LV-rural1--0-sw")
     elegant_draw_network(net, output_path=Config().get("path", "output"))
 
