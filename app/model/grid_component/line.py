@@ -1,10 +1,11 @@
 from typing import Optional
 
-from app.infra.quantity import Parameter
-from app.infra.timeseries_object_factory import (
-    DefaultTimeseriesFactory,
-    TimeseriesFactory,
+from app.infra.parameter import Parameter
+from app.infra.quantity_factory import (
+    DefaultQuantityFactory,
+    QuantityFactory,
 )
+from app.infra.timeseries_object import TimeseriesObject
 from app.model.grid_component.connector import Connector
 
 
@@ -14,34 +15,32 @@ class Line(Connector):
     default_reactance: Optional[float] = None
     default_max_current: Optional[float] = None
     default_capacitance: Optional[float] = None
+    QUANTITY_NAMES = (
+        "line_length",
+        "resistance",
+        "reactance",
+        "max_current",
+        "capacitance",
+    )
 
     def __init__(
         self,
         id: Optional[str] = None,
-        ts_factory: TimeseriesFactory = DefaultTimeseriesFactory(),
+        quantity_factory: QuantityFactory = DefaultQuantityFactory(),
         **kwargs,
     ):
-        super().__init__(id=id, ts_factory=ts_factory, **kwargs)
-        self.create_quantity("current", **kwargs)
-        self.quantities.update(
-            {
-                "max_current": Parameter(
-                    value=kwargs.pop("max_current", self.default_max_current)
-                ),
-                "line_length": Parameter(
-                    value=kwargs.pop("line_length", self.default_line_length)
-                ),
-                "reactance": Parameter(
-                    value=kwargs.pop("reactance", self.default_reactance)
-                ),
-                "resistance": Parameter(
-                    value=kwargs.pop("resistance", self.default_resistance)
-                ),
-                "capacitance": Parameter(
-                    value=kwargs.pop("capacitance", self.default_capacitance)
-                ),
-            }
+        super().__init__(id=id, quantity_factory=quantity_factory, **kwargs)
+        self.create_quantity(
+            "current", **kwargs.get("current", {}), default_type=TimeseriesObject
         )
+        for quantity_name in self.QUANTITY_NAMES:
+            self.create_quantity(
+                quantity_name,
+                input=kwargs.pop(
+                    quantity_name, getattr(self, f"default_{quantity_name}")
+                ),
+                default_type=Parameter,
+            )
 
     def __str__(self):
         """

@@ -1,7 +1,5 @@
 import unittest
 
-import pytest
-
 from app.model.device import Device, Vector
 
 

@@ -2,21 +2,21 @@ import unittest
 
 import pandas as pd
 
-from app.infra.timeseries_object_factory import TimeseriesFactory
+from app.infra.quantity_factory import QuantityFactory
 from app.model.slack import Slack
 
 
-class DummyTimeseriesFactory(TimeseriesFactory):
+class DummyQuantityFactory(QuantityFactory):
     def create(self, name, **kwargs):
         return pd.Series([1, 2, 3])
 
 
 class TestSlack(unittest.TestCase):
     def setUp(self):
-        self.ts_factory = DummyTimeseriesFactory()
+        self.quantity_factory = DummyQuantityFactory()
 
     def test_slack_init(self):
-        s = Slack(id="s1", ts_factory=self.ts_factory)
+        s = Slack(id="s1", quantity_factory=self.quantity_factory)
         self.assertEqual(s.id, "s1")
         self.assertIn("p_in", s.quantities)
         self.assertIn("p_out", s.quantities)
