@@ -748,26 +748,28 @@ class AssignmentExpression(Expression):
             self, target_result, value_result, Operator.EQUAL, t, time_set
         )
 
+    @staticmethod
+    def _extract_ids_from_raw_value(raw_value) -> list[str]:
+        value_str = str(raw_value)
+        if value_str.startswith("$."):
+            return ["$"]
+
+        is_numeric = value_str.replace(".", "").replace("-", "").isdigit()
+        if is_numeric:
+            return []
+
+        return [value_str]
+
     def get_ids(self) -> list[str]:
         target_ids = (
             self.target.get_ids()
             if hasattr(self.target, "get_ids")
-            else (
-                [str(self.target)]
-                if not str(self.target).startswith("$.")
-                and not str(self.target).replace(".", "").replace("-", "").isdigit()
-                else (["$"] if str(self.target).startswith("$.") else [])
-            )
+            else self._extract_ids_from_raw_value(self.target)
         )
         value_ids = (
             self.value.get_ids()
             if hasattr(self.value, "get_ids")
-            else (
-                [str(self.value)]
-                if not str(self.value).startswith("$.")
-                and not str(self.value).replace(".", "").replace("-", "").isdigit()
-                else (["$"] if str(self.value).startswith("$.") else [])
-            )
+            else self._extract_ids_from_raw_value(self.value)
         )
         return target_ids + value_ids
 

@@ -11,6 +11,8 @@ from app.model.device import Device
 
 
 class Storage(Device):
+    # These default members are initialized via an overloaded '=' operator,
+    # so their effective runtime type is Quantity even when assigned scalar defaults.
     default_capacity: Optional[Quantity] = None
     default_max_charge_rate: Optional[Quantity] = None
     default_max_discharge_rate: Optional[Quantity] = None
