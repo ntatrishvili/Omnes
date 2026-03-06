@@ -411,64 +411,71 @@ class BinaryExpression(Expression):
         )
 
     @classmethod
-    def _parse_arithmetic_expression(cls, expr: str) -> Expression:
-        """Parse arithmetic expressions with +, -, *, /"""
-        expr = expr.strip()
-
-        # Handle parentheses first
-        if expr.startswith("(") and expr.endswith(")"):
-            # Check if these are balanced outer parentheses
-            paren_count = 0
-            for i, char in enumerate(expr):
-                if char == "(":
-                    paren_count += 1
-                elif char == ")":
-                    paren_count -= 1
-                    if paren_count == 0 and i < len(expr) - 1:
-                        # Not outer parentheses, break and continue with normal parsing
+    def _strip_outer_parentheses(cls, expr: str) -> str:
+        while expr.startswith("(") and expr.endswith(")"):
+            depth = 0
+            is_outer = True
+            for i, ch in enumerate(expr):
+                if ch == "(":
+                    depth += 1
+                elif ch == ")":
+                    depth -= 1
+                    if depth == 0 and i < len(expr) - 1:
+                        is_outer = False
                         break
-            else:
-                # These are outer parentheses, remove them
-                return cls._parse_arithmetic_expression(expr[1:-1])
+            if not is_outer:
+                break
+            expr = expr[1:-1].strip()
+        return expr
 
-        # Handle addition and subtraction first (lower precedence, right-to-left)
-        for op_str in ["+", "-"]:
+    @classmethod
+    def _parse_by_operators(
+        cls, expr: str, operators: list[str]
+    ) -> Optional[Expression]:
+        for op_str in operators:
             op_pos = cls._find_operator_outside_parentheses(expr, op_str)
-            if op_pos != -1:
-                left_part = expr[:op_pos].strip()
-                right_part = expr[op_pos + 1 :].strip()
+            if op_pos == -1:
+                continue
+            left_part = expr[:op_pos].strip()
+            right_part = expr[op_pos + 1 :].strip()
 
-                # Special handling for negative numbers at the start
-                if op_str == "-" and op_pos == 0:
-                    # This is a negative number, not subtraction
-                    continue
-
-                # Don't treat it as subtraction if left part is empty or an operator
-                if op_str == "-" and (
+            # Special handling for negative numbers at the start
+            if op_str == "-" and (
+                op_pos == 0
+                or (
                     not left_part
                     or left_part.endswith(
                         ("*", "/", "+", "-", "(", "<=", ">=", "<", ">", "==", "!=")
                     )
-                ):
-                    continue
+                )
+            ):
+                continue
 
-                left = cls._parse_arithmetic_expression(left_part)
-                right = cls._parse_arithmetic_expression(right_part)
-                operator = Operator.from_symbol(op_str)
-                return BinaryExpression(left, operator, right)
-
-        # Handle multiplication and division (higher precedence, right-to-left)
-        for op_str in ["*", "/"]:
-            op_pos = cls._find_operator_outside_parentheses(expr, op_str)
-            if op_pos != -1:
-                left_part = expr[:op_pos].strip()
-                right_part = expr[op_pos + 1 :].strip()
-                left = cls._parse_arithmetic_expression(left_part)
-                right = cls._parse_term(right_part)
-                operator = Operator.from_symbol(op_str)
-                return BinaryExpression(left, operator, right)
-
+            left = cls._parse_arithmetic_expression(left_part)
+            right = (
+                cls._parse_arithmetic_expression(right_part)
+                if op_str in ("+", "-")
+                else cls._parse_term(right_part)
+            )
+            operator = Operator.from_symbol(op_str)
+            return BinaryExpression(left, operator, right)
         # If no arithmetic operators, parse as term
+        return None
+
+    @classmethod
+    def _parse_arithmetic_expression(cls, expr: str) -> Expression:
+        """Parse arithmetic expressions with +, -, *, /"""
+        expr = expr.strip()
+        expr = cls._strip_outer_parentheses(expr)
+
+        # Handle addition and subtraction first (lower precedence, right-to-left), then * and / (higher precedence, right-to-left)
+        parsed = cls._parse_by_operators(expr, ["+", "-"])
+        if parsed is not None:
+            return parsed
+
+        parsed = cls._parse_by_operators(expr, ["*", "/"])
+        if parsed is not None:
+            return parsed
         return cls._parse_term(expr)
 
     @classmethod
@@ -487,45 +494,31 @@ class BinaryExpression(Expression):
 
         return last_pos
 
-    @classmethod
-    def _parse_term(cls, expr: str) -> Expression:
-        """Parse individual terms (numbers, entity references, self references)"""
-        expr = expr.strip()
-
-        # Check if it's a number first (including negative numbers)
+    @staticmethod
+    def _try_parse_number(expr: str) -> Optional[Literal]:
+        """Return Literal if expr is numeric, else None."""
         try:
             value = float(expr)
-            if value.is_integer():
-                return Literal(int(value))
-            return Literal(value)
         except ValueError:
-            pass
+            return None
+        return Literal(int(value) if value.is_integer() else value)
 
-        # Handle negative numbers that might have been split by operator parsing
-        if expr.startswith("-"):
-            try:
-                # Try to parse the rest as a positive number
-                value = float(expr[1:])
-                if value.is_integer():
-                    return Literal(-int(value))
-                return Literal(-value)
-            except ValueError:
-                pass
+    @staticmethod
+    def _parse_self_reference(expr: str) -> SelfReference:
+        # Handle $. syntax: $.property or $.property(t-1)
+        self_pattern = r"^\$\.(.+?)(\(t([+-]\d+)?\))?$"
+        match = re.match(self_pattern, expr)
+        if not match:
+            # Invalid $ syntax
+            raise ValueError(f"Invalid self reference syntax: {expr}")
+        property_name = match.group(1)
+        time_offset_str = match.group(3)
+        time_offset = 0 if time_offset_str is None else int(time_offset_str)
+        return SelfReference(property_name, time_offset)
 
-        # Check if it's a self reference with $ syntax
-        if expr.startswith("$."):
-            # Handle $. syntax: $.property or $.property(t-1)
-            self_pattern = r"^\$\.(.+?)(\(t([+-]\d+)?\))?$"
-            match = re.match(self_pattern, expr)
-            if match:
-                property_name = match.group(1)
-                time_offset_str = match.group(3)
-                time_offset = 0 if time_offset_str is None else int(time_offset_str)
-                return SelfReference(property_name, time_offset)
-            else:
-                # Invalid $ syntax
-                raise ValueError(f"Invalid self reference syntax: {expr}")
-
+    @staticmethod
+    def _parse_entity_reference(expr: str) -> EntityReference:
+        """Parse entity or entity (t±n)."""
         # Check if it's an entity reference with explicit time index
         # Pattern: entity_id.property(t) or entity_id.property(t-1) etc.
         time_pattern = r"^(.+?)\(t([+-]\d+)?\)$"
@@ -542,6 +535,23 @@ class BinaryExpression(Expression):
 
         # If EntityReference initialization changes, we have to modify only one place in the code
         return EntityReference(expr, time_offset)
+
+    @classmethod
+    def _parse_term(cls, expr: str) -> Expression:
+        """Parse individual terms (numbers, entity references, self references)"""
+        expr = expr.strip()
+        if not expr:
+            raise ValueError("Cannot parse empty expression term")
+
+        number = cls._try_parse_number(expr)
+        if number is not None:
+            return number
+
+        # Check if it's a self reference with $ syntax
+        if expr.startswith("$."):
+            return cls._parse_self_reference(expr)
+
+        return cls._parse_entity_reference(expr)
 
 
 class IfThenExpression(Expression):
