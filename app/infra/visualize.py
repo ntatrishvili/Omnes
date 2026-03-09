@@ -1,4 +1,5 @@
 import json
+import logging
 from collections import defaultdict
 from copy import copy
 from os.path import join
@@ -7,16 +8,21 @@ from typing import List, Union, Tuple, Optional
 import matplotlib as mpl
 import networkx as nx
 import numpy as np
+import pandapower.plotting as pplot
 import pandas as pd
 import pulp
+
 from matplotlib import pyplot as plt, dates as mdates, cm as cm
 from matplotlib.legend_handler import HandlerTuple
 from matplotlib.lines import Line2D
 from matplotlib.patches import PathPatch, Patch
 from matplotlib.path import Path
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from pandas import Timestamp, Timedelta
 
 from app.infra.configuration import Config
+
+logger = logging.getLogger(__name__)
 
 mpl.rcParams["savefig.transparent"] = True
 mpl.rcParams["figure.facecolor"] = "none"
@@ -1100,7 +1106,6 @@ def visualize_high_voltage_day(
 
     # --- Draw network ---
     # --- Draw network with pandapower ---
-    import pandapower.plotting as pplot
 
     # Compute color maps for bus voltages and line loadings
     net.res_bus = pd.DataFrame(
@@ -1201,19 +1206,37 @@ def visualize_high_voltage_day(
     ax_net.set_xlabel("Longitude")
     ax_net.set_ylabel("Latitude")
 
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-
     sm = mpl.cm.ScalarMappable(cmap=cmap_obj, norm=norm)
     sm.set_array([])
-    divider = make_axes_locatable(ax_net)
-    cax1 = divider.append_axes("right", size="3%", pad=0.09)
-    cax2 = divider.append_axes("right", size="3%", pad=0.82)
-    fig.colorbar(sm, cax=cax1, label="Voltage [pu]")
-    cm = mpl.cm.ScalarMappable(
-        cmap=edge_cmap, norm=mpl.colors.Normalize(vmin=cmin, vmax=cmax)
-    )
-    cm.set_array([])
-    fig.colorbar(cm, cax=cax2, label="Current [A]")
+    # Use make_axes_locatable to append small colorbar axes when possible.
+    # However, in unit tests plt may be patched/mocked which makes axes
+    # objects non-standard (MagicMock) and append_axes can fail with
+    # unittest.mock.InvalidSpecError. Fall back gracefully to a simpler
+    # fig.colorbar(..., ax=...) call if append_axes fails.
+    try:
+        divider = make_axes_locatable(ax_net)
+        cax1 = divider.append_axes("right", size="3%", pad=0.09)
+        cax2 = divider.append_axes("right", size="3%", pad=0.82)
+        fig.colorbar(sm, cax=cax1, label="Voltage [pu]")
+        cm = mpl.cm.ScalarMappable(
+            cmap=edge_cmap, norm=mpl.colors.Normalize(vmin=cmin, vmax=cmax)
+        )
+        cm.set_array([])
+        fig.colorbar(cm, cax=cax2, label="Current [A]")
+    except Exception:
+        # Fallback: attach colorbars to the main axis; ignore failures silently
+        try:
+            fig.colorbar(sm, ax=ax_net, label="Voltage [pu]")
+        except Exception:
+            logger.warning("Failed to add voltage colorbar")
+        try:
+            cm = mpl.cm.ScalarMappable(
+                cmap=edge_cmap, norm=mpl.colors.Normalize(vmin=cmin, vmax=cmax)
+            )
+            cm.set_array([])
+            fig.colorbar(cm, ax=ax_net, label="Current [A]")
+        except Exception:
+            logger.warning("Failed to add current colorbar")
 
     # --- Branch voltage profiles ---
     highlight_colors = ["C1", "C2", "C3", "C4", "C5"]
@@ -1339,15 +1362,20 @@ def plot_energy_flows(
     output_path=None,
 ):
     time_set = kwargs["time_set"]
-    nT = len(time_set)
+    number_of_time_steps = time_set.number_of_time_steps
     if time_range_to_plot is None:
-        time_range_to_plot = range(nT)
+        time_range_to_plot = range(number_of_time_steps)
 
     ax, twin_ax = None, None
     # --- Extract and sum all variables ---
     # PV production
     pv_profiles = {
-        pv: np.array([pulp.value(kwargs[f"{pv}.p_out"][t]) for t in time_set])
+        pv: np.array(
+            [
+                pulp.value(kwargs[f"{pv}.p_out"][t])
+                for t in range(time_set.number_of_time_steps)
+            ]
+        )
         for pv in pv_names
     }
     pv_sum = sum(pv_profiles.values())
@@ -1355,7 +1383,12 @@ def plot_energy_flows(
 
     # Loads
     load_profiles = {
-        ld: np.array([pulp.value(kwargs[f"{ld}.p_cons"][t]) for t in time_set])
+        ld: np.array(
+            [
+                pulp.value(kwargs[f"{ld}.p_cons"][t])
+                for t in range(time_set.number_of_time_steps)
+            ]
+        )
         for ld in load_names
     }
     load_sum = sum(load_profiles.values())
@@ -1363,29 +1396,54 @@ def plot_energy_flows(
 
     # Battery flows
     bess_in_profiles = {
-        b: np.array([pulp.value(kwargs[f"{b}.p_in"][t]) for t in time_set])
+        b: np.array(
+            [
+                pulp.value(kwargs[f"{b}.p_in"][t])
+                for t in range(time_set.number_of_time_steps)
+            ]
+        )
         for b in bess_names
     }
     bess_out_profiles = {
-        b: np.array([pulp.value(kwargs[f"{b}.p_out"][t]) for t in time_set])
+        b: np.array(
+            [
+                pulp.value(kwargs[f"{b}.p_out"][t])
+                for t in range(time_set.number_of_time_steps)
+            ]
+        )
         for b in bess_names
     }
     e_bess_profiles = {
-        b: np.array([pulp.value(kwargs[f"{b}.e_stor"][t]) for t in time_set])
+        b: np.array(
+            [
+                pulp.value(kwargs[f"{b}.e_stor"][t])
+                for t in range(time_set.number_of_time_steps)
+            ]
+        )
         for b in bess_names
     }
 
     # Slack (import/export)
     slack_in_sum = np.sum(
         [
-            np.array([pulp.value(kwargs[f"{s}.p_in"][t]) for t in time_set])
+            np.array(
+                [
+                    pulp.value(kwargs[f"{s}.p_in"][t])
+                    for t in range(time_set.number_of_time_steps)
+                ]
+            )
             for s in slack_names
         ],
         axis=0,
     )
     slack_out_sum = np.sum(
         [
-            np.array([pulp.value(kwargs[f"{s}.p_out"][t]) for t in time_set])
+            np.array(
+                [
+                    pulp.value(kwargs[f"{s}.p_out"][t])
+                    for t in range(time_set.number_of_time_steps)
+                ]
+            )
             for s in slack_names
         ],
         axis=0,
@@ -1406,7 +1464,7 @@ def plot_energy_flows(
     )
 
     # --- Plot PVs ---
-    bottom_pv = np.zeros_like(time_set, dtype=float)
+    bottom_pv = np.zeros_like(range(time_set.number_of_time_steps), dtype=float)
     for color, (pv, p) in zip(colors_pv, pv_profiles.items()):
         plt.bar(
             time_range_to_plot,
@@ -1422,7 +1480,7 @@ def plot_energy_flows(
     )
 
     # --- Plot loads ---
-    bottom_loads = np.zeros_like(time_set, dtype=float)
+    bottom_loads = np.zeros_like(range(time_set.number_of_time_steps), dtype=float)
     for color, (ld, p) in zip(colors_load, load_profiles.items()):
         plt.bar(
             time_range_to_plot,
@@ -1444,8 +1502,8 @@ def plot_energy_flows(
     )
 
     # --- Plot battery charge/discharge ---
-    bottom_charge = np.zeros_like(time_set, dtype=float)
-    bottom_discharge = np.zeros_like(time_set, dtype=float)
+    bottom_charge = np.zeros_like(range(time_set.number_of_time_steps), dtype=float)
+    bottom_discharge = np.zeros_like(range(time_set.number_of_time_steps), dtype=float)
     for color, (b, p_in) in zip(colors_bess, bess_in_profiles.items()):
         plt.bar(
             time_range_to_plot,

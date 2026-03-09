@@ -8,3 +8,4 @@ xarray==2025.6.1
 pandapower
 lxml
 numba
+networkx

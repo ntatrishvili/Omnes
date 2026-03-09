@@ -11,57 +11,88 @@ from typing import Optional, Union
 _WARNED_MESSAGES = set()
 
 
-def validate_and_normalize_time_set(
-    time_set: Optional[Union[int, range]], default_size: int = 10
-) -> range:
+def validate_and_normalize_time_range(time_range, default_size: int = 10) -> range:
     """
-    Validate and normalize time_set parameter to a range object.
+    Validate and normalize time_range parameter to a range object.
 
     Parameters
     ----------
-    time_set : Optional[Union[int, range]]
-        The time set to validate and normalize. Can be:
+    time_range : Optional[Union[int, range, TimeSet]]
+        The time range to validate and normalize. Can be:
         - None: uses default_size
-        - int: converted to range(time_set)
+        - int: converted to range(time_range)
         - range: returned as-is
+        - TimeSet: uses number_of_time_steps
     default_size : int, default=10
-        Default size to use if time_set is None
+        Default size to use if time_range is None
 
     Returns
     -------
     range
-        Normalized time set as a range object
+        Normalized time range as a range object
 
     Raises
     ------
     ValueError
-        If time_set is not a valid type or if int time_set is negative
+        If time_range is not a valid type or if int time_range is negative
 
     Examples
     --------
-    >>> validate_and_normalize_time_set(5)
+    >>> validate_and_normalize_time_range(5)
     range(0, 5)
-    >>> validate_and_normalize_time_set(None, 3)
+    >>> validate_and_normalize_time_range(None, 3)
     range(0, 3)
     """
-    if time_set is None:
+    if time_range is None:
         return range(default_size)
-    elif isinstance(time_set, int):
-        if time_set < 0:
-            raise ValueError(f"time_set must be non-negative, got {time_set}")
-        return range(time_set)
-    elif isinstance(time_set, range):
-        return time_set
+    elif isinstance(time_range, int):
+        if time_range < 0:
+            raise ValueError(f"time_range must be non-negative, got {time_range}")
+        return range(time_range)
+    elif isinstance(time_range, range):
+        return time_range
+    elif hasattr(time_range, "number_of_time_steps"):
+        # Handle TimeSet objects
+        return range(time_range.number_of_time_steps)
     else:
-        raise ValueError(f"time_set must be an int or range, got {type(time_set)}")
+        raise ValueError(
+            f"time_range must be an int, range, or TimeSet, got {type(time_range)}"
+        )
 
 
-def extract_effective_time_properties(model, new_freq, time_set):
-    effective_time_set = (
-        time_set if time_set is not None else model.number_of_time_steps
+def extract_effective_time_properties(model, time_set):
+    """
+    Extract effective time properties from model and override parameters.
+
+    Creates a TimeSet object with the effective frequency and time range,
+    using provided overrides or falling back to model defaults.
+
+    Parameters
+    ----------
+    model : Model
+        The model containing default time properties
+    time_set : TimeSet or int, optional
+        Override time set or number of time steps. If None, uses model defaults
+
+    Returns
+    -------
+    TimeSet
+        A TimeSet object with the effective time configuration
+    """
+    from app.infra.util import TimesetBuilder
+
+    if time_set is None:
+        return model.time_set
+    # Use TimesetBuilder to create the TimeSet with proper pandas date_range
+    # TimesetBuilder handles the case where time_start is None by defaulting to 1970-01-01
+    return TimesetBuilder.create(
+        time_start=time_set.start or model.time_set.start,
+        time_end=time_set.end or model.time_set.end,
+        resolution=time_set.freq or model.frequency,
+        number_of_time_steps=time_set.number_of_time_steps
+        or model.number_of_time_steps,
+        tz=time_set.tz or model.time_set.tz,
     )
-    effective_freq = new_freq if new_freq is not None else model.frequency
-    return effective_freq, effective_time_set
 
 
 def validate_entity_exists(entity_id: str, entity_dict: dict) -> None:

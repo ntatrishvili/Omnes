@@ -88,6 +88,14 @@ def handle_comparison_operator(operator, left_result, right_result):
     PuLP constraint
         The resulting constraint
     """
+    if right_result is None:
+        raise ValueError(
+            f"Right operand in comparison cannot be None, left_result: {left_result}"
+        )
+    if left_result is None:
+        raise ValueError(
+            f"Left operand in comparison cannot be None, right_result: {right_result}"
+        )
     if operator == Operator.LESS_THAN_OR_EQUAL:
         return left_result <= right_result
     elif operator == Operator.LESS_THAN:
@@ -101,6 +109,7 @@ def handle_comparison_operator(operator, left_result, right_result):
     elif operator == Operator.NOT_EQUAL:
         warn_about_not_equal_constraint()
         return left_result != right_result
+    return None
 
 
 def handle_arithmetic_operator(operator, left_result, right_result):
@@ -136,6 +145,7 @@ def handle_arithmetic_operator(operator, left_result, right_result):
     elif operator == Operator.DIVIDE:
         validate_linear_division(right_result)
         return left_result * (1.0 / right_result)
+    return None
 
 
 def warn_about_not_equal_constraint() -> None:
