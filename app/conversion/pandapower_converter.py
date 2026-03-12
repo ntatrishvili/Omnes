@@ -106,45 +106,50 @@ class PandapowerConverter(Converter):
         self._entity_converters[Transformer] = self._convert_transformer_entity
         self._entity_converters[GenericEntity] = self._convert_generic_entity
 
-    def convert_model(
-        self,
-        model: Model,
-        time_set: Optional["TimeSet"] = None,
-        **kwargs,
-    ) -> pandapowerNet:
+    def _prepare_conversion(
+        self, model: Model, time_set: Optional[TimeSet], **kwargs
+    ) -> tuple[TimeSet, Dict[str, Any]]:
         """
-        Convert a Model into a pandapower network and collect profiles.
-
-        Parameters
-        ----------
-        model
-            The Omnes Model to convert.
-        time_set : TimeSet, optional
-            TimeSet object containing time configuration. If None the model's
-            defaults are used.
-
-        Returns
-        -------
-        pandapowerNet
-            The constructed pandapower network with 'profiles' and 'time_set'
-            attributes populated.
+        Prepare pandapower conversion by resetting network state.
         """
-        # Use model defaults if not specified, creates effective TimeSet
         effective_time_set = extract_effective_time_properties(model, time_set)
-
+        
         # Reset network state for new conversion
         self.net = self.create_empty_net()
         self.bus_map = {}
-
-        # Convert all entities to model variables
+        
+        context = {"net": self.net}  # Store net in context
+        return effective_time_set, context
+    
+    def _convert_entities(
+        self,
+        model: Model,
+        time_set: TimeSet,
+        context: Dict[str, Any],
+        **kwargs
+    ) -> pandapowerNet:
+        """
+        Convert all entities, with side effects populating self.net.
+        
+        Returns self.net directly since pandapower uses mutation.
+        """
         for _, entity in model.entities.items():
             logger.info(f"Converting entity '{entity.id}'")
-            entity.convert(effective_time_set, self)
-
-        # Add time set information
-        self.net.time_set = effective_time_set
-
-        return self.net
+            self.convert_entity(entity, time_set)
+        
+        return self.net  # Return net (with side effects applied)
+    
+    def _finalize_result(
+        self,
+        result: pandapowerNet,
+        time_set: TimeSet,
+        context: Dict[str, Any]
+    ) -> pandapowerNet:
+        """
+        Finalize by attaching time_set metadata to network.
+        """
+        result.time_set = time_set
+        return result
 
     def _convert_entity_default(
         self,

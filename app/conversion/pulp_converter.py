@@ -80,16 +80,15 @@ class PulpConverter(Converter):
         **kwargs,
     ) -> Dict[str, Any]:
         """
-        Convert an Entity and its sub-entities into a flat dictionary of pulp variables.
-
-        This method recursively traverses the entity hierarchy, resamples all time series
-        data to the specified frequency, and converts each TimeseriesObject into pulp-compatible
-        variables using its `convert` method.
+        Convert an Entity's quantities into pulp variables.
+        
+        Note: Sub-entity traversal is handled by the base Converter class.
+        This method only converts the current entity's quantities.
 
         Parameters
         ----------
         entity : Entity
-            The root entity to convert (may have sub-entities).
+            The entity to convert (quantities only, not sub-entities).
         time_set : TimeSet, optional
             TimeSet object containing time configuration (number of steps, frequency, etc.).
             If None, uses the default time range size.
@@ -97,14 +96,13 @@ class PulpConverter(Converter):
         Returns
         -------
         Dict[str, Any]
-            A flat dictionary containing all pulp variables from the entity and its descendants.
-            Keys are in the format 'entity_id.quantity_name' for quantities and 'relation_name'
-            for constraints.
+            A dictionary containing pulp variables from this entity.
+            Keys are in the format 'entity_id.quantity_name'.
         """
         # Set current entity context for SelfReference resolution
         self.__current_entity_id = entity.id
 
-        # Convert entity quantities
+        # Convert entity quantities (ONLY this entity, not sub-entities)
         entity_variables = {
             f"{entity.id}.{key}": self.convert_quantity(
                 quantity,
@@ -114,62 +112,119 @@ class PulpConverter(Converter):
             for key, quantity in entity.quantities.items()
         }
 
-        # Recursively convert sub-entities
-        for _, sub_entity in entity.sub_entities.items():
-            entity_variables.update(self.convert_entity(sub_entity, time_set))
-
-        # Convert relations to constraints
-        for relation in entity.relations:
-            # Pass the full entity_variables for SelfReference resolution
-            relation_constraints = self.convert_relation(
-                relation, entity_variables, time_set=time_set
-            )
-            entity_variables.update(relation_constraints)
+        # Note: Sub-entities are handled by base class Converter.convert_entity()
+        # Note: Relations are NOT converted here - they are handled in convert_model
+        # after all entity variables are collected to avoid incomplete __objects
 
         return entity_variables
 
-    def convert_model(
+    def _convert_entity_relations(
         self,
-        model: Model,
+        entity: Entity,
         time_set: Optional[TimeSet] = None,
-        **kwargs,
     ) -> Dict[str, Any]:
         """
-        Convert the model to an optimization/simulation problem.
+        Recursively convert relations for an entity and its sub-entities.
 
-        Converts the model's entities and their quantities into a flat dictionary
-        of pulp variables suitable for optimization. It also handles the resampling of time series
-        data to the specified frequency and time range.
+        This method should only be called after __objects has been fully populated
+        with all entity variables.
 
         Parameters
         ----------
-        model : Model
-            The model to convert.
+        entity : Entity
+            The entity whose relations to convert
         time_set : TimeSet, optional
-            TimeSet object containing time configuration (number of steps, frequency, etc.).
-            If None, uses model defaults.
+            TimeSet object containing time configuration
 
         Returns
         -------
         Dict[str, Any]
-            Dictionary containing all pulp variables and time set information.
-            Includes a 'time_set' key with the TimeSet object.
+            Dictionary containing relation constraints
         """
-        # Use model defaults if not specified, creates effective TimeSet
-        effective_time_set = extract_effective_time_properties(model, time_set)
+        # Set current entity context for SelfReference resolution
+        self.__current_entity_id = entity.id
 
-        # Convert all entities
-        skip_entities = kwargs.get("skip_entities", set())
+        relation_constraints = {}
+
+        # Convert relations to constraints
+        for relation in entity.relations:
+            # Call converter method directly since we're already inside the converter
+            constraints = self.convert_relation(relation, self.__objects, time_set)
+            relation_constraints.update(constraints)
+
+        # Recursively convert sub-entity relations
+        for _, sub_entity in entity.sub_entities.items():
+            relation_constraints.update(
+                self._convert_entity_relations(sub_entity, time_set)
+            )
+
+        return relation_constraints
+
+    def _prepare_conversion(
+        self, model: Model, time_set: Optional[TimeSet], **kwargs
+    ) -> tuple[TimeSet, Dict[str, Any]]:
+        """
+        Prepare PuLP conversion by extracting time_set and initializing state.
+        
+        Initializes __objects to empty dict for fresh conversion.
+        """
+        effective_time_set = extract_effective_time_properties(model, time_set)
+        
+        # Reset state for new conversion
+        self.__objects = {}
+        self.__current_entity_id = None
+        
+        context = {"skip_entities": kwargs.get("skip_entities", set())}
+        return effective_time_set, context
+
+    def _convert_entities(
+        self,
+        model: Model,
+        time_set: TimeSet,
+        context: Dict[str, Any],
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Convert all model entities to PuLP variables.
+        
+        Populates __objects with all entity variables for later relation conversion.
+        """
+        skip_entities = context.get("skip_entities", set())
         model_variables = {}
+        
         for _, entity in model.entities.items():
             if type(entity) in skip_entities:
                 continue
-            model_variables.update(entity.convert(effective_time_set, self))
-
-        # Add time set information
-        model_variables["time_set"] = effective_time_set
-
+            model_variables.update(self.convert_entity(entity, time_set))
+        
+        # Store all entity variables in __objects for relation conversion
+        self.__objects = dict(model_variables)
+        
         return model_variables
+    
+    def _post_process_conversion(
+        self,
+        model: Model,
+        result: Dict[str, Any],
+        time_set: TimeSet,
+        context: Dict[str, Any],
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Post-processing: Convert all relations to constraints.
+        
+        This is the second pass that requires all entity variables to be available.
+        """
+        skip_entities = context.get("skip_entities", set())
+        
+        # Convert relations for all entities
+        for _, entity in model.entities.items():
+            if type(entity) in skip_entities:
+                continue
+            relation_constraints = self._convert_entity_relations(entity, time_set)
+            result.update(relation_constraints)
+        
+        return result
 
     def convert_quantity(
         self,
@@ -214,7 +269,7 @@ class PulpConverter(Converter):
     def convert_relation(
         self,
         relation: Relation,
-        entity_variables: Dict[str, Any],
+        entity_variables: Optional[Dict[str, Any]] = None,
         time_set: Optional[TimeSet] = None,
     ) -> Dict[str, List]:
         """
@@ -230,8 +285,10 @@ class PulpConverter(Converter):
         ----------
         relation : Relation
             The relation to convert
-        entity_variables : Dict[str, Any]
-            Dictionary mapping entity IDs to their PuLP variables
+        entity_variables : Dict[str, Any], optional
+            Dictionary mapping entity IDs to their PuLP variables.
+            If provided, updates __objects for backward compatibility.
+            When called from convert_model, this is None since __objects is pre-populated.
         time_set : TimeSet, optional
             The TimeSet object containing full time information including time_points.
             Required for TimeConditionExpression conversions.
@@ -244,13 +301,19 @@ class PulpConverter(Converter):
         Raises
         ------
         ValueError
-            If any entity referenced in the relation is not found in entity_variables.
+            If any entity referenced in the relation is not found in __objects.
+
+        Notes
+        -----
+        When called from convert_model(), __objects is pre-populated and entity_variables
+        should be None. When called directly (e.g., in tests), entity_variables can be
+        provided for backward compatibility.
         """
+        # For backward compatibility: if entity_variables provided, update __objects
+        if entity_variables is not None:
+            self.__objects.update(entity_variables)
 
-        # Store entity variables for use by convert methods
-        self.__objects = entity_variables
-
-        # Validate that all required entities exist
+        # Validate that all required entities exist in __objects
         self._validate_relation_entities(relation)
 
         # Generate constraints for each time step
@@ -542,3 +605,5 @@ class PulpConverter(Converter):
                 == 0
             )
         return None
+
+
