@@ -1,6 +1,7 @@
 # Git and IDE files
 .git/
 .idea/
+.vscode/
 
 # Python virtual environments
 venv/
