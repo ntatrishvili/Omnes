@@ -4,9 +4,12 @@ from typing import Optional, Union, Dict, Any, Type, Callable
 from app.infra.quantity import Quantity
 from app.infra.relation import Relation
 from app.infra.util import TimeSet
+from app.infra.logging_setup import get_logger
 from app.model.entity import Entity
 from app.model.model import Model
 from app.conversion.validation_utils import extract_effective_time_properties
+
+log = get_logger(__name__)
 
 
 class Converter(object):
@@ -49,6 +52,7 @@ class Converter(object):
         time_set : TimeSet, optional
             TimeSet object containing time configuration (number of steps, frequency, etc.)
         """
+        log.debug(f"Converting entity '{entity.id}' with quantities: {list(entity.quantities.keys())}")
         # Look up specialized converter for this entity type or its base classes
         entity_type = type(entity)
 
@@ -59,18 +63,19 @@ class Converter(object):
             # 2) Walk MRO (method resolution order) to find the first registered handler
             handler_found = False
             for base in entity_type.__mro__[1:]:  # skip the class itself
+                log.debug(f"Checking for converter for base class '{base.__name__}' of entity '{entity.id}'")
                 if base in self._entity_converters:
                     result = self._entity_converters[base](entity, time_set)
                     handler_found = True
                     break
             
             if not handler_found:
-                # Fall back to default entity conversion
                 result = self._convert_entity_default(entity, time_set)
         
         # Template: Recursively traverse sub-entities (same for ALL converters)
         if hasattr(entity, 'sub_entities'):
             for _, sub_entity in entity.sub_entities.items():
+                log.debug(f"Recursively converting '{entity.id}' sub-entity '{sub_entity.id}'")
                 sub_result = self.convert_entity(sub_entity, time_set)
                 # Merge results - subclass can override _merge_results if needed
                 result = self._merge_entity_results(result, sub_result)
@@ -226,6 +231,7 @@ class Converter(object):
             
             # Merge entity results
             if isinstance(result, dict) and isinstance(entity_result, dict):
+                log.debug(f"Merging results from entity '{entity.id}' into overall result.")
                 result.update(entity_result)
             # For non-dict results (e.g., side effects), subclass should override
         

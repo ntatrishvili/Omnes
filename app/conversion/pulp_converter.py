@@ -21,9 +21,12 @@ from app.infra.quantity import Quantity
 from app.infra.relation import EntityReference
 from app.infra.relation import Relation
 from app.infra.util import TimeSet
+from app.infra.logging_setup import get_logger
 from app.model.entity import Entity
 from app.model.model import Model
 
+
+log = get_logger(__name__)
 
 class PulpConverter(Converter):
     """
@@ -99,9 +102,10 @@ class PulpConverter(Converter):
             A dictionary containing pulp variables from this entity.
             Keys are in the format 'entity_id.quantity_name'.
         """
+        log.debug(f"Using fallback default entity converter for '{entity.id}'")
+        
         # Set current entity context for SelfReference resolution
         self.__current_entity_id = entity.id
-
         # Convert entity quantities (ONLY this entity, not sub-entities)
         entity_variables = {
             f"{entity.id}.{key}": self.convert_quantity(
@@ -111,7 +115,7 @@ class PulpConverter(Converter):
             )
             for key, quantity in entity.quantities.items()
         }
-
+        log.debug(f"Converted entity '{entity.id}' quantities to variables: {list(entity_variables.keys())}")
         # Note: Sub-entities are handled by base class Converter.convert_entity()
         # Note: Relations are NOT converted here - they are handled in convert_model
         # after all entity variables are collected to avoid incomplete __objects
@@ -148,8 +152,7 @@ class PulpConverter(Converter):
 
         # Convert relations to constraints
         for relation in entity.relations:
-            # Call converter method directly since we're already inside the converter
-            constraints = self.convert_relation(relation, self.__objects, time_set)
+            constraints = self.convert_relation(relation, time_set=time_set)
             relation_constraints.update(constraints)
 
         # Recursively convert sub-entity relations

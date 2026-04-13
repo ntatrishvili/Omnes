@@ -83,7 +83,7 @@ def optimize_energy_system(**kwargs):
         for t in range(time_set.number_of_time_steps)
     )
 
-    status = prob.solve(pulp.GUROBI_CMD(msg=True))
+    status = prob.solve()
     if pulp.LpStatus[status] != "Optimal":
         raise RuntimeError(f"Optimization failed: {pulp.LpStatus[status]}")
 
