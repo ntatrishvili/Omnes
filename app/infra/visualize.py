@@ -10,7 +10,6 @@ import networkx as nx
 import numpy as np
 import pandapower.plotting as pplot
 import pandas as pd
-import pulp
 
 from matplotlib import pyplot as plt, dates as mdates, cm as cm
 from matplotlib.legend_handler import HandlerTuple
@@ -1353,29 +1352,26 @@ def visualize_high_voltage_day(
 
 
 def plot_energy_flows(
-    kwargs,
-    pv_names,
-    load_names,
-    bess_names,
-    slack_names,
-    time_range_to_plot=None,
-    output_path=None,
+        model,
+        time_range_to_plot=None,
+        output_path=None,
 ):
-    time_set = kwargs["time_set"]
+    
+    pv_names = model.find_all_of_type_in_subentities("PV")
+    load_names = model.find_all_of_type_in_subentities("Load")
+    bess_names = model.find_all_of_type_in_subentities("Battery")
+    slack_names = model.find_all_of_type_in_subentities("Slack")
+    time_set = model.time_set
     number_of_time_steps = time_set.number_of_time_steps
     if time_range_to_plot is None:
         time_range_to_plot = range(number_of_time_steps)
 
+    
     ax, twin_ax = None, None
     # --- Extract and sum all variables ---
     # PV production
     pv_profiles = {
-        pv: np.array(
-            [
-                pulp.value(kwargs[f"{pv}.p_out"][t])
-                for t in range(time_set.number_of_time_steps)
-            ]
-        )
+        pv: model[pv].p_out.to_df()
         for pv in pv_names
     }
     pv_sum = sum(pv_profiles.values())
@@ -1383,12 +1379,7 @@ def plot_energy_flows(
 
     # Loads
     load_profiles = {
-        ld: np.array(
-            [
-                pulp.value(kwargs[f"{ld}.p_cons"][t])
-                for t in range(time_set.number_of_time_steps)
-            ]
-        )
+        ld: model[ld].p_cons.to_df()
         for ld in load_names
     }
     load_sum = sum(load_profiles.values())
@@ -1396,54 +1387,29 @@ def plot_energy_flows(
 
     # Battery flows
     bess_in_profiles = {
-        b: np.array(
-            [
-                pulp.value(kwargs[f"{b}.p_in"][t])
-                for t in range(time_set.number_of_time_steps)
-            ]
-        )
+        b: model[b].p_in.to_df()
         for b in bess_names
     }
     bess_out_profiles = {
-        b: np.array(
-            [
-                pulp.value(kwargs[f"{b}.p_out"][t])
-                for t in range(time_set.number_of_time_steps)
-            ]
-        )
+        b: model[b].p_out.to_df()
         for b in bess_names
     }
     e_bess_profiles = {
-        b: np.array(
-            [
-                pulp.value(kwargs[f"{b}.e_stor"][t])
-                for t in range(time_set.number_of_time_steps)
-            ]
-        )
+        b: model[b].e_stor.to_df()
         for b in bess_names
     }
 
     # Slack (import/export)
     slack_in_sum = np.sum(
         [
-            np.array(
-                [
-                    pulp.value(kwargs[f"{s}.p_in"][t])
-                    for t in range(time_set.number_of_time_steps)
-                ]
-            )
+            model[s].p_in.to_df()
             for s in slack_names
         ],
         axis=0,
     )
     slack_out_sum = np.sum(
         [
-            np.array(
-                [
-                    pulp.value(kwargs[f"{s}.p_out"][t])
-                    for t in range(time_set.number_of_time_steps)
-                ]
-            )
+            model[s].p_out.to_df()
             for s in slack_names
         ],
         axis=0,
@@ -1464,37 +1430,42 @@ def plot_energy_flows(
     )
 
     # --- Plot PVs ---
-    bottom_pv = np.zeros_like(range(time_set.number_of_time_steps), dtype=float)
+    # Use iloc for positional indexing with range object
+    bottom_pv = pd.Series(0.0, index=time_range_to_plot)
     for color, (pv, p) in zip(colors_pv, pv_profiles.items()):
+        p_vals = p.loc[time_range_to_plot].values.flatten() if hasattr(p, 'iloc') else p[list(time_range_to_plot)]
         plt.bar(
             time_range_to_plot,
-            -p[time_range_to_plot],
+            -p_vals,
             color=color,
             width=1.0,
             label=f"{pv.replace('LV1.101 ', '')} (PV)",
-            bottom=bottom_pv[time_range_to_plot],
+            bottom=bottom_pv.loc[time_range_to_plot].values.flatten(),
         )
-        bottom_pv[time_range_to_plot] -= p[time_range_to_plot]
+        bottom_pv.loc[time_range_to_plot] -= p_vals
+    pv_sum_vals = pv_sum.loc[time_range_to_plot].values.flatten() if hasattr(pv_sum, 'iloc') else pv_sum[list(time_range_to_plot)]
     plt.plot(
-        time_range_to_plot, -pv_sum[time_range_to_plot], "r", lw=2.5, label="Total PV"
+        time_range_to_plot, -pv_sum_vals, "r", lw=2.5, label="Total PV"
     )
 
     # --- Plot loads ---
-    bottom_loads = np.zeros_like(range(time_set.number_of_time_steps), dtype=float)
+    bottom_loads = pd.Series(0.0, index=time_range_to_plot)
     for color, (ld, p) in zip(colors_load, load_profiles.items()):
+        p_vals = p.loc[time_range_to_plot].values.flatten() if hasattr(p, 'iloc') else p[list(time_range_to_plot)]
         plt.bar(
             time_range_to_plot,
-            p[time_range_to_plot],
+            p_vals,
             color=color,
             width=1.0,
             label=f"{ld.replace('LV1.101 ', '')}",
-            bottom=bottom_loads[time_range_to_plot],
+            bottom=bottom_loads.loc[time_range_to_plot].values.flatten(),
         )
-        bottom_loads[time_range_to_plot] += p[time_range_to_plot]
+        bottom_loads.loc[time_range_to_plot] += p_vals
 
+    load_sum_vals = load_sum.loc[time_range_to_plot].values.flatten() if hasattr(load_sum, 'iloc') else load_sum[list(time_range_to_plot)]
     plt.plot(
         time_range_to_plot,
-        load_sum[time_range_to_plot],
+        load_sum_vals,
         "--",
         lw=2.8,
         label="Total Load",
@@ -1502,52 +1473,67 @@ def plot_energy_flows(
     )
 
     # --- Plot battery charge/discharge ---
-    bottom_charge = np.zeros_like(range(time_set.number_of_time_steps), dtype=float)
-    bottom_discharge = np.zeros_like(range(time_set.number_of_time_steps), dtype=float)
+    bottom_charge = pd.Series(0.0, index=time_range_to_plot)
+    bottom_discharge = pd.Series(0.0, index=time_range_to_plot)
     for color, (b, p_in) in zip(colors_bess, bess_in_profiles.items()):
+        p_in_vals = p_in.loc[time_range_to_plot].values.flatten() if hasattr(p_in, 'iloc') else p_in[list(time_range_to_plot)]
         plt.bar(
             time_range_to_plot,
-            p_in[time_range_to_plot],
+            p_in_vals,
             color=color,
             width=1.0,
             label=f"{b} charge",
             edgecolor="darkgrey",
-            bottom=bottom_charge[time_range_to_plot],
+            bottom=bottom_charge.loc[time_range_to_plot].values.flatten(),
         )
-        bottom_charge[time_range_to_plot] += p_in[time_range_to_plot]
+        bottom_charge.loc[time_range_to_plot] += p_in_vals
     for color, (b, p_out) in zip(colors_bess, bess_out_profiles.items()):
+        p_out_vals = p_out.loc[time_range_to_plot].values.flatten() if hasattr(p_out, 'iloc') else p_out[list(time_range_to_plot)]
         plt.bar(
             time_range_to_plot,
-            -p_out[time_range_to_plot],
+            -p_out_vals,
             color=color,
             width=1.0,
             alpha=0.7,
             label=f"{b} discharge",
             edgecolor="darkgrey",
-            bottom=bottom_discharge[time_range_to_plot],
+            bottom=bottom_discharge.loc[time_range_to_plot].values.flatten(),
         )
-        bottom_discharge[time_range_to_plot] -= p_out[time_range_to_plot]
+        bottom_discharge.loc[time_range_to_plot] -= p_out_vals
 
-        # --- Slack ---
-        slack_p = slack_in_sum - slack_out_sum
-        slack_in = slack_p.copy()
+    # --- Slack ---
+    if isinstance(slack_in_sum, pd.Series) or isinstance(slack_in_sum, pd.DataFrame):
+        slack_in_vals = slack_in_sum.loc[time_range_to_plot].values.flatten()
+        slack_out_vals = slack_out_sum.loc[time_range_to_plot].values.flatten()
+    else:
+        slack_in_vals = slack_in_sum[list(time_range_to_plot)]
+        slack_out_vals = slack_out_sum[list(time_range_to_plot)]
+    
+    slack_p = slack_in_vals - slack_out_vals
+    slack_in = slack_p.copy() if isinstance(slack_p, np.ndarray) else slack_p.copy()
+    slack_out = slack_p.copy() if isinstance(slack_p, np.ndarray) else slack_p.copy()
+    
+    if isinstance(slack_in, np.ndarray):
         slack_in[slack_in > 0] = 0
-        slack_out = slack_p.copy()
         slack_out[slack_out < 0] = 0
-        plt.plot(
-            time_range_to_plot,
-            slack_in[time_range_to_plot],
-            "k:",
-            lw=1.5,
-            label="Slack export",
-        )
-        plt.plot(
-            time_range_to_plot,
-            slack_out[time_range_to_plot],
-            "k--",
-            lw=1.5,
-            label="Slack import",
-        )
+    else:
+        slack_in[slack_in > 0] = 0
+        slack_out[slack_out < 0] = 0
+    
+    plt.plot(
+        time_range_to_plot,
+        slack_in,
+        "k:",
+        lw=1.5,
+        label="Slack export",
+    )
+    plt.plot(
+        time_range_to_plot,
+        slack_out,
+        "k--",
+        lw=1.5,
+        label="Slack import",
+    )
 
     # --- Plot stored energy (averaged scaling) ---
     if e_bess_profiles:
@@ -1556,9 +1542,10 @@ def plot_energy_flows(
         color = "b"
 
         e_sum = sum(e_bess_profiles.values())
+        e_sum_vals = e_sum.loc[time_range_to_plot].values.flatten() if hasattr(e_sum, 'iloc') else e_sum[list(time_range_to_plot)]
         twin_ax.step(
             time_range_to_plot,
-            e_sum[time_range_to_plot],
+            e_sum_vals,
             "b",
             alpha=0.8,
             lw=2,
@@ -1575,16 +1562,21 @@ def plot_energy_flows(
     # plt.ylabel("Energy flows (kWh)")
     plt.xlabel("Time (quarter-hours)")
     plt.title("Energy System Operation Overview")
+    
+    # Ensure ax is current axis
+    if ax is None:
+        ax = plt.gca()
+    
     # merge legends from main axis and twin axis
     if ax or twin_ax:
         # Be defensive: some tests mock get_legend_handles_labels and may
         # return a Mock or non-iterable. Use try/except to fall back to empty lists.
         try:
-            handles1, labels1 = ax.get_legend_handles_labels()
+            handles1, labels1 = ax.get_legend_handles_labels() if ax else ([], [])
         except Exception:
             handles1, labels1 = [], []
         try:
-            handles2, labels2 = twin_ax.get_legend_handles_labels()
+            handles2, labels2 = twin_ax.get_legend_handles_labels() if twin_ax else ([], [])
         except Exception:
             handles2, labels2 = [], []
         if (handles1 and labels1) or (handles2 and labels2):
@@ -1629,3 +1621,4 @@ def plot_energy_flows(
     ax.set_xlabel(f"Time (hours) — date: {start_date:%Y-%m-%d}")
     plt.tight_layout()
     plt.savefig(join(output_path, "energy_system_operation.png"))
+    plt.show()

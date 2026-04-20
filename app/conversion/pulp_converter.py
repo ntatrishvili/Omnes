@@ -30,7 +30,7 @@ log = get_logger(__name__)
 
 class PulpConverter(Converter):
     """
-    Converts a Model class object into a PuLP optimization problem.
+    Converts a Model class object into a PuLP optimization problem and back.
 
     This converter handles the transformation of energy system models into linear programming
     problems that can be solved using the PuLP optimization library. It converts entities,
@@ -64,6 +64,7 @@ class PulpConverter(Converter):
     def __init__(self):
         super().__init__()
         self.__objects: Dict[str, Any] = {}
+        self.result_model: Optional[Model] = None
         self.__current_entity_id: Optional[str] = (
             None  # Track current entity being processed
         )
@@ -164,13 +165,14 @@ class PulpConverter(Converter):
         return relation_constraints
 
     def _prepare_conversion(
-        self, model: Model, time_set: Optional[TimeSet], **kwargs
+        self, model: Model, **kwargs
     ) -> tuple[TimeSet, Dict[str, Any]]:
         """
         Prepare PuLP conversion by extracting time_set and initializing state.
         
         Initializes __objects to empty dict for fresh conversion.
         """
+        time_set = kwargs.pop("time_set", None)  # Remove from kwargs to avoid duplicate args
         effective_time_set = extract_effective_time_properties(model, time_set)
         
         # Reset state for new conversion
@@ -609,4 +611,126 @@ class PulpConverter(Converter):
             )
         return None
 
+    def _extract_entity_quantity_names(self, variable_name: str) -> tuple[str, str]:
+        """
+        Extract entity ID and quantity name from a PuLP variable name.
+        
+        Variables are named as 'entity_id.quantity_name_t0', 'entity_id.quantity_name_t1', etc.
+        This method extracts the entity_id and quantity_name components.
 
+        Parameters
+        ----------
+        variable_name : str
+            The variable name to parse (e.g., 'battery1.soc_t0')
+
+        Returns
+        -------
+        tuple[str, str]
+            (entity_id, quantity_name) tuple
+        """
+        entity_id = variable_name.rsplit('.', 1)[0]
+        qty_name = variable_name.rsplit('.', 1)[1].rsplit('_', 1)[0]
+        return entity_id, qty_name
+
+    def convert_back(self, model: Model, problem: pulp.LpProblem, pulp_variables: dict, **kwargs) -> None:
+        """
+        Store solved optimization values back into model entities.
+        
+        Maps optimization results from flat PuLP variable format ('entity_id.qty_name_tX')
+        back into the hierarchical model structure. Skips non-variable keys and logs
+        warnings for missing entities or quantities without failing.
+
+        Parameters
+        ----------
+        model : Model
+            The model object containing entities to update with optimization results
+        problem : pulp.LpProblem
+            The solved PuLP optimization problem
+        pulp_variables : dict
+            Dictionary mapping 'entity_id.quantity_name' to lists of PuLP variables
+            indexed by time step
+        time_set : TimeSet, optional
+            TimeSet object containing time configuration. If not provided, uses
+            model.time_set. Must have a 'time_points' attribute for result extraction.
+
+        Raises
+        ------
+        ValueError
+            If time_set is missing or invalid
+        """
+        log.info(f"Storing optimization results back into model: {model.id}")
+        
+        # Validate and extract time_set
+        time_set = kwargs.get("time_set", model.time_set)
+        if not hasattr(time_set, "time_points"):
+            raise ValueError("time_set must have 'time_points' attribute")
+        
+        num_time_steps = len(time_set.time_points)
+        
+        # Extract variables to update from problem
+        modified_variables = {}
+        for variable in problem.variables():
+            try:
+                entity_id, qty_name = self._extract_entity_quantity_names(variable.name)
+                # Skip non-variable entries (e.g., constraint names without '.' separation)
+                if entity_id and qty_name:
+                    modified_variables[f"{entity_id}.{qty_name}"] = (entity_id, qty_name)
+            except (IndexError, ValueError) as e:
+                log.debug(f"Skipped variable '{variable.name}': {e}")
+                continue
+        
+        log.debug(f"Found {len(modified_variables)} variables to update")
+        
+        # Update model quantities with optimization results
+        updated_count = 0
+        failed_count = 0
+        
+        for full_name, (entity_id, qty_name) in modified_variables.items():
+            try:
+                # Retrieve entity from model
+                entity = model[entity_id]
+                
+                # Check if quantity exists
+                if qty_name not in entity.quantities:
+                    log.warning(f"Quantity '{qty_name}' not found in entity '{entity_id}'")
+                    failed_count += 1
+                    continue
+                
+                # Extract optimization values for all time steps
+                if full_name not in pulp_variables:
+                    log.warning(f"Variable '{full_name}' not in optimization results")
+                    failed_count += 1
+                    continue
+                
+                optimized_values = [
+                    pulp.value(pulp_variables[full_name][t]) 
+                    for t in range(num_time_steps)
+                ]
+                
+                # Update quantity with optimized values
+                entity.quantities[qty_name].set_value(
+                    optimized_values, 
+                    time_set=time_set, 
+                    keep_attrs=True
+                )
+                log.debug(f"Updated '{full_name}' with {num_time_steps} time steps")
+                updated_count += 1
+                
+            except KeyError as e:
+                log.warning(f"Entity '{entity_id}' not found in model: {e}")
+                failed_count += 1
+            except (IndexError, TypeError) as e:
+                log.warning(f"Failed to extract values for '{full_name}': {e}")
+                failed_count += 1
+        
+        # Log summary
+        total = updated_count + failed_count
+        if total > 0:
+            success_rate = 100 * updated_count / total
+            log.info(
+                f"Reverse conversion complete: {updated_count}/{total} quantities updated "
+                f"({success_rate:.0f}% success)"
+            )
+        else:
+            log.info("No quantities to update in reverse conversion")
+  

@@ -167,10 +167,10 @@ class TestModel(unittest.TestCase):
         mock_converter = unittest.mock.Mock()
         mock_converter.convert_model.return_value = {"result": "converted"}
 
-        result = m.convert(mock_converter, time_set=100, new_freq="1h")
+        result = m.convert(mock_converter, time_set=m.time_set, new_freq="1h")
 
         mock_converter.convert_model.assert_called_once_with(
-            m, time_set=100, new_freq="1h"
+            m, time_set=m.time_set, new_freq="1h"
         )
         self.assertEqual(result, {"result": "converted"})
 
@@ -296,13 +296,13 @@ class TestModel(unittest.TestCase):
         self.assertEqual(retrieved, grandchild)
 
     def test__find_in_subentities_returns_none(self):
-        """Directly test _find_in_subentities returns None when not found"""
+        """Directly test find_in_subentities returns None when not found"""
         from app.model.entity import Entity
 
         parent = Entity(id="parent")
         # no sub-entities added
         m = Model(timeset_builder=self.ts_builder, entities=[parent])
-        result = m._find_in_subentities(parent, "missing")
+        result = m.find_in_subentities(parent, "missing")
         self.assertIsNone(result)
 
     def test_getitem_keyerror_includes_model_id_and_entity_id(self):

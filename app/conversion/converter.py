@@ -125,7 +125,7 @@ class Converter(object):
         # For non-dict results (e.g., pandapower side effects), just return parent
         return parent_result
 
-    def convert_model(self, model: Model, time_set: Optional[TimeSet] = None, **kwargs):
+    def convert_model(self, model: Model, **kwargs):
         """
         TEMPLATE METHOD: Convert a model to target format.
         
@@ -152,8 +152,13 @@ class Converter(object):
         Any
             Converted model in target format (dict, pandapowerNet, etc.)
         """
+        log.info(f"Starting conversion for model: {model.id}")
+        
+        # Extract time_set before phase 1 to avoid duplication in kwargs
+        time_set = kwargs.pop("time_set", None)
+        
         # Phase 1: Prepare conversion (extract time_set, reset state, etc.)
-        effective_time_set, context = self._prepare_conversion(model, time_set, **kwargs)
+        effective_time_set, context = self._prepare_conversion(model, time_set=time_set, **kwargs)
         
         # Phase 2: Convert all entities
         result = self._convert_entities(model, effective_time_set, context, **kwargs)
@@ -163,9 +168,9 @@ class Converter(object):
         
         # Phase 4: Finalize and return
         return self._finalize_result(result, effective_time_set, context)
-    
+
     def _prepare_conversion(
-        self, model: Model, time_set: Optional[TimeSet], **kwargs
+        self, model: Model, **kwargs
     ) -> tuple[TimeSet, Dict[str, Any]]:
         """
         Prepare for conversion: extract effective time_set and initialize state.
@@ -176,8 +181,6 @@ class Converter(object):
         ----------
         model : Model
             The model to convert
-        time_set : TimeSet, optional
-            TimeSet provided by caller (may be None)
         **kwargs
             Additional options
             
@@ -188,6 +191,9 @@ class Converter(object):
             - effective_time_set: The resolved TimeSet to use
             - conversion_context: Dict for storing state during conversion
         """
+        time_set = kwargs.pop("time_set", None)
+        if time_set is not None:
+            log.info("Using provided TimeSet from kwargs.")
         effective_time_set = extract_effective_time_properties(model, time_set)
         context = {}  # Empty context by default
         return effective_time_set, context

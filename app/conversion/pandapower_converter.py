@@ -107,11 +107,12 @@ class PandapowerConverter(Converter):
         self._entity_converters[GenericEntity] = self._convert_generic_entity
 
     def _prepare_conversion(
-        self, model: Model, time_set: Optional[TimeSet], **kwargs
-    ) -> tuple[TimeSet, Dict[str, Any]]:
+        self, model: Model, **kwargs
+    ) -> tuple[TimeSet, dict[str, any]]:
         """
         Prepare pandapower conversion by resetting network state.
         """
+        time_set = kwargs.pop("time_set", None)
         effective_time_set = extract_effective_time_properties(model, time_set)
         
         # Reset network state for new conversion
@@ -125,7 +126,7 @@ class PandapowerConverter(Converter):
         self,
         model: Model,
         time_set: TimeSet,
-        context: Dict[str, Any],
+        context: dict[str, any],
         **kwargs
     ) -> pandapowerNet:
         """
@@ -143,7 +144,7 @@ class PandapowerConverter(Converter):
         self,
         result: pandapowerNet,
         time_set: TimeSet,
-        context: Dict[str, Any]
+        context: dict[str, any]
     ) -> pandapowerNet:
         """
         Finalize by attaching time_set metadata to network.
@@ -173,7 +174,7 @@ class PandapowerConverter(Converter):
         kwargs
             Internal options: 'entity_type', 'idx', and 'profile_type'.
         """
-        entity_type = kwargs.pop("entity_type")
+        entity_type = kwargs.pop("entity_type", None)
         idx = kwargs.pop("idx", 0)
         profile_type = kwargs.pop("profile_type", entity_type)
         for key, quantity in entity.quantities.items():
