@@ -15,10 +15,12 @@ This sign convention is common in pandapower but should be verified for
 consistency with your specific use case.
 """
 
-from copy import copy
-
 import pandapower as pp
+import pandas as pd
 import simbench
+
+from copy import copy
+from os.path import join
 from pandas import read_csv
 
 from app.infra.configuration import Config
@@ -29,10 +31,6 @@ from app.infra.visualize import (
 )
 
 logger = get_logger(__name__)
-
-from os.path import join
-
-import pandas as pd
 
 
 def set_timestep_values(net: pp.pandapowerNet, timestep_idx: int):

@@ -532,7 +532,6 @@ class TestComprehensiveCoverage(unittest.TestCase):
 
     def test_convert_model_comprehensive(self):
         """Test convert_model with various scenarios to improve coverage"""
-        from app.infra.quantity import Quantity
         from app.infra.util import TimesetBuilder, TimeSet
         from app.model.entity import Entity
         from app.model.model import Model
@@ -618,7 +617,6 @@ class TestComprehensiveCoverage(unittest.TestCase):
 
     def test_convert_binary_expression_unsupported_operator(self):
         """Test unsupported operator in convert_binary_expression"""
-        from app.infra.relation import Operator
 
         # Mock an unsupported operator (this would need to be a new enum value)
         # For now, we'll test the error case by patching
@@ -702,7 +700,7 @@ class TestComprehensiveCoverage(unittest.TestCase):
 
     def test_assignment_expression(self):
         """Test AssignmentExpression conversion to equality constraint"""
-        from app.infra.relation import AssignmentExpression, EntityReference, Literal
+        from app.infra.relation import EntityReference, Literal
 
         time_steps = 3
         battery_power = [pulp.LpVariable(f"battery_{t}") for t in range(time_steps)]
@@ -726,12 +724,12 @@ class TestConvertBack(unittest.TestCase):
         from app.model.entity import Entity
         from app.model.model import Model
         from app.infra.util import TimeSet
-        
+
         self.converter = PulpConverter()
         self.entity = Entity(id="battery1")
         self.model = Model()
         self.model.add_entity(self.entity)
-        
+
         # Create a time set with 3 time steps
         self.time_set = TimeSet(
             start=None,
@@ -747,27 +745,22 @@ class TestConvertBack(unittest.TestCase):
         # Create mock quantities and set them in entity
         qty = Mock(spec=Quantity)
         self.entity.quantities["power"] = qty
-        
+
         # Create mock PuLP variables with correct naming format: entity_id.qty_name_tX
         pulp_vars = [pulp.LpVariable(f"battery1.power_t{t}") for t in range(3)]
         for t, var in enumerate(pulp_vars):
             var.varValue = 100 + t * 10
-        
+
         # Create mock problem with variables
         problem = Mock(spec=pulp.LpProblem)
         problem.variables.return_value = pulp_vars
-        
-        pulp_variables = {
-            "battery1.power": pulp_vars
-        }
-        
+
+        pulp_variables = {"battery1.power": pulp_vars}
+
         self.converter.convert_back(
-            self.model, 
-            problem, 
-            pulp_variables,
-            time_set=self.time_set
+            self.model, problem, pulp_variables, time_set=self.time_set
         )
-        
+
         # Verify set_value was called with correct arguments
         qty.set_value.assert_called_once()
         args, kwargs = qty.set_value.call_args
@@ -777,27 +770,22 @@ class TestConvertBack(unittest.TestCase):
         """Test that convert_back logs warning and continues on missing entity"""
         qty = Mock(spec=Quantity)
         self.entity.quantities["power"] = qty
-        
+
         # Create mock PuLP variables with correct naming format
         pulp_vars = [pulp.LpVariable(f"nonexistent.power_t{t}") for t in range(3)]
         for t, var in enumerate(pulp_vars):
             var.varValue = 1 + t
-        
+
         problem = Mock(spec=pulp.LpProblem)
         problem.variables.return_value = pulp_vars
-        
-        pulp_variables = {
-            "nonexistent.power": pulp_vars
-        }
-        
+
+        pulp_variables = {"nonexistent.power": pulp_vars}
+
         # Should not raise, but log warning
         self.converter.convert_back(
-            self.model,
-            problem,
-            pulp_variables,
-            time_set=self.time_set
+            self.model, problem, pulp_variables, time_set=self.time_set
         )
-        
+
         # set_value should not be called for missing entity
         qty.set_value.assert_not_called()
 
@@ -805,27 +793,22 @@ class TestConvertBack(unittest.TestCase):
         """Test that convert_back logs warning and continues on missing quantity"""
         qty = Mock(spec=Quantity)
         self.entity.quantities["power"] = qty
-        
+
         # Create mock PuLP variables with correct naming format
         pulp_vars = [pulp.LpVariable(f"battery1.unknown_t{t}") for t in range(3)]
         for t, var in enumerate(pulp_vars):
             var.varValue = 1 + t
-        
+
         problem = Mock(spec=pulp.LpProblem)
         problem.variables.return_value = pulp_vars
-        
-        pulp_variables = {
-            "battery1.unknown": pulp_vars
-        }
-        
+
+        pulp_variables = {"battery1.unknown": pulp_vars}
+
         # Should not raise, but log warning
         self.converter.convert_back(
-            self.model,
-            problem,
-            pulp_variables,
-            time_set=self.time_set
+            self.model, problem, pulp_variables, time_set=self.time_set
         )
-        
+
         # set_value should not be called for missing quantity
         qty.set_value.assert_not_called()
 
@@ -833,94 +816,85 @@ class TestConvertBack(unittest.TestCase):
         """Test that convert_back handles missing variable in pulp_variables dict"""
         qty = Mock(spec=Quantity)
         self.entity.quantities["power"] = qty
-        
+
         # Create mock PuLP variables with correct naming format
         pulp_vars = [pulp.LpVariable(f"battery1.power_t{t}") for t in range(3)]
-        
+
         problem = Mock(spec=pulp.LpProblem)
         problem.variables.return_value = pulp_vars
-        
+
         # Empty pulp_variables dict - variable not in results
         pulp_variables = {}
-        
+
         # Should not raise, but log warning
         self.converter.convert_back(
-            self.model,
-            problem,
-            pulp_variables,
-            time_set=self.time_set
+            self.model, problem, pulp_variables, time_set=self.time_set
         )
-        
+
         qty.set_value.assert_not_called()
 
     def test_convert_back_invalid_time_set(self):
         """Test that convert_back raises ValueError for invalid time_set"""
         qty = Mock(spec=Quantity)
         self.entity.quantities["power"] = qty
-        
+
         pulp_vars = [pulp.LpVariable(f"battery1_power_{t}") for t in range(3)]
         problem = Mock(spec=pulp.LpProblem)
         problem.variables.return_value = pulp_vars
-        
+
         # Create invalid time_set (missing time_points)
         invalid_time_set = Mock()
         del invalid_time_set.time_points
-        
+
         with self.assertRaises(ValueError):
             self.converter.convert_back(
-                self.model,
-                problem,
-                {},
-                time_set=invalid_time_set
+                self.model, problem, {}, time_set=invalid_time_set
             )
 
     def test_convert_back_multiple_entities_and_quantities(self):
         """Test convert_back with multiple entities and quantities"""
         from app.model.entity import Entity
-        
+
         entity2 = Entity(id="pv1")
         self.model.add_entity(entity2)
-        
+
         qty1 = Mock(spec=Quantity)
         qty2 = Mock(spec=Quantity)
         qty3 = Mock(spec=Quantity)
-        
+
         self.entity.quantities["power"] = qty1
         self.entity.quantities["energy"] = qty2
         entity2.quantities["irradiance"] = qty3
-        
+
         # Create mock PuLP variables with correct naming format: entity_id.qty_name_tX
         pulp_vars_power = [pulp.LpVariable(f"battery1.power_t{t}") for t in range(3)]
         for t, var in enumerate(pulp_vars_power):
             var.varValue = 10 + t
-        
+
         pulp_vars_energy = [pulp.LpVariable(f"battery1.energy_t{t}") for t in range(3)]
         for t, var in enumerate(pulp_vars_energy):
             var.varValue = 100 + t * 10
-        
+
         pulp_vars_irr = [pulp.LpVariable(f"pv1.irradiance_t{t}") for t in range(3)]
         for t, var in enumerate(pulp_vars_irr):
             var.varValue = 500 + t * 10
-        
+
         # Combine all variables for problem
         all_vars = pulp_vars_power + pulp_vars_energy + pulp_vars_irr
-        
+
         problem = Mock(spec=pulp.LpProblem)
         problem.variables.return_value = all_vars
-        
+
         pulp_variables = {
             "battery1.power": pulp_vars_power,
             "battery1.energy": pulp_vars_energy,
             "pv1.irradiance": pulp_vars_irr,
         }
-        
+
         self.converter.convert_back(
-            self.model,
-            problem,
-            pulp_variables,
-            time_set=self.time_set
+            self.model, problem, pulp_variables, time_set=self.time_set
         )
-        
+
         # Verify all quantities were updated
         self.assertEqual(qty1.set_value.call_count, 1)
         self.assertEqual(qty2.set_value.call_count, 1)

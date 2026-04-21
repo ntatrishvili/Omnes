@@ -764,7 +764,7 @@ class TestAssignmentExpressionExtended(unittest.TestCase):
 
         conv = MockConverter()
         assign = AssignmentExpression("$.soc(t-1)", "100")
-        result = assign.convert(conv, t=5)
+        assign.convert(conv, t=0)
         # Check that time offset was parsed
         self.assertEqual(conv.self_ref_calls[0][0], -1)
 

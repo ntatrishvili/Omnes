@@ -12,7 +12,7 @@ Notes
 - Time series values are expected in kW and are converted to MW where needed.
 """
 
-from typing import Optional, Union
+from typing import Optional
 
 import pandapower as pp
 from numpy import ndarray
@@ -21,7 +21,6 @@ from pandas import DataFrame
 
 from app.conversion.converter import Converter
 from app.conversion.validation_utils import (
-    validate_and_normalize_time_range,
     extract_effective_time_properties,
 )
 from app.infra.quantity import Quantity
@@ -114,37 +113,30 @@ class PandapowerConverter(Converter):
         """
         time_set = kwargs.pop("time_set", None)
         effective_time_set = extract_effective_time_properties(model, time_set)
-        
+
         # Reset network state for new conversion
         self.net = self.create_empty_net()
         self.bus_map = {}
-        
+
         context = {"net": self.net}  # Store net in context
         return effective_time_set, context
-    
+
     def _convert_entities(
-        self,
-        model: Model,
-        time_set: TimeSet,
-        context: dict[str, any],
-        **kwargs
+        self, model: Model, time_set: TimeSet, context: dict[str, any], **kwargs
     ) -> pandapowerNet:
         """
         Convert all entities, with side effects populating self.net.
-        
+
         Returns self.net directly since pandapower uses mutation.
         """
         for _, entity in model.entities.items():
             logger.info(f"Converting entity '{entity.id}'")
             self.convert_entity(entity, time_set)
-        
+
         return self.net  # Return net (with side effects applied)
-    
+
     def _finalize_result(
-        self,
-        result: pandapowerNet,
-        time_set: TimeSet,
-        context: dict[str, any]
+        self, result: pandapowerNet, time_set: TimeSet, context: dict[str, any]
     ) -> pandapowerNet:
         """
         Finalize by attaching time_set metadata to network.

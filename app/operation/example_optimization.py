@@ -1,7 +1,6 @@
 import numpy as np
 import pulp
 
-from app import model
 from app.conversion.pulp_converter import PulpConverter
 from app.infra.configuration import Config
 from app.infra.logging_setup import get_logger
@@ -10,7 +9,7 @@ from app.infra.visualize import plot_energy_flows
 log = get_logger(__name__)
 
 
-def optimize_energy_system_pulp(model,**kwargs):
+def optimize_energy_system_pulp(model, **kwargs):
     log.info(f"Starting optimization with PuLP for {model.id} model")
     converter = PulpConverter()
     pulp_variables = converter.convert_model(model, **kwargs)
@@ -36,7 +35,9 @@ def optimize_energy_system_pulp(model,**kwargs):
         total_bess_in = pulp.lpSum(pulp_variables[f"{b}.p_in"][t] for b in bess_names)
         total_bess_out = pulp.lpSum(pulp_variables[f"{b}.p_out"][t] for b in bess_names)
         total_slack_in = pulp.lpSum(pulp_variables[f"{s}.p_in"][t] for s in slack_names)
-        total_slack_out = pulp.lpSum(pulp_variables[f"{s}.p_out"][t] for s in slack_names)
+        total_slack_out = pulp.lpSum(
+            pulp_variables[f"{s}.p_out"][t] for s in slack_names
+        )
 
         # Energy balance constraint
         # We need to know which one is in and which one is out
@@ -78,18 +79,17 @@ def optimize_energy_system_pulp(model,**kwargs):
     log.info(f"Optimization successful: {pulp.LpStatus[status]}")
     log.info(f"Objective value: {pulp.value(prob.objective)}")
 
-
     converter.convert_back(model, problem=prob, pulp_variables=pulp_variables, **kwargs)
 
     config = Config()
     plot_energy_flows(
         model,
-        time_range_to_plot=time_set.time_points[136*24:137*24],
+        time_range_to_plot=time_set.time_points[136 * 24 : 137 * 24],
         output_path=config.get("path", "output"),
     )
     return {
         "status": pulp.LpStatus[status],
         "objective": pulp.value(prob.objective),
         "model": model,
-        **kwargs
+        **kwargs,
     }

@@ -260,25 +260,19 @@ class TestModel(unittest.TestCase):
         mock_builder.create.return_value = mock_timeset
 
         time_kwargs = {"tz": "UTC", "normalize": True}
+
+        # Create a Model with time_kwargs and the mock builder
+        from app.model.model import Model
+
         m = Model(
-            id="test",
-            timeset_builder=mock_builder,
-            time_kwargs=time_kwargs,
-            time_start="2025-01-01",
-            time_end="2025-01-02",
+            id="test_model", timeset_builder=mock_builder, time_kwargs=time_kwargs
         )
 
         # Verify time_kwargs was passed to builder
         mock_builder.create.assert_called_once()
         call_args = mock_builder.create.call_args
-        # accept both positional or keyword passing of time_kwargs
-        if call_args[0]:
-            # first positional argument should be time_kwargs when positional was used
-            self.assertEqual(call_args[0][0], time_kwargs)
-        else:
-            # otherwise expect it passed as a keyword
-            self.assertIn("time_kwargs", call_args[1])
-            self.assertEqual(call_args[1]["time_kwargs"], time_kwargs)
+        # The first positional argument should be time_kwargs when using keyword arg passing
+        self.assertEqual(call_args[0][0], time_kwargs)
 
     def test_getitem_deeply_nested_entity(self):
         """Test accessing an entity nested multiple levels deep"""

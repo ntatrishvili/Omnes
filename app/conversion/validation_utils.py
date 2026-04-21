@@ -6,7 +6,6 @@ different conversion classes to ensure data integrity and proper error handling.
 """
 
 import warnings
-from typing import Optional, Union
 
 _WARNED_MESSAGES = set()
 

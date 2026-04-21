@@ -59,7 +59,7 @@ class Config(Singleton):
         return [v.replace(" ", "") for v in values]
 
     def set(self, section, key, value):
-        if type(value) != str:
+        if type(value) is not str:
             value = str(value)
             logger.warning(
                 f"Configuration is set with a non-string-type value: {value}"
@@ -73,7 +73,7 @@ class Config(Singleton):
         if len(value) == 1:
             set_str = f"{value[0]},"
         else:
-            set_str = f",".join(f"{v}" for v in value)
+            set_str = ",".join(f"{v}" for v in value)
         self.__config.set(section, key, set_str)
 
     def setboolean(self, section, key, value):
@@ -116,7 +116,7 @@ class Config(Singleton):
                     f"the original value from the configuration file (value={value_cf})"
                 )
         if setter is None:
-            if type(value) == int:
+            if type(value) is int:
                 self.setint(section, key, value)
             else:
                 self.set(section, key, value)

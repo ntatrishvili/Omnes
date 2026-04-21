@@ -28,6 +28,7 @@ from app.model.model import Model
 
 log = get_logger(__name__)
 
+
 class PulpConverter(Converter):
     """
     Converts a Model class object into a PuLP optimization problem and back.
@@ -85,7 +86,7 @@ class PulpConverter(Converter):
     ) -> Dict[str, Any]:
         """
         Convert an Entity's quantities into pulp variables.
-        
+
         Note: Sub-entity traversal is handled by the base Converter class.
         This method only converts the current entity's quantities.
 
@@ -104,7 +105,7 @@ class PulpConverter(Converter):
             Keys are in the format 'entity_id.quantity_name'.
         """
         log.debug(f"Using fallback default entity converter for '{entity.id}'")
-        
+
         # Set current entity context for SelfReference resolution
         self.__current_entity_id = entity.id
         # Convert entity quantities (ONLY this entity, not sub-entities)
@@ -116,7 +117,9 @@ class PulpConverter(Converter):
             )
             for key, quantity in entity.quantities.items()
         }
-        log.debug(f"Converted entity '{entity.id}' quantities to variables: {list(entity_variables.keys())}")
+        log.debug(
+            f"Converted entity '{entity.id}' quantities to variables: {list(entity_variables.keys())}"
+        )
         # Note: Sub-entities are handled by base class Converter.convert_entity()
         # Note: Relations are NOT converted here - they are handled in convert_model
         # after all entity variables are collected to avoid incomplete __objects
@@ -169,66 +172,64 @@ class PulpConverter(Converter):
     ) -> tuple[TimeSet, Dict[str, Any]]:
         """
         Prepare PuLP conversion by extracting time_set and initializing state.
-        
+
         Initializes __objects to empty dict for fresh conversion.
         """
-        time_set = kwargs.pop("time_set", None)  # Remove from kwargs to avoid duplicate args
+        time_set = kwargs.pop(
+            "time_set", None
+        )  # Remove from kwargs to avoid duplicate args
         effective_time_set = extract_effective_time_properties(model, time_set)
-        
+
         # Reset state for new conversion
         self.__objects = {}
         self.__current_entity_id = None
-        
+
         context = {"skip_entities": kwargs.get("skip_entities", set())}
         return effective_time_set, context
 
     def _convert_entities(
-        self,
-        model: Model,
-        time_set: TimeSet,
-        context: Dict[str, Any],
-        **kwargs
+        self, model: Model, time_set: TimeSet, context: Dict[str, Any], **kwargs
     ) -> Dict[str, Any]:
         """
         Convert all model entities to PuLP variables.
-        
+
         Populates __objects with all entity variables for later relation conversion.
         """
         skip_entities = context.get("skip_entities", set())
         model_variables = {}
-        
+
         for _, entity in model.entities.items():
             if type(entity) in skip_entities:
                 continue
             model_variables.update(self.convert_entity(entity, time_set))
-        
+
         # Store all entity variables in __objects for relation conversion
         self.__objects = dict(model_variables)
-        
+
         return model_variables
-    
+
     def _post_process_conversion(
         self,
         model: Model,
         result: Dict[str, Any],
         time_set: TimeSet,
         context: Dict[str, Any],
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Post-processing: Convert all relations to constraints.
-        
+
         This is the second pass that requires all entity variables to be available.
         """
         skip_entities = context.get("skip_entities", set())
-        
+
         # Convert relations for all entities
         for _, entity in model.entities.items():
             if type(entity) in skip_entities:
                 continue
             relation_constraints = self._convert_entity_relations(entity, time_set)
             result.update(relation_constraints)
-        
+
         return result
 
     def convert_quantity(
@@ -614,7 +615,7 @@ class PulpConverter(Converter):
     def _extract_entity_quantity_names(self, variable_name: str) -> tuple[str, str]:
         """
         Extract entity ID and quantity name from a PuLP variable name.
-        
+
         Variables are named as 'entity_id.quantity_name_t0', 'entity_id.quantity_name_t1', etc.
         This method extracts the entity_id and quantity_name components.
 
@@ -628,14 +629,16 @@ class PulpConverter(Converter):
         tuple[str, str]
             (entity_id, quantity_name) tuple
         """
-        entity_id = variable_name.rsplit('.', 1)[0]
-        qty_name = variable_name.rsplit('.', 1)[1].rsplit('_', 1)[0]
+        entity_id = variable_name.rsplit(".", 1)[0]
+        qty_name = variable_name.rsplit(".", 1)[1].rsplit("_", 1)[0]
         return entity_id, qty_name
 
-    def convert_back(self, model: Model, problem: pulp.LpProblem, pulp_variables: dict, **kwargs) -> None:
+    def convert_back(
+        self, model: Model, problem: pulp.LpProblem, pulp_variables: dict, **kwargs
+    ) -> None:
         """
         Store solved optimization values back into model entities.
-        
+
         Maps optimization results from flat PuLP variable format ('entity_id.qty_name_tX')
         back into the hierarchical model structure. Skips non-variable keys and logs
         warnings for missing entities or quantities without failing.
@@ -659,14 +662,14 @@ class PulpConverter(Converter):
             If time_set is missing or invalid
         """
         log.info(f"Storing optimization results back into model: {model.id}")
-        
+
         # Validate and extract time_set
         time_set = kwargs.get("time_set", model.time_set)
         if not hasattr(time_set, "time_points"):
             raise ValueError("time_set must have 'time_points' attribute")
-        
+
         num_time_steps = len(time_set.time_points)
-        
+
         # Extract variables to update from problem
         modified_variables = {}
         for variable in problem.variables():
@@ -674,55 +677,58 @@ class PulpConverter(Converter):
                 entity_id, qty_name = self._extract_entity_quantity_names(variable.name)
                 # Skip non-variable entries (e.g., constraint names without '.' separation)
                 if entity_id and qty_name:
-                    modified_variables[f"{entity_id}.{qty_name}"] = (entity_id, qty_name)
+                    modified_variables[f"{entity_id}.{qty_name}"] = (
+                        entity_id,
+                        qty_name,
+                    )
             except (IndexError, ValueError) as e:
                 log.debug(f"Skipped variable '{variable.name}': {e}")
                 continue
-        
+
         log.debug(f"Found {len(modified_variables)} variables to update")
-        
+
         # Update model quantities with optimization results
         updated_count = 0
         failed_count = 0
-        
+
         for full_name, (entity_id, qty_name) in modified_variables.items():
             try:
                 # Retrieve entity from model
                 entity = model[entity_id]
-                
+
                 # Check if quantity exists
                 if qty_name not in entity.quantities:
-                    log.warning(f"Quantity '{qty_name}' not found in entity '{entity_id}'")
+                    log.warning(
+                        f"Quantity '{qty_name}' not found in entity '{entity_id}'"
+                    )
                     failed_count += 1
                     continue
-                
+
                 # Extract optimization values for all time steps
                 if full_name not in pulp_variables:
                     log.warning(f"Variable '{full_name}' not in optimization results")
                     failed_count += 1
                     continue
-                
+
                 optimized_values = [
-                    pulp.value(pulp_variables[full_name][t]) 
+                    pulp.value(pulp_variables[full_name][t])
                     for t in range(num_time_steps)
                 ]
-                
+
                 # Update quantity with optimized values
                 entity.quantities[qty_name].set_value(
-                    optimized_values, 
-                    time_set=time_set, 
-                    keep_attrs=True
+                    optimized_values, time_set=time_set, keep_attrs=True
                 )
                 log.debug(f"Updated '{full_name}' with {num_time_steps} time steps")
                 updated_count += 1
-                
+
             except KeyError as e:
                 log.warning(f"Entity '{entity_id}' not found in model: {e}")
                 failed_count += 1
             except (IndexError, TypeError) as e:
                 log.warning(f"Failed to extract values for '{full_name}': {e}")
                 failed_count += 1
-        
+
         # Log summary
         total = updated_count + failed_count
         if total > 0:
@@ -733,4 +739,3 @@ class PulpConverter(Converter):
             )
         else:
             log.info("No quantities to update in reverse conversion")
-  
