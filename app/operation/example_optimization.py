@@ -70,7 +70,8 @@ def optimize_energy_system_pulp(model, **kwargs):
     prob += pulp.lpSum(
         pulp_variables[f"{s}.p_in"][t] + pulp_variables[f"{s}.p_out"][t]
         for s in slack_names
-    )
+        for t in range(time_set.number_of_time_steps)
+    )   
 
     status = prob.solve()
     if pulp.LpStatus[status] != "Optimal":
@@ -79,17 +80,17 @@ def optimize_energy_system_pulp(model, **kwargs):
     log.info(f"Optimization successful: {pulp.LpStatus[status]}")
     log.info(f"Objective value: {pulp.value(prob.objective)}")
 
-    converter.convert_back(model, problem=prob, pulp_variables=pulp_variables, **kwargs)
+    optimized_model = converter.convert_back(model, problem=prob, pulp_variables=pulp_variables, time_set=time_set, **kwargs)
 
     config = Config()
     plot_energy_flows(
-        model,
+        optimized_model,
         time_range_to_plot=time_set.time_points[136 * 24 : 137 * 24],
         output_path=config.get("path", "output"),
     )
     return {
         "status": pulp.LpStatus[status],
         "objective": pulp.value(prob.objective),
-        "model": model,
+        "model": optimized_model,
         **kwargs,
     }

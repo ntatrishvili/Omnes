@@ -739,3 +739,5 @@ class PulpConverter(Converter):
             )
         else:
             log.info("No quantities to update in reverse conversion")
+        
+        return model
