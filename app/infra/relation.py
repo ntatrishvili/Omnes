@@ -149,6 +149,68 @@ class Expression(ABC):
         """
         pass
 
+    @staticmethod
+    def _coerce_operand(value: Any) -> "Expression":
+        if isinstance(value, Expression):
+            return value
+        if isinstance(value, (int, float, np.integer, np.floating)):
+            return Literal(value.item() if hasattr(value, "item") else value)
+        return value
+
+    def _binary_op(self, other: Any, operator: Operator) -> "BinaryExpression":
+        return BinaryExpression(self, operator, self._coerce_operand(other))
+
+    def _rbinary_op(self, other: Any, operator: Operator) -> "BinaryExpression":
+        return BinaryExpression(self._coerce_operand(other), operator, self)
+
+    def __add__(self, other: Any):
+        return self._binary_op(other, Operator.ADD)
+
+    def __radd__(self, other: Any):
+        return self._rbinary_op(other, Operator.ADD)
+
+    def __sub__(self, other: Any):
+        return self._binary_op(other, Operator.SUBTRACT)
+
+    def __rsub__(self, other: Any):
+        return self._rbinary_op(other, Operator.SUBTRACT)
+
+    def __mul__(self, other: Any):
+        return self._binary_op(other, Operator.MULTIPLY)
+
+    def __rmul__(self, other: Any):
+        return self._rbinary_op(other, Operator.MULTIPLY)
+
+    def __truediv__(self, other: Any):
+        return self._binary_op(other, Operator.DIVIDE)
+
+    def __rtruediv__(self, other: Any):
+        return self._rbinary_op(other, Operator.DIVIDE)
+
+    def __le__(self, other: Any):
+        return self._binary_op(other, Operator.LESS_THAN_OR_EQUAL)
+
+    def __ge__(self, other: Any):
+        return self._binary_op(other, Operator.GREATER_THAN_OR_EQUAL)
+
+    def __lt__(self, other: Any):
+        return self._binary_op(other, Operator.LESS_THAN)
+
+    def __gt__(self, other: Any):
+        return self._binary_op(other, Operator.GREATER_THAN)
+
+    def __eq__(self, other: Any):
+        if isinstance(other, Expression):
+            return self._binary_op(other, Operator.EQUAL)
+        return NotImplemented
+
+    def __ne__(self, other: Any):
+        if isinstance(other, Expression):
+            return self._binary_op(other, Operator.NOT_EQUAL)
+        return NotImplemented
+
+    __hash__ = object.__hash__
+
 
 class Literal(Expression):
     """
@@ -775,13 +837,19 @@ class AssignmentExpression(Expression):
 
 
 class Relation:
-    def __init__(self, raw_expr: str, name: str = None):
-        self.raw_expr = raw_expr.strip()
+    def __init__(self, raw_expr: Union[str, Expression], name: str = None):
         self.name = name if name else f"{uuid.uuid4().hex}"
-        self.expression = self.parse(self.raw_expr)
+        if isinstance(raw_expr, Expression):
+            self.expression = raw_expr
+            self.raw_expr = str(raw_expr)
+        else:
+            self.raw_expr = raw_expr.strip()
+            self.expression = self.parse(self.raw_expr)
 
-    def parse(self, expr: str) -> Expression:
+    def parse(self, expr: Union[str, Expression]) -> Expression:
         """Parse the expression string into an Expression tree"""
+        if isinstance(expr, Expression):
+            return expr
         # For special expressions, handle them separately
         if expr.startswith("if"):
             return self._parse_if_then(expr)
