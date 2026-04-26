@@ -1,4 +1,5 @@
 import unittest.mock
+from typing import cast
 
 import pandas as pd
 
@@ -201,8 +202,9 @@ class TestBinaryExpressionParsing(unittest.TestCase):
     def test_parse_arithmetic_expression(self):
         """Test parsing arithmetic expressions"""
         expr = BinaryExpression.parse_binary("battery1.charging_power < 2 * pv1.power")
-
         self.assertIsInstance(expr, BinaryExpression)
+        expr = cast(BinaryExpression, expr)
+
         self.assertEqual(expr.operator, Operator.LESS_THAN)
 
         # Left side should be entity reference
@@ -222,8 +224,9 @@ class TestBinaryExpressionParsing(unittest.TestCase):
         expr = BinaryExpression.parse_binary(
             "battery1.discharge_power(t) < 2 * battery1.discharge_power(t-1)"
         )
-
         self.assertIsInstance(expr, BinaryExpression)
+        expr = cast(BinaryExpression, expr)
+
         self.assertEqual(expr.operator, Operator.LESS_THAN)
 
         # Left side: battery1.discharge_power(t)
@@ -243,8 +246,9 @@ class TestBinaryExpressionParsing(unittest.TestCase):
         expr = BinaryExpression.parse_binary(
             "battery.state_of_charge(t) >= battery.state_of_charge(t-1) + 0.1"
         )
-
         self.assertIsInstance(expr, BinaryExpression)
+        expr = cast(BinaryExpression, expr)
+
         self.assertEqual(expr.operator, Operator.GREATER_THAN_OR_EQUAL)
 
         # Left side: battery.state_of_charge(t)
@@ -261,6 +265,8 @@ class TestBinaryExpressionParsing(unittest.TestCase):
     def test_operator_precedence(self):
         """Test that multiplication has higher precedence than addition"""
         expr = BinaryExpression.parse_binary("x + 2 * y")
+        self.assertIsInstance(expr, BinaryExpression)
+        expr = cast(BinaryExpression, expr)
 
         # Should parse as: x + (2 * y)
         # Our parser finds the rightmost + first, then handles * in the right side
@@ -341,6 +347,29 @@ class TestRelation(unittest.TestCase):
         self.assertEqual(relation.expression.target, "heater2.min_on_duration")
         self.assertEqual(relation.expression.value, "2h")
 
+    def test_relation_accepts_expression_instance(self):
+        expr = BinaryExpression(
+            EntityReference("battery1.power"), Operator.LESS_THAN_OR_EQUAL, Literal(100)
+        )
+        relation = Relation(expr, "programmatic")
+
+        self.assertIs(relation.expression, expr)
+        self.assertEqual(relation.raw_expr, str(expr))
+        self.assertEqual(str(relation), f"[programmatic] {expr}")
+
+    def test_relation_if_then_expression_from_objects(self):
+        expr = IfThenExpression(
+            BinaryExpression(
+                EntityReference("battery1.power"), Operator.LESS_THAN, Literal(0)
+            ),
+            AssignmentExpression(EntityReference("battery1.output"), Literal(2)),
+        )
+        relation = Relation(expr, "conditional_programmatic")
+
+        self.assertIs(relation.expression, expr)
+        self.assertIsInstance(relation.expression.condition, BinaryExpression)
+        self.assertIsInstance(relation.expression.consequence, AssignmentExpression)
+
 
 class TestAdditionalRelationCases(unittest.TestCase):
     def test_entity_reference_invalid_id_raises(self):
@@ -375,7 +404,7 @@ class TestAdditionalRelationCases(unittest.TestCase):
 
         conv = C()
         ref = EntityReference("some.device", -1)
-        res = ref.convert(conv, t=5, time_set=10)
+        res = ref.convert(conv, t=5, time_set=None)
         self.assertEqual(res, ("ent_conv", "some.device"))
         self.assertIs(conv.called[0], ref)
         self.assertEqual(conv.called[2], 5)
@@ -513,11 +542,11 @@ class TestAdditionalRelationCases(unittest.TestCase):
         conv = C()
         rel = Relation("a <= b", "deleg")
         objects = {"a": 1, "b": 2}
-        res = rel.convert(conv, objects, time_set=10)
+        res = rel.convert(conv, objects, time_set=None)
         self.assertEqual(res, {"converted": True})
         self.assertIs(conv.called[0], rel)
         self.assertEqual(conv.called[1], objects)
-        self.assertEqual(conv.called[2], 10)
+        self.assertEqual(conv.called[2], None)
 
 
 class TestSelfReferenceParsing(unittest.TestCase):
@@ -878,6 +907,8 @@ class TestBinaryExpressionParsingExtended(unittest.TestCase):
         }
         for symbol, expected_op in operators.items():
             expr = BinaryExpression.parse_binary(f"x {symbol} y")
+            self.assertIsInstance(expr, BinaryExpression)
+            expr = cast(BinaryExpression, expr)
             self.assertEqual(expr.operator, expected_op)
 
     def test_parse_nested_parentheses(self):
