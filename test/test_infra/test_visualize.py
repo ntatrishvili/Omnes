@@ -465,30 +465,65 @@ class TestPlotEnergyFlows(unittest.TestCase):
     """Test plot_energy_flows function"""
 
     @patch("app.infra.visualize.plt")
-    @patch("app.infra.visualize.pulp")
-    def test_plot_energy_flows_basic(self, mock_pulp, mock_plt):
+    def test_plot_energy_flows_basic(self, mock_plt):
         """Test basic energy flow plotting"""
-        # Mock pulp.value to return test values
-        mock_pulp.value.side_effect = lambda x: np.random.rand() * 10
+        # Create mock model with required interface
+        mock_model = Mock()
+        mock_model.find_all_of_type_in_subentities.side_effect = lambda t: {
+            "PV": ["pv1"],
+            "Load": ["load1"],
+            "Battery": ["bess1"],
+            "Slack": ["slack1"],
+        }.get(t, [])
 
-        kwargs = {
-            "time_set": SimpleNamespace(number_of_time_steps=24),
-            "pv1.p_out": [Mock() for _ in range(24)],
-            "load1.p_cons": [Mock() for _ in range(24)],
-            "bess1.p_in": [Mock() for _ in range(24)],
-            "bess1.p_out": [Mock() for _ in range(24)],
-            "bess1.e_stor": [Mock() for _ in range(24)],
-            "slack1.p_in": [Mock() for _ in range(24)],
-            "slack1.p_out": [Mock() for _ in range(24)],
-        }
+        # Mock time_set
+        mock_time_set = Mock()
+        mock_time_set.number_of_time_steps = 24
+        mock_model.time_set = mock_time_set
+
+        # Mock device access and energy/power outputs
+        def create_mock_device(dev_type):
+            device = Mock()
+            if dev_type == "pv":
+                device.p_out.to_df.return_value = pd.Series(
+                    [np.random.rand() for _ in range(24)], index=range(24)
+                )
+            elif dev_type == "load":
+                device.p_cons.to_df.return_value = pd.Series(
+                    [np.random.rand() for _ in range(24)], index=range(24)
+                )
+            elif dev_type == "bess":
+                device.p_in.to_df.return_value = pd.Series(
+                    [np.random.rand() * 0.5 for _ in range(24)], index=range(24)
+                )
+                device.p_out.to_df.return_value = pd.Series(
+                    [np.random.rand() * 0.5 for _ in range(24)], index=range(24)
+                )
+                device.e_stor.to_df.return_value = pd.Series(
+                    [np.random.rand() for _ in range(24)], index=range(24)
+                )
+            elif dev_type == "slack":
+                device.p_in.to_df.return_value = pd.Series(
+                    [np.random.rand() for _ in range(24)], index=range(24)
+                )
+                device.p_out.to_df.return_value = pd.Series(
+                    [np.random.rand() for _ in range(24)], index=range(24)
+                )
+            return device
+
+        mock_model.__getitem__ = Mock(
+            side_effect=lambda name: {
+                "pv1": create_mock_device("pv"),
+                "load1": create_mock_device("load"),
+                "bess1": create_mock_device("bess"),
+                "slack1": create_mock_device("slack"),
+            }.get(name, Mock())
+        )
 
         mock_fig = Mock()
         mock_ax = Mock()
         mock_twin = Mock()
-
-        # Mock spines as a dict-like object
-        mock_spine = Mock()
-        mock_twin.spines = {"right": mock_spine}
+        mock_twin.spines = {"right": Mock()}
 
         mock_plt.figure.return_value = mock_fig
         mock_plt.gca.return_value = mock_ax
@@ -497,11 +532,7 @@ class TestPlotEnergyFlows(unittest.TestCase):
         mock_twin.get_legend_handles_labels.return_value = ([], [])
 
         visualize.plot_energy_flows(
-            kwargs,
-            pv_names=["pv1"],
-            load_names=["load1"],
-            bess_names=["bess1"],
-            slack_names=["slack1"],
+            mock_model,
             time_range_to_plot=range(24),
             output_path=".",
         )
@@ -511,18 +542,49 @@ class TestPlotEnergyFlows(unittest.TestCase):
         self.assertGreater(mock_plt.plot.call_count, 0)
 
     @patch("app.infra.visualize.plt")
-    @patch("app.infra.visualize.pulp")
-    def test_plot_energy_flows_no_battery(self, mock_pulp, mock_plt):
+    def test_plot_energy_flows_no_battery(self, mock_plt):
         """Test energy flow plotting without battery"""
-        mock_pulp.value.side_effect = lambda x: np.random.rand() * 10
+        # Create mock model with no batteries
+        mock_model = Mock()
+        mock_model.find_all_of_type_in_subentities.side_effect = lambda t: {
+            "PV": ["pv1"],
+            "Load": ["load1"],
+            "Battery": [],  # No batteries
+            "Slack": ["slack1"],
+        }.get(t, [])
 
-        kwargs = {
-            "time_set": SimpleNamespace(number_of_time_steps=24),
-            "pv1.p_out": [Mock() for _ in range(24)],
-            "load1.p_cons": [Mock() for _ in range(24)],
-            "slack1.p_in": [Mock() for _ in range(24)],
-            "slack1.p_out": [Mock() for _ in range(24)],
-        }
+        # Mock time_set
+        mock_time_set = Mock()
+        mock_time_set.number_of_time_steps = 24
+        mock_model.time_set = mock_time_set
+
+        # Mock device access and energy/power outputs
+        def create_mock_device(dev_type):
+            device = Mock()
+            if dev_type == "pv":
+                device.p_out.to_df.return_value = pd.Series(
+                    [np.random.rand() for _ in range(24)], index=range(24)
+                )
+            elif dev_type == "load":
+                device.p_cons.to_df.return_value = pd.Series(
+                    [np.random.rand() for _ in range(24)], index=range(24)
+                )
+            elif dev_type == "slack":
+                device.p_in.to_df.return_value = pd.Series(
+                    [np.random.rand() for _ in range(24)], index=range(24)
+                )
+                device.p_out.to_df.return_value = pd.Series(
+                    [np.random.rand() for _ in range(24)], index=range(24)
+                )
+            return device
+
+        mock_model.__getitem__ = Mock(
+            side_effect=lambda name: {
+                "pv1": create_mock_device("pv"),
+                "load1": create_mock_device("load"),
+                "slack1": create_mock_device("slack"),
+            }.get(name, Mock())
+        )
 
         mock_fig = Mock()
         mock_ax = Mock()
@@ -531,28 +593,15 @@ class TestPlotEnergyFlows(unittest.TestCase):
         mock_ax.get_legend_handles_labels.return_value = ([], [])
         mock_plt.legend = Mock()
 
-        # Ensure ax is captured by gca when no battery (no twin axis created)
-        # The function sets ax to None initially, so we need to ensure plt.gca() works
-        # But the code path when bess_names is empty doesn't create twin_ax,
-        # so ax stays None and causes the AttributeError
-        # Let's just verify the function doesn't crash and calls basic plotting
+        # Function should work without batteries
+        visualize.plot_energy_flows(
+            mock_model,
+            output_path=".",
+        )
 
-        try:
-            visualize.plot_energy_flows(
-                kwargs,
-                pv_names=["pv1"],
-                load_names=["load1"],
-                bess_names=[],
-                slack_names=["slack1"],
-                output_path=".",
-            )
-        except AttributeError as e:
-            # Expected when ax is None and code tries ax.set_xticks
-            # This is a known limitation in the current implementation
-            # The function should handle the no-battery case better
-            self.assertIn("set_xticks", str(e))
-            # Verify that basic plotting was attempted
-            self.assertGreater(mock_plt.bar.call_count, 0)
+        # Verify plotting functions were called
+        self.assertGreater(mock_plt.bar.call_count, 0)
+        self.assertGreater(mock_plt.plot.call_count, 0)
 
 
 class TestPaletteAndColors(unittest.TestCase):
@@ -738,22 +787,59 @@ class TestMoreVisualizeBranches(unittest.TestCase):
                 print(f"Could not delete temporary file:{tmp_path}")
 
     @patch("app.infra.visualize.plt")
-    @patch("app.infra.visualize.pulp")
-    def test_plot_energy_flows_tick_spacing_variations(self, mock_pulp, mock_plt):
-        # Build large time set to trigger different tick spacing
-        mock_pulp.value.side_effect = lambda x: 1.0
-        kwargs = {"time_set": SimpleNamespace(number_of_time_steps=200)}
-        # minimal variable arrays for 200 timesteps
-        for key in [
-            "pv1.p_out",
-            "load1.p_cons",
-            "bess1.p_in",
-            "bess1.p_out",
-            "bess1.e_stor",
-            "slack1.p_in",
-            "slack1.p_out",
-        ]:
-            kwargs[key] = [Mock() for _ in range(200)]
+    def test_plot_energy_flows_tick_spacing_variations(self, mock_plt):
+        # Create mock model with larger time set to trigger different tick spacing
+        mock_model = Mock()
+        mock_model.find_all_of_type_in_subentities.side_effect = lambda t: {
+            "PV": ["pv1"],
+            "Load": ["load1"],
+            "Battery": ["bess1"],
+            "Slack": ["slack1"],
+        }.get(t, [])
+
+        # Mock time_set with 200 time steps
+        mock_time_set = Mock()
+        mock_time_set.number_of_time_steps = 200
+        mock_model.time_set = mock_time_set
+
+        # Mock device access and energy/power outputs (200 timesteps)
+        def create_mock_device(dev_type):
+            device = Mock()
+            if dev_type == "pv":
+                device.p_out.to_df.return_value = pd.Series(
+                    [1.0 for _ in range(200)], index=range(200)
+                )
+            elif dev_type == "load":
+                device.p_cons.to_df.return_value = pd.Series(
+                    [1.0 for _ in range(200)], index=range(200)
+                )
+            elif dev_type == "bess":
+                device.p_in.to_df.return_value = pd.Series(
+                    [0.5 for _ in range(200)], index=range(200)
+                )
+                device.p_out.to_df.return_value = pd.Series(
+                    [0.5 for _ in range(200)], index=range(200)
+                )
+                device.e_stor.to_df.return_value = pd.Series(
+                    [1.0 for _ in range(200)], index=range(200)
+                )
+            elif dev_type == "slack":
+                device.p_in.to_df.return_value = pd.Series(
+                    [1.0 for _ in range(200)], index=range(200)
+                )
+                device.p_out.to_df.return_value = pd.Series(
+                    [1.0 for _ in range(200)], index=range(200)
+                )
+            return device
+
+        mock_model.__getitem__ = Mock(
+            side_effect=lambda name: {
+                "pv1": create_mock_device("pv"),
+                "load1": create_mock_device("load"),
+                "bess1": create_mock_device("bess"),
+                "slack1": create_mock_device("slack"),
+            }.get(name, Mock())
+        )
 
         mock_fig = Mock()
         mock_ax = Mock()
@@ -763,17 +849,16 @@ class TestMoreVisualizeBranches(unittest.TestCase):
         mock_plt.figure.return_value = mock_fig
         mock_plt.gca.return_value = mock_ax
         mock_ax.twinx.return_value = mock_twin
-        # should not raise
+        mock_ax.get_legend_handles_labels.return_value = ([], [])
+        mock_twin.get_legend_handles_labels.return_value = ([], [])
+
+        # Function should not raise
         visualize.plot_energy_flows(
-            kwargs,
-            pv_names=["pv1"],
-            load_names=["load1"],
-            bess_names=["bess1"],
-            slack_names=["slack1"],
+            mock_model,
             time_range_to_plot=range(200),
             output_path=".",
         )
-        # ensure xticks were set on the axis
+        # Ensure xticks were set on the axis
         self.assertTrue(mock_ax.set_xticks.called)
 
     @patch("pandapower.plotting.simple_plot")

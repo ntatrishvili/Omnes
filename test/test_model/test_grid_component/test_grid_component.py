@@ -1,6 +1,5 @@
 import unittest
 
-import pytest
 
 from app.model.grid_component.grid_component import GridComponent
 

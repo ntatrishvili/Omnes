@@ -167,10 +167,10 @@ class TestModel(unittest.TestCase):
         mock_converter = unittest.mock.Mock()
         mock_converter.convert_model.return_value = {"result": "converted"}
 
-        result = m.convert(mock_converter, time_set=100, new_freq="1h")
+        result = m.convert(mock_converter, time_set=m.time_set, new_freq="1h")
 
         mock_converter.convert_model.assert_called_once_with(
-            m, time_set=100, new_freq="1h"
+            m, time_set=m.time_set, new_freq="1h"
         )
         self.assertEqual(result, {"result": "converted"})
 
@@ -260,25 +260,19 @@ class TestModel(unittest.TestCase):
         mock_builder.create.return_value = mock_timeset
 
         time_kwargs = {"tz": "UTC", "normalize": True}
+
+        # Create a Model with time_kwargs and the mock builder
+        from app.model.model import Model
+
         m = Model(
-            id="test",
-            timeset_builder=mock_builder,
-            time_kwargs=time_kwargs,
-            time_start="2025-01-01",
-            time_end="2025-01-02",
+            id="test_model", timeset_builder=mock_builder, time_kwargs=time_kwargs
         )
 
         # Verify time_kwargs was passed to builder
         mock_builder.create.assert_called_once()
         call_args = mock_builder.create.call_args
-        # accept both positional or keyword passing of time_kwargs
-        if call_args[0]:
-            # first positional argument should be time_kwargs when positional was used
-            self.assertEqual(call_args[0][0], time_kwargs)
-        else:
-            # otherwise expect it passed as a keyword
-            self.assertIn("time_kwargs", call_args[1])
-            self.assertEqual(call_args[1]["time_kwargs"], time_kwargs)
+        # The first positional argument should be time_kwargs when using keyword arg passing
+        self.assertEqual(call_args[0][0], time_kwargs)
 
     def test_getitem_deeply_nested_entity(self):
         """Test accessing an entity nested multiple levels deep"""
@@ -296,13 +290,13 @@ class TestModel(unittest.TestCase):
         self.assertEqual(retrieved, grandchild)
 
     def test__find_in_subentities_returns_none(self):
-        """Directly test _find_in_subentities returns None when not found"""
+        """Directly test find_in_subentities returns None when not found"""
         from app.model.entity import Entity
 
         parent = Entity(id="parent")
         # no sub-entities added
         m = Model(timeset_builder=self.ts_builder, entities=[parent])
-        result = m._find_in_subentities(parent, "missing")
+        result = m.find_in_subentities(parent, "missing")
         self.assertIsNone(result)
 
     def test_getitem_keyerror_includes_model_id_and_entity_id(self):

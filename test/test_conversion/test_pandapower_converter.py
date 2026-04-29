@@ -273,6 +273,7 @@ class TestPandapowerConverter(unittest.TestCase):
                 converter._convert_bus(b)
 
         model_like = SimpleNamespace(
+            id="test_model",
             entities={"m1": SimpleEntity("m1"), "m2": SimpleEntity("m2")},
             time_set=SimpleNamespace(
                 time_start="2020-01-01",

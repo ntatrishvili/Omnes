@@ -12,7 +12,7 @@ Notes
 - Time series values are expected in kW and are converted to MW where needed.
 """
 
-from typing import Optional, Union
+from typing import Optional
 
 import pandapower as pp
 from numpy import ndarray
@@ -21,7 +21,6 @@ from pandas import DataFrame
 
 from app.conversion.converter import Converter
 from app.conversion.validation_utils import (
-    validate_and_normalize_time_range,
     extract_effective_time_properties,
 )
 from app.infra.quantity import Quantity
@@ -106,45 +105,44 @@ class PandapowerConverter(Converter):
         self._entity_converters[Transformer] = self._convert_transformer_entity
         self._entity_converters[GenericEntity] = self._convert_generic_entity
 
-    def convert_model(
-        self,
-        model: Model,
-        time_set: Optional["TimeSet"] = None,
-        **kwargs,
-    ) -> pandapowerNet:
+    def _prepare_conversion(
+        self, model: Model, **kwargs
+    ) -> tuple[TimeSet, dict[str, any]]:
         """
-        Convert a Model into a pandapower network and collect profiles.
-
-        Parameters
-        ----------
-        model
-            The Omnes Model to convert.
-        time_set : TimeSet, optional
-            TimeSet object containing time configuration. If None the model's
-            defaults are used.
-
-        Returns
-        -------
-        pandapowerNet
-            The constructed pandapower network with 'profiles' and 'time_set'
-            attributes populated.
+        Prepare pandapower conversion by resetting network state.
         """
-        # Use model defaults if not specified, creates effective TimeSet
+        time_set = kwargs.pop("time_set", None)
         effective_time_set = extract_effective_time_properties(model, time_set)
 
         # Reset network state for new conversion
         self.net = self.create_empty_net()
         self.bus_map = {}
 
-        # Convert all entities to model variables
+        context = {"net": self.net}  # Store net in context
+        return effective_time_set, context
+
+    def _convert_entities(
+        self, model: Model, time_set: TimeSet, context: dict[str, any], **kwargs
+    ) -> pandapowerNet:
+        """
+        Convert all entities, with side effects populating self.net.
+
+        Returns self.net directly since pandapower uses mutation.
+        """
         for _, entity in model.entities.items():
             logger.info(f"Converting entity '{entity.id}'")
-            entity.convert(effective_time_set, self)
+            self.convert_entity(entity, time_set)
 
-        # Add time set information
-        self.net.time_set = effective_time_set
+        return self.net  # Return net (with side effects applied)
 
-        return self.net
+    def _finalize_result(
+        self, result: pandapowerNet, time_set: TimeSet, context: dict[str, any]
+    ) -> pandapowerNet:
+        """
+        Finalize by attaching time_set metadata to network.
+        """
+        result.time_set = time_set
+        return result
 
     def _convert_entity_default(
         self,
@@ -168,7 +166,7 @@ class PandapowerConverter(Converter):
         kwargs
             Internal options: 'entity_type', 'idx', and 'profile_type'.
         """
-        entity_type = kwargs.pop("entity_type")
+        entity_type = kwargs.pop("entity_type", None)
         idx = kwargs.pop("idx", 0)
         profile_type = kwargs.pop("profile_type", entity_type)
         for key, quantity in entity.quantities.items():

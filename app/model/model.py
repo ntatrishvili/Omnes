@@ -48,18 +48,41 @@ class Model:
             return self.entities[id]
         # Search recursively through sub-entities
         for entity in self.entities.values():
-            found = self._find_in_subentities(entity, id)
+            found = self.find_in_subentities(entity, id)
             if found is not None:
                 return found
         raise KeyError(f"Entity with id '{id}' not found in model '{self.id}'")
 
-    def _find_in_subentities(self, entity: Entity, id: str):
+    def _find_all_of_type_in_subentities_helper(self, entity: Entity, entity_type: str):
+        found = []
+        for sub in entity.sub_entities.values():
+            if isinstance(sub, entity_type):
+                found.append(sub.id)
+            found.extend(self._find_all_of_type_in_subentities_helper(sub, entity_type))
+        return found
+
+    def find_all_of_type_in_subentities(self, entity_type: str):
+        """
+        Find all sub-entities of a given type (e.g., PV, Load) in the model
+        entity_type: str - the type of entity to search for (e.g., "PV", "Load")
+        """
+        entity_type = globals().get(entity_type)
+        subentities_of_type = []
+        for entity in self.entities.values():
+            if isinstance(entity, entity_type):
+                subentities_of_type.append(entity.id)
+            subentities_of_type.extend(
+                self._find_all_of_type_in_subentities_helper(entity, entity_type)
+            )
+        return subentities_of_type
+
+    def find_in_subentities(self, entity: Entity, id: str):
         # Direct child
         if id in entity.sub_entities:
             return entity.sub_entities[id]
         # Recurse
         for sub in entity.sub_entities.values():
-            result = self._find_in_subentities(sub, id)
+            result = self.find_in_subentities(sub, id)
             if result is not None:
                 return result
         return None
@@ -122,12 +145,15 @@ class Model:
         log.info(f"Model built with {len(model.entities)} entities")
         return model
 
-    def convert(self, converter, time_set: int = None, new_freq: str = None):
+    def convert(self, converter, time_set: TimeSet = None, new_freq: str = None):
         """
         Convert the model to an optimization/simulation problem
         """
         log.info(f"Converting model with {time_set} steps and {new_freq} freq.")
         return converter.convert_model(self, time_set=time_set, new_freq=new_freq)
+
+    def convert_back(self, converter, data):
+        converter.convert_back(data, self)
 
     def __str__(self):
         """
