@@ -868,7 +868,7 @@ class Relation:
             self.expression = self.parse(self.raw_expr)
 
     def parse(self, expr: Union[str, Expression]) -> Expression:
-        """Parse the expression string into an Expression tree"""
+        """Parse a string expression into an Expression tree, or return an Expression input unchanged."""
         if isinstance(expr, Expression):
             return expr
         # For special expressions, handle them separately

@@ -1067,5 +1067,131 @@ class TestIfThenExpression(unittest.TestCase):
             expr.convert(Mock(), t=0)
 
 
+class TestExpressionBooleanPrevention(unittest.TestCase):
+    """Test that Expression.__bool__ and __len__ prevent truthiness evaluation."""
+
+    def test_entity_reference_bool_raises_typeerror(self):
+        """Test that bool(EntityReference(...)) raises TypeError"""
+        expr = EntityReference("battery.power")
+        with self.assertRaises(TypeError) as context:
+            bool(expr)
+
+        self.assertIn("cannot be used as booleans", str(context.exception))
+
+    def test_self_reference_bool_raises_typeerror(self):
+        """Test that bool(SelfReference(...)) raises TypeError"""
+        expr = SelfReference("power")
+        with self.assertRaises(TypeError) as context:
+            bool(expr)
+
+        self.assertIn("cannot be used as booleans", str(context.exception))
+
+    def test_literal_bool_raises_typeerror(self):
+        """Test that bool(Literal(...)) raises TypeError"""
+        expr = Literal(42)
+        with self.assertRaises(TypeError) as context:
+            bool(expr)
+
+        self.assertIn("cannot be used as booleans", str(context.exception))
+
+    def test_binary_expression_bool_raises_typeerror(self):
+        """Test that bool(BinaryExpression(...)) raises TypeError"""
+        expr = EntityReference("x") + 5
+        with self.assertRaises(TypeError) as context:
+            bool(expr)
+
+        self.assertIn("cannot be used as booleans", str(context.exception))
+
+    def test_if_conditional_with_expression_raises_typeerror(self):
+        """Test that using expression in if statement raises TypeError"""
+        expr = EntityReference("x") > 5
+        with self.assertRaises(TypeError):
+            if expr:
+                pass
+
+    def test_entity_reference_len_raises_typeerror(self):
+        """Test that len(EntityReference(...)) raises TypeError"""
+        expr = EntityReference("battery.power")
+        with self.assertRaises(TypeError) as context:
+            len(expr)
+
+        self.assertIn("truth value", str(context.exception).lower())
+
+    def test_while_loop_with_expression_raises_typeerror(self):
+        """Test that using expression in while loop raises TypeError"""
+        expr = EntityReference("sensor.value")
+        with self.assertRaises(TypeError):
+            while expr:
+                break
+
+    def test_not_operator_with_expression_raises_typeerror(self):
+        """Test that 'not expression' raises TypeError"""
+        expr = EntityReference("flag")
+        with self.assertRaises(TypeError):
+            not expr
+
+    def test_and_operator_with_expression_raises_typeerror(self):
+        """Test that 'expression and ...' raises TypeError"""
+        expr = EntityReference("x")
+        with self.assertRaises(TypeError):
+            expr and True
+
+    def test_or_operator_with_expression_raises_typeerror(self):
+        """Test that 'expression or ...' raises TypeError"""
+        expr = EntityReference("x")
+        with self.assertRaises(TypeError):
+            expr or False
+
+    def test_comparison_result_also_raises_typeerror(self):
+        """Test that results of comparison operations also raise TypeError in boolean context"""
+        comparison_expr = EntityReference("x") < 10
+        with self.assertRaises(TypeError):
+            bool(comparison_expr)
+
+    def test_arithmetic_result_also_raises_typeerror(self):
+        """Test that results of arithmetic operations also raise TypeError in boolean context"""
+        arithmetic_expr = EntityReference("x") * 2 + 5
+        with self.assertRaises(TypeError):
+            bool(arithmetic_expr)
+
+    def test_assignment_expression_bool_raises_typeerror(self):
+        """Test that bool(AssignmentExpression(...)) raises TypeError"""
+        # AssignmentExpression is created via string parsing or direct instantiation
+        expr = AssignmentExpression(EntityReference("output"), Literal(2))
+        with self.assertRaises(TypeError):
+            bool(expr)
+
+    def test_if_then_expression_bool_raises_typeerror(self):
+        """Test that bool(IfThenExpression(...)) raises TypeError"""
+        condition = EntityReference("x") > 0
+        consequence = Literal(1)
+        expr = IfThenExpression(condition, consequence)
+        with self.assertRaises(TypeError):
+            bool(expr)
+
+    def test_bool_error_message_explains_issue(self):
+        """Test that __bool__ error message explains the issue and suggests solution"""
+        expr = EntityReference("power")
+        try:
+            bool(expr)
+            self.fail("Expected TypeError")
+        except TypeError as e:
+            error_msg = str(e)
+            # Verify the error message is informative
+            self.assertIn("Expression", error_msg)
+            self.assertIn("cannot be used as booleans", error_msg)
+
+    def test_len_error_message_explains_issue(self):
+        """Test that __len__ error message explains the issue"""
+        expr = EntityReference("power")
+        try:
+            len(expr)
+            self.fail("Expected TypeError")
+        except TypeError as e:
+            error_msg = str(e)
+            # Verify the error message is informative
+            self.assertIn("truth value", error_msg.lower())
+
+
 if __name__ == "__main__":
     unittest.main()
