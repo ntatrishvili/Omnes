@@ -155,7 +155,9 @@ class Expression(ABC):
             return value
         if isinstance(value, (int, float, np.integer, np.floating)):
             return Literal(value.item() if hasattr(value, "item") else value)
-        return value
+        raise TypeError(
+            f"Unsupported operand type for Expression: {type(value).__name__}"
+        )
 
     def _binary_op(self, other: Any, operator: Operator) -> "BinaryExpression":
         return BinaryExpression(self, operator, self._coerce_operand(other))
@@ -200,14 +202,33 @@ class Expression(ABC):
         return self._binary_op(other, Operator.GREATER_THAN)
 
     def __eq__(self, other: Any):
-        if isinstance(other, Expression):
-            return self._binary_op(other, Operator.EQUAL)
-        return NotImplemented
+        return self._binary_op(other, Operator.EQUAL)
 
     def __ne__(self, other: Any):
-        if isinstance(other, Expression):
-            return self._binary_op(other, Operator.NOT_EQUAL)
-        return NotImplemented
+        return self._binary_op(other, Operator.NOT_EQUAL)
+
+    def __bool__(self) -> bool:
+        """
+        Prevent symbolic expressions from being used as booleans.
+
+        Expression comparisons build expression trees rather than yielding
+        concrete truth values, so boolean evaluation in Python conditionals
+        would otherwise silently behave as always truthy.
+        """
+        raise TypeError(
+            "Expression objects cannot be used as booleans. "
+            "Build relations with comparison operators and pass them to the "
+            "model, rather than using them in Python conditionals."
+        )
+
+    def __len__(self) -> int:
+        """
+        Prevent truth-value testing from falling back to __len__.
+        """
+        raise TypeError(
+            "Expression objects have no truth value. "
+            "Do not use symbolic expressions in boolean contexts."
+        )
 
     __hash__ = object.__hash__
 
