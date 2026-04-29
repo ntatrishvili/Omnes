@@ -182,6 +182,61 @@ class TestEntityReference(unittest.TestCase):
         self.assertEqual(ref.get_ids(), ["battery1.power"])
 
 
+class TestExpressionOperatorOverloads(unittest.TestCase):
+    def test_arithmetic_overloads_coerce_numeric_rhs_to_literal(self):
+        x = EntityReference("x")
+
+        cases = [
+            (x + 2, Operator.ADD),
+            (x - 2, Operator.SUBTRACT),
+            (x * 2, Operator.MULTIPLY),
+            (x / 2, Operator.DIVIDE),
+        ]
+
+        for expr, expected_op in cases:
+            self.assertIsInstance(expr, BinaryExpression)
+            self.assertEqual(expr.operator, expected_op)
+            self.assertIs(expr.left, x)
+            self.assertIsInstance(expr.right, Literal)
+            self.assertEqual(expr.right.value, 2)
+
+    def test_reverse_arithmetic_overloads_coerce_numeric_lhs_to_literal(self):
+        x = EntityReference("x")
+
+        cases = [
+            (2 + x, Operator.ADD),
+            (2 - x, Operator.SUBTRACT),
+            (2 * x, Operator.MULTIPLY),
+            (2 / x, Operator.DIVIDE),
+        ]
+
+        for expr, expected_op in cases:
+            self.assertIsInstance(expr, BinaryExpression)
+            self.assertEqual(expr.operator, expected_op)
+            self.assertIsInstance(expr.left, Literal)
+            self.assertEqual(expr.left.value, 2)
+            self.assertIs(expr.right, x)
+
+    def test_comparison_overloads_between_expressions(self):
+        x = EntityReference("x")
+        y = EntityReference("y")
+
+        cases = [
+            (x < y, Operator.LESS_THAN),
+            (x <= y, Operator.LESS_THAN_OR_EQUAL),
+            (x > y, Operator.GREATER_THAN),
+            (x >= y, Operator.GREATER_THAN_OR_EQUAL),
+            (x == y, Operator.EQUAL),
+            (x != y, Operator.NOT_EQUAL),
+        ]
+
+        for expr, expected_op in cases:
+            self.assertIsInstance(expr, BinaryExpression)
+            self.assertEqual(expr.operator, expected_op)
+            self.assertIs(expr.left, x)
+            self.assertIs(expr.right, y)
+
+
 class TestBinaryExpressionParsing(unittest.TestCase):
     def test_parse_simple_comparison(self):
         """Test parsing simple comparison expressions"""
