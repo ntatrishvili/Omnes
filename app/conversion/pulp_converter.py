@@ -69,6 +69,7 @@ class PulpConverter(Converter):
         self.__current_entity_id: Optional[str] = (
             None  # Track current entity being processed
         )
+        self._current_run_id: Optional[str] = None  # Track current run for reading aligned data
 
     def _register_converters(self):
         """
@@ -77,6 +78,30 @@ class PulpConverter(Converter):
         """
         # Intentionally empty - all entities use _convert_entity_default
         pass
+
+    def _prepare_conversion(self, model: Model, **kwargs) -> tuple[TimeSet, Dict[str, Any]]:
+        """
+        Prepare for conversion: extract run_id and call parent.
+        
+        Parameters
+        ----------
+        model : Model
+            The model to convert
+        **kwargs
+            Additional options, including optional 'run_id' parameter
+        
+        Returns
+        -------
+        tuple[TimeSet, Dict[str, Any]]
+            (effective_time_set, conversion_context)
+        """
+        # Extract and store run_id for use in convert_quantity
+        self._current_run_id = kwargs.pop("run_id", None)
+        if self._current_run_id:
+            log.debug(f"Using run_id: {self._current_run_id}")
+        
+        # Call parent implementation
+        return super()._prepare_conversion(model, **kwargs)
 
     def _convert_entity_default(
         self,
@@ -243,7 +268,8 @@ class PulpConverter(Converter):
 
         If the quantity is empty, create an empty pulp variable.
         If the quantity is a Parameter, return its value directly.
-        Otherwise, return the values resampled to the specified time range and frequency.
+        Otherwise, return the values resampled to the specified time range and frequency,
+        OR read from run.aligned if available and run_id is set.
 
         Parameters
         ----------
@@ -259,6 +285,8 @@ class PulpConverter(Converter):
         Union[List[pulp.LpVariable], Any]
             Either a list of PuLP variables (for empty quantities) or the quantity values
         """
+        from app.infra.timeseries_object import TimeseriesObject
+        
         if isinstance(quantity, Parameter):
             return quantity.value
         elif quantity.empty():
@@ -267,6 +295,14 @@ class PulpConverter(Converter):
             )
             return create_empty_pulp_var(name, len(normalized_time_range))
         else:
+            # If run_id is set and quantity has aligned data, use it instead of resampling
+            if self._current_run_id and isinstance(quantity, TimeseriesObject):
+                run = quantity.run(self._current_run_id)
+                if run.aligned is not None:
+                    # Use pre-resampled aligned data (avoids double resampling)
+                    return run.aligned
+            
+            # Otherwise, resample as normal
             # Extract time range and frequency from TimeSet
             time_range = time_set.number_of_time_steps if time_set else None
             freq = time_set.freq if time_set else None
@@ -741,3 +777,119 @@ class PulpConverter(Converter):
             log.info("No quantities to update in reverse conversion")
         
         return model
+
+    def extract_results_to_runs(
+        self, model: Model, problem: pulp.LpProblem, pulp_variables: dict, run_id: str, time_set: Optional[TimeSet] = None, **kwargs
+    ) -> None:
+        """Extract solved optimization values and store directly into model run data.
+        
+        Maps optimization results from flat PuLP variable format ('entity_id.qty_name_tX')
+        into TimeSeriesObject._runs[run_id].result.
+        
+        Parameters
+        ----------
+        model : Model
+            The model object containing TimeSeriesObjects
+        problem : pulp.LpProblem
+            The solved PuLP optimization problem
+        pulp_variables : dict
+            Dictionary mapping 'entity_id.quantity_name' to lists of PuLP variables
+        run_id : str
+            Unique identifier for this run
+        time_set : TimeSet, optional
+            TimeSet object containing time configuration. If not provided, uses
+            model.time_set. Must have 'time_points' attribute.
+        **kwargs
+            Additional parameters (unused)
+        
+        Raises
+        ------
+        ValueError
+            If time_set is missing or invalid
+        """
+        from app.infra.timeseries_object import TimeseriesObject
+        
+        log.info(f"Extracting results to run {run_id}")
+        
+        # Validate and extract time_set
+        time_set = time_set or model.time_set
+        if not hasattr(time_set, "time_points"):
+            raise ValueError("time_set must have 'time_points' attribute")
+        
+        num_time_steps = len(time_set.time_points)
+        
+        # Extract variables to update from problem
+        modified_variables = {}
+        for variable in problem.variables():
+            try:
+                entity_id, qty_name = self._extract_entity_quantity_names(variable.name)
+                # Skip non-variable entries (e.g., constraint names without '.' separation)
+                if entity_id and qty_name:
+                    modified_variables[f"{entity_id}.{qty_name}"] = (
+                        entity_id,
+                        qty_name,
+                    )
+            except (IndexError, ValueError) as e:
+                log.debug(f"Skipped variable '{variable.name}': {e}")
+                continue
+        
+        log.debug(f"Found {len(modified_variables)} variables to update")
+        
+        # Extract and store results in TimeSeriesObject._runs
+        updated_count = 0
+        failed_count = 0
+        
+        for full_name, (entity_id, qty_name) in modified_variables.items():
+            try:
+                # Retrieve entity from model
+                entity = model[entity_id]
+                
+                # Check if quantity exists
+                if qty_name not in entity.quantities:
+                    log.warning(
+                        f"Quantity '{qty_name}' not found in entity '{entity_id}'"
+                    )
+                    failed_count += 1
+                    continue
+                
+                quantity = entity.quantities[qty_name]
+                
+                # Only store results for TimeSeriesObjects
+                if not isinstance(quantity, TimeseriesObject):
+                    log.debug(f"Skipping non-TimeSeries quantity '{full_name}'")
+                    continue
+                
+                # Extract optimization values for all time steps
+                if full_name not in pulp_variables:
+                    log.warning(f"Variable '{full_name}' not in optimization results")
+                    failed_count += 1
+                    continue
+                
+                optimized_values = [
+                    pulp.value(pulp_variables[full_name][t])
+                    for t in range(num_time_steps)
+                ]
+                
+                # Store results in run data (not in raw quantity)
+                run = quantity.run(run_id)
+                run.result = optimized_values
+                log.debug(f"Stored result for '{full_name}' ({num_time_steps} steps) in run {run_id}")
+                updated_count += 1
+                
+            except KeyError as e:
+                log.warning(f"Entity '{entity_id}' not found in model: {e}")
+                failed_count += 1
+            except (IndexError, TypeError) as e:
+                log.warning(f"Failed to extract values for '{full_name}': {e}")
+                failed_count += 1
+        
+        # Log summary
+        total = updated_count + failed_count
+        if total > 0:
+            success_rate = 100 * updated_count / total
+            log.info(
+                f"Results extraction complete: {updated_count}/{total} quantities stored "
+                f"({success_rate:.0f}% success) in run {run_id}"
+            )
+        else:
+            log.info("No quantities to extract in results extraction")
