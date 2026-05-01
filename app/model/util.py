@@ -23,11 +23,9 @@ def create_default_quantity(value):
 
 
 class InitializingMeta(type):
-    """
-    Metaclass that converts default_ class members into Parameter/TimeseriesObject
-    at class creation time. Does not interfere with instance initialization.
+    """Metaclass that converts default_ class attributes into quantities.
 
-    Fields listed in _quantity_excludes are left as plain values.
+    Attributes named in ``_quantity_excludes`` are left unchanged.
     """
 
     def __new__(mcs, name, bases, namespace):

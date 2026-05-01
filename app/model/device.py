@@ -1,3 +1,5 @@
+"""Base device types shared by model entities."""
+
 from enum import Enum
 from typing import Optional
 
@@ -16,6 +18,15 @@ class Vector(Enum):
 
 
 class Device(Entity):
+    """Base class for model devices attached to a bus.
+
+    Attributes:
+        default_vector: Default energy vector used for the device.
+        default_contributes_to: Default balance key the device contributes to.
+        bus: Bus identifier or bus entity assigned to the device.
+        tags: Free-form metadata tags, including vector information.
+    """
+
     _quantity_excludes = ["default_vector", "default_contributes_to"]
 
     default_vector: Optional[Vector] = Vector.INVALID

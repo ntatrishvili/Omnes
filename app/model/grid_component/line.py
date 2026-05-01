@@ -10,6 +10,22 @@ from app.model.grid_component.connector import Connector
 
 
 class Line(Connector):
+    """Transmission or distribution line between two buses.
+
+    Attributes:
+        default_line_length: Default physical length of the line.
+        default_resistance: Default series resistance.
+        default_reactance: Default series reactance.
+        default_max_current: Default current limit.
+        default_capacitance: Default shunt capacitance.
+        current: Line current time series.
+        line_length: Physical line length.
+        resistance: Series resistance.
+        reactance: Series reactance.
+        max_current: Current limit.
+        capacitance: Shunt capacitance.
+    """
+
     default_line_length: Optional[float] = None
     default_resistance: Optional[float] = None
     default_reactance: Optional[float] = None
