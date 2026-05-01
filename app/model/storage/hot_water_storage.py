@@ -1,3 +1,5 @@
+"""Hot water storage model for thermal energy buffering."""
+
 from typing import Optional
 
 from app.infra.parameter import Parameter

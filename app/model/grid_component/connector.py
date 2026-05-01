@@ -8,6 +8,13 @@ from app.model.grid_component.grid_component import GridComponent
 
 
 class Connector(GridComponent):
+    """Grid component that connects two buses.
+
+    Attributes:
+        from_bus: Source bus identifier or bus entity.
+        to_bus: Target bus identifier or bus entity.
+    """
+
     def __init__(
         self,
         id: Optional[str] = None,

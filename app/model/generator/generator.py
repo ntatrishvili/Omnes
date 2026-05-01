@@ -1,3 +1,5 @@
+"""Generator base class for production devices."""
+
 from typing import Optional
 
 from app.infra.parameter import Parameter
@@ -10,6 +12,19 @@ from app.model.device import Device, Vector
 
 
 class Generator(Device):
+    """Base class for devices that produce electrical power.
+
+    Attributes:
+        default_vector: Default energy vector used by the generator.
+        default_contributes_to: Default balance key the generator contributes to.
+        default_peak_power: Default peak power rating.
+        default_efficiency: Default efficiency.
+        p_out: Active power output time series.
+        q_out: Reactive power output time series.
+        peak_power: Peak power rating.
+        efficiency: Conversion efficiency.
+    """
+
     default_vector = Vector.ELECTRICITY
     default_contributes_to = "electric_power_balance"
     default_peak_power = 0

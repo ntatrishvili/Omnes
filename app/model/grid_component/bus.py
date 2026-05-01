@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 class BusType(Enum):
+    """Bus classification used for power-flow calculations."""
+
     PQ = "PQ"
     I = "I"
     Z = "Z"
@@ -21,6 +23,16 @@ class BusType(Enum):
 
 
 class Bus(GridComponent):
+    """Electrical bus node in the grid.
+
+    Attributes:
+        default_nominal_voltage: Default nominal voltage.
+        default_type: Default bus type.
+        voltage: Bus voltage time series.
+        nominal_voltage: Nominal bus voltage.
+        type: Bus classification.
+    """
+
     _quantity_excludes = ["default_type"]
     default_nominal_voltage: Optional[float] = None
     default_type: Optional[BusType] = BusType.PQ.value
