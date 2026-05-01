@@ -1,3 +1,5 @@
+"""Grid component base class for buses, lines and transformers."""
+
 from typing import Optional
 
 from app.infra.quantity_factory import (

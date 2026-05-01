@@ -1,3 +1,5 @@
+"""Photovoltaic generator model."""
+
 from typing import Optional
 
 from app.infra.quantity_factory import (
@@ -8,6 +10,13 @@ from app.model.generator.generator import Generator
 
 
 class PV(Generator):
+    """Photovoltaic generator.
+
+    Attributes:
+        p_out: Active power output time series.
+        q_out: Reactive power output time series.
+    """
+
     def __init__(
         self,
         id: Optional[str] = None,

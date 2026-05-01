@@ -1,3 +1,5 @@
+"""Top-level model container and build helpers."""
+
 import secrets
 from typing import Optional
 

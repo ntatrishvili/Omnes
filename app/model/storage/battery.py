@@ -1,3 +1,5 @@
+"""Battery storage model."""
+
 from typing import Optional
 
 from ...infra.quantity_factory import (
@@ -9,6 +11,13 @@ from .storage import Storage
 
 
 class Battery(Storage):
+    """Battery storage device for electrical energy.
+
+    Attributes:
+        default_vector: Default energy vector used by the battery.
+        default_contributes_to: Default balance key the battery contributes to.
+    """
+
     default_vector = Vector.ELECTRICITY
     default_contributes_to = "electric_power_balance"
 

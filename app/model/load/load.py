@@ -1,3 +1,5 @@
+"""Load model for electricity consumption devices."""
+
 from typing import Optional
 
 from app.infra.parameter import Parameter
@@ -10,6 +12,16 @@ from app.model.device import Device, Vector
 
 
 class Load(Device):
+    """Electric load that consumes active and reactive power.
+
+    Attributes:
+        default_vector: Default energy vector used by the load.
+        default_contributes_to: Default balance key the load contributes to.
+        p_cons: Active power consumption time series.
+        q_cons: Reactive power consumption time series.
+        nominal_power: Rated power of the load.
+    """
+
     default_vector = Vector.ELECTRICITY
     default_contributes_to = "electric_power_balance"
 

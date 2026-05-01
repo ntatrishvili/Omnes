@@ -1,3 +1,5 @@
+"""Storage base class for buffered energy devices."""
+
 from typing import Optional
 
 from app.infra.parameter import Parameter
@@ -11,6 +13,21 @@ from app.model.device import Device
 
 
 class Storage(Device):
+    """Base class for devices that store and release energy.
+
+    Attributes:
+        default_capacity: Default storage capacity.
+        default_max_charge_rate: Default charging rate.
+        default_max_discharge_rate: Default discharging rate.
+        default_charge_efficiency: Default charging efficiency.
+        default_discharge_efficiency: Default discharging efficiency.
+        default_storage_efficiency: Default overall storage efficiency.
+        default_state_of_charge: Default state of charge.
+        p_in: Charging power time series.
+        p_out: Discharging power time series.
+        e_stor: Stored energy time series.
+    """
+
     # These default members are initialized via an overloaded '=' operator,
     # so their effective runtime type is Quantity even when assigned scalar defaults.
     default_capacity: Optional[Quantity] = None

@@ -1,3 +1,5 @@
+"""Slack device model used for balancing power flows."""
+
 from typing import Optional
 
 from app.infra.quantity_factory import (
@@ -9,6 +11,13 @@ from app.model.device import Device
 
 
 class Slack(Device):
+    """Balancing device that tracks net in- and out-flow.
+
+    Attributes:
+        p_in: Incoming power time series.
+        p_out: Outgoing power time series.
+    """
+
     def __init__(
         self,
         id: Optional[str] = None,

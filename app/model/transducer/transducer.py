@@ -1,3 +1,5 @@
+"""Energy transducer model for coupled input and output devices."""
+
 from typing import Optional
 
 from app.infra.parameter import Parameter
@@ -10,6 +12,19 @@ from app.model.device import Device
 
 
 class Transducer(Device):
+    """Device that converts power between an input and output device.
+
+    Attributes:
+        default_conversion_efficiency: Default conversion efficiency.
+        default_controllable: Whether the transducer is controllable by default.
+        input_device: Source device identifier or device instance.
+        output_device: Target device identifier or device instance.
+        p_in: Input power time series.
+        p_out: Output power time series.
+        controllable: Control flag time series.
+        conversion_efficiency: Conversion efficiency parameter.
+    """
+
     default_conversion_efficiency: Optional[float] = None
     default_controllable = True
 
