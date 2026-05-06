@@ -857,6 +857,19 @@ class AssignmentExpression(Expression):
         return target_ids + value_ids
 
 
+# --- Convenience factory for self-references ---
+
+
+def Own(property_name: str, t: int = 0) -> SelfReference:
+    """Convenience factory for self references.
+
+    Use Own("power") instead of the string "$.power" when building
+    expressions programmatically. The returned object is a SelfReference
+    instance with the given property name and optional time offset.
+    """
+    return SelfReference(property_name, t)
+
+
 class Relation:
     def __init__(self, raw_expr: Union[str, Expression], name: str = None):
         self.name = name if name else f"{uuid.uuid4().hex}"
