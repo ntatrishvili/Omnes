@@ -8,6 +8,14 @@ from pandas import DataFrame
 from app.infra.quantity import Quantity
 
 
+class RunData:
+    """Container for data specific to one optimization run."""
+    def __init__(self):
+        self.aligned = None      # Resampled data (TimeSet-aligned)
+        self.result = None       # Optimization results (same shape as aligned)
+        self._vars = None        # Solver variables (temporary, MUST be cleared)
+
+
 def _infer_freq_from_two_dates(data: xr.DataArray) -> str:
     """Infer timeseries frequency from first two timestamps.
 
@@ -56,6 +64,7 @@ class TimeseriesObject(Quantity):
         super().__init__(**kwargs)
 
         self.freq = None
+        self._runs: Dict[str, RunData] = {}  # run_id → RunData
 
         params = self._extract_init_parameters(kwargs)
 
@@ -68,6 +77,31 @@ class TimeseriesObject(Quantity):
         params = self._extract_init_parameters(kwargs)
         self.data = self._initialize_data_array(params)
         self.freq = self._initialize_frequency(params.get("freq", None))
+
+    def run(self, run_id: str) -> RunData:
+        """Get or create RunData for this run.
+        
+        :param str run_id: Unique identifier for this optimization run
+        :returns RunData: Container for run-specific data
+        """
+        if run_id not in self._runs:
+            self._runs[run_id] = RunData()
+        return self._runs[run_id]
+
+    def clear_run(self, run_id: str) -> None:
+        """Clean up run data (use after optimization complete).
+        
+        :param str run_id: Unique identifier for the run to clear
+        """
+        if run_id in self._runs:
+            del self._runs[run_id]
+
+    def list_runs(self) -> List[str]:
+        """For debugging: show which runs have data.
+        
+        :returns List[str]: List of run IDs with stored data
+        """
+        return list(self._runs.keys())
 
     def _convert_time_set_to_params(self, time_set, kwargs):
         return {

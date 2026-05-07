@@ -1,4 +1,3 @@
-from app.conversion.pulp_converter import PulpConverter
 from app.infra.logging_setup import init_logging
 from app.infra.relation import Relation
 from app.model.generator.pv import PV
@@ -11,7 +10,7 @@ from app.model.slack import Slack
 from app.model.storage.battery import Battery
 from app.model.storage.hot_water_storage import HotWaterStorage
 from app.model.transducer.transducer import Transducer
-from app.operation.example_optimization import optimize_energy_system
+from app.operation.example_optimization import optimize_energy_system_pulp
 
 init_logging()
 
@@ -248,5 +247,4 @@ model = Model(
 )
 
 number_of_time_steps = model.number_of_time_steps
-problem = PulpConverter().convert_model(model)
-optimize_energy_system(**problem)
+vals = optimize_energy_system_pulp(model=model)
