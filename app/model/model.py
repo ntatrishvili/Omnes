@@ -152,8 +152,8 @@ class Model:
         log.info(f"Converting model with {time_set} steps and {new_freq} freq.")
         return converter.convert_model(self, time_set=time_set, new_freq=new_freq)
 
-    def convert_back(self, converter, data):
-        converter.convert_back(data, self)
+    def convert_back(self, converter, *args, **kwargs):
+        converter.convert_back(self, *args, **kwargs)
 
     def __str__(self):
         """

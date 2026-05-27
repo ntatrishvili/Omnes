@@ -247,4 +247,4 @@ model = Model(
 )
 
 number_of_time_steps = model.number_of_time_steps
-vals = optimize_energy_system_pulp(model=model)
+optimized_model = optimize_energy_system_pulp(model=model)

@@ -413,7 +413,7 @@ class Converter(object):
         )
 
     @abstractmethod
-    def convert_back(self, result_dict: Dict[str, Any], model: Model, **kwargs) -> None:
+    def convert_back(self, model: Model, **kwargs) -> None:
         """
         Generic reverse conversion from results to model.
         Subclasses can override for specialized behavior.

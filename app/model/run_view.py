@@ -81,11 +81,11 @@ class RunView:
     with automatic fallback to optimization results, aligned data, or raw data.
     """
     
-    def __init__(self, model: "Model", run_id: str):
+    def __init__(self, model: "Model", run_id: str, time_set=None):
         self.model = model
         self.run_id = run_id
         self.id = model.id  # Pass through
-        self.time_set = model.time_set #TODO: get correct timeset for run
+        self.time_set = time_set if time_set is not None else model.time_set
         self.entities = {
             e_id: EntityRunView(entity, run_id)
             for e_id, entity in model.entities.items()
@@ -109,4 +109,4 @@ class RunView:
         """
         if name in self.entities:
             return self.entities[name]
-        raise AttributeError(f"Entity '{name}' not in model")
+        return self.model.__getattribute__(name)
