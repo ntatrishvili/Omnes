@@ -19,26 +19,26 @@ def test_runview():
     print(f"RunView entities: {list(opt_view.entities.keys())}")
     
     # Test accessing PV entity
-    print(f"\nAccessing opt_view.pv1...")
+    print("\nAccessing opt_view.pv1...")
     pv1 = opt_view.pv1
     print(f"  Type: {type(pv1)}")
     print(f"  ID: {pv1.id}")
     print(f"  Quantities: {list(pv1.entity.quantities.keys())}")
     
     # Test accessing a quantity
-    print(f"\nAccessing opt_view.pv1.p_out...")
+    print("\nAccessing opt_view.pv1.p_out...")
     p_out_view = pv1.p_out
     print(f"  Type: {type(p_out_view)}")
     
     # Test getting value
-    print(f"\nAccessing opt_view.pv1.p_out.value...")
+    print("\nAccessing opt_view.pv1.p_out.value...")
     value = p_out_view.value
     print(f"  Type: {type(value)}")
     print(f"  Shape: {value.shape if hasattr(value, 'shape') else len(value)}")
     print(f"  First 5 values: {value[:5] if hasattr(value, '__getitem__') else 'N/A'}")
     
     # Compare with raw model
-    print(f"\nComparing with raw model...")
+    print("\nComparing with raw model...")
     raw_value = model.pv1.p_out.value()
     print(f"  Raw value shape: {raw_value.shape if hasattr(raw_value, 'shape') else len(raw_value)}")
     print(f"  Raw first 5 values: {raw_value[:5]}")
@@ -49,9 +49,9 @@ def test_runview():
         are_same = np.allclose(value, raw_value)
         print(f"\n  Optimized == Raw? {are_same}")
         if not are_same:
-            print(f"  ✅ Values are DIFFERENT (expected - optimization changed them)")
+            print("  ✅ Values are DIFFERENT (expected - optimization changed them)")
         else:
-            print(f"  ⚠️  Values are SAME (unexpected)")
+            print("  ⚠️  Values are SAME (unexpected)")
     
     print("\n✅ RunView test PASSED")
     return True

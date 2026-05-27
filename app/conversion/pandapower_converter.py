@@ -12,7 +12,7 @@ Notes
 - Time series values are expected in kW and are converted to MW where needed.
 """
 
-from typing import Optional
+from typing import Any, Optional
 
 import pandapower as pp
 from numpy import ndarray
@@ -107,7 +107,7 @@ class PandapowerConverter(Converter):
 
     def _prepare_conversion(
         self, model: Model, **kwargs
-    ) -> tuple[TimeSet, dict[str, any]]:
+    ) -> tuple[TimeSet, dict[str, Any]]:
         """
         Prepare pandapower conversion by resetting network state.
         """
@@ -122,7 +122,7 @@ class PandapowerConverter(Converter):
         return effective_time_set, context
 
     def _convert_entities(
-        self, model: Model, time_set: TimeSet, context: dict[str, any], **kwargs
+        self, model: Model, time_set: TimeSet, context: dict[str, Any], **kwargs
     ) -> pandapowerNet:
         """
         Convert all entities, with side effects populating self.net.
@@ -136,7 +136,7 @@ class PandapowerConverter(Converter):
         return self.net  # Return net (with side effects applied)
 
     def _finalize_result(
-        self, result: pandapowerNet, time_set: TimeSet, context: dict[str, any]
+        self, result: pandapowerNet, time_set: TimeSet, context: dict[str, Any]
     ) -> pandapowerNet:
         """
         Finalize by attaching time_set metadata to network.
