@@ -747,7 +747,9 @@ class PulpConverter(Converter):
 
                 # Extract optimization values for all time steps
                 if full_name not in pulp_variables:
-                    log.warning(f"Variable '{full_name}' not in optimization results")
+                    log.warning(
+                        f"Variable '{full_name}' not found in optimization results"
+                    )
                     failed_count += 1
                     continue
 
