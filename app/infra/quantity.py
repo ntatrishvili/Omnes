@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 
 class Direction:
@@ -8,10 +9,15 @@ class Direction:
 
 class RunData:
     """Container for data specific to one optimization run."""
+
     def __init__(self):
-        self.aligned = None      # Resampled data (TimeSet-aligned)
-        self.result = None       # Optimization results (same shape as aligned)
-        self._vars = None        # Solver variables (temporary, MUST be cleared)
+        self.aligned = None  # Resampled data (TimeSet-aligned)
+        self.result = None  # Optimization results (same shape as aligned)
+        self._vars: dict[str, Any] = {}  # Solver variables (temporary, MUST be cleared)
+
+    def add_var(self, name, value):
+        """Store solver variable(s) for this run."""
+        self._vars[name] = value
 
 
 class Quantity(ABC):
@@ -41,10 +47,9 @@ class Quantity(ABC):
     def set_value(self, value, **kwargs):
         return self.set(value, **kwargs)
 
-
     def run(self, run_id: str) -> RunData:
         """Get or create RunData for this run.
-        
+
         :param str run_id: Unique identifier for this optimization run
         :returns RunData: Container for run-specific data
         """
@@ -54,7 +59,7 @@ class Quantity(ABC):
 
     def clear_run(self, run_id: str) -> None:
         """Clean up run data (use after optimization complete).
-        
+
         :param str run_id: Unique identifier for the run to clear
         """
         if run_id in self._runs:
@@ -62,7 +67,7 @@ class Quantity(ABC):
 
     def list_runs(self) -> list[str]:
         """For debugging: show which runs have data.
-        
+
         :returns list[str]: List of run IDs with stored data
         """
         return list(self._runs.keys())

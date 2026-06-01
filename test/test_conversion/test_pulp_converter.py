@@ -1,11 +1,11 @@
 import unittest
-from unittest.mock import Mock
-
 import numpy as np
 import pulp
+import warnings
+from unittest.mock import Mock
 
 from app.conversion.pulp_converter import PulpConverter, create_empty_pulp_var
-from app.infra.quantity import Quantity
+from app.infra.quantity import Quantity, RunData
 from app.infra.parameter import Parameter
 from app.infra.relation import (
     EntityReference,
@@ -14,6 +14,12 @@ from app.infra.relation import (
     Relation,
     AssignmentExpression,
 )
+from app.model.entity import Entity
+from app.model.model import Model
+from app.infra.util import TimeSet
+from app.infra.util import TimesetBuilder
+import pandas as pd
+from app.infra.timeseries_object import TimeseriesObject
 
 
 class TestCreateEmptyPulpVar(unittest.TestCase):
@@ -35,19 +41,18 @@ class TestPulpConverter(unittest.TestCase):
 
     def test_convert_quantity_empty(self):
         """Test converting empty quantity"""
-        from app.infra.util import TimeSet
-
-        mock_quantity = Mock()
-        mock_quantity.empty.return_value = True
-
         # Create a TimeSet with 3 time steps
         time_set = TimeSet(
-            start=None,
-            end=None,
-            resolution="1H",
+            start="2024-01-01 00:00",
+            end="2024-01-01 02:00",
+            resolution="1h",
             number_of_time_steps=3,
-            time_points=None,
+            time_points=pd.date_range(start="2024-01-01 00:00", periods=3, freq="1h"),
         )
+        mock_quantity = Mock(spec=Quantity)
+        mock_quantity.empty.return_value = True
+        mock_quantity.run.return_value = RunData()
+
         result = self.converter.convert_quantity(
             mock_quantity, "test_name", time_set=time_set
         )
@@ -67,7 +72,6 @@ class TestPulpConverter(unittest.TestCase):
 
     def test_convert_quantity_regular(self):
         """Test converting regular quantity"""
-        from app.infra.util import TimeSet
 
         mock_quantity = Mock(spec=Quantity)
         mock_quantity.empty.return_value = False
@@ -314,7 +318,6 @@ class TestDynamicConstraintBuilding(unittest.TestCase):
         self.assertIn("not found", str(context.exception))
 
         # Test != operator (now supported with warning)
-        import warnings
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -532,10 +535,6 @@ class TestComprehensiveCoverage(unittest.TestCase):
 
     def test_convert_model_comprehensive(self):
         """Test convert_model with various scenarios to improve coverage"""
-        from app.infra.util import TimesetBuilder, TimeSet
-        from app.model.entity import Entity
-        from app.model.model import Model
-        import pandas as pd
 
         # Create a dummy timeset builder for testing
         class DummyTimesetBuilder(TimesetBuilder):
@@ -556,7 +555,6 @@ class TestComprehensiveCoverage(unittest.TestCase):
         model = Model(id="test_model", timeset_builder=dummy_builder)
 
         entity = Entity(id="test_entity")
-        from app.infra.timeseries_object import TimeseriesObject
 
         entity.quantities["power"] = TimeseriesObject(name="power", data=[])
         model.entities = {entity.id: entity}
@@ -581,7 +579,6 @@ class TestComprehensiveCoverage(unittest.TestCase):
 
     def test_convert_entity_reference_edge_cases(self):
         """Test edge cases in convert_entity_reference"""
-        from app.infra.relation import EntityReference
 
         # Test with negative time offset resulting in negative actual_time
         entity_ref = EntityReference(entity_id="test", time_offset=-2)
@@ -689,7 +686,6 @@ class TestComprehensiveCoverage(unittest.TestCase):
 
     def test_create_empty_pulp_var_function(self):
         """Test the standalone create_empty_pulp_var function"""
-        from app.conversion.pulp_converter import create_empty_pulp_var
 
         vars_list = create_empty_pulp_var("test_var", 4)
         self.assertEqual(len(vars_list), 4)
@@ -700,7 +696,6 @@ class TestComprehensiveCoverage(unittest.TestCase):
 
     def test_assignment_expression(self):
         """Test AssignmentExpression conversion to equality constraint"""
-        from app.infra.relation import EntityReference, Literal
 
         time_steps = 3
         battery_power = [pulp.LpVariable(f"battery_{t}") for t in range(time_steps)]
@@ -721,9 +716,6 @@ class TestConvertBack(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        from app.model.entity import Entity
-        from app.model.model import Model
-        from app.infra.util import TimeSet
 
         self.converter = PulpConverter()
         self.entity = Entity(id="battery1")
@@ -736,14 +728,14 @@ class TestConvertBack(unittest.TestCase):
             end=None,
             resolution="1h",
             number_of_time_steps=3,
-            time_points=["2024-01-01 00:00", "2024-01-01 01:00", "2024-01-01 02:00"],
+            time_points=pd.date_range(start="2024-01-01 00:00", periods=3, freq="1h"),
         )
         self.model.time_set = self.time_set
 
     def test_convert_back_basic_update(self):
         """Test that convert_back finds entities and updates quantities with actual values"""
         # Create mock quantities and set them in entity
-        qty = Mock(spec=Quantity)
+        qty = TimeseriesObject(data=[0, 0, 0], time_set=self.time_set)
         self.entity.quantities["power"] = qty
 
         # Create mock PuLP variables with correct naming format: entity_id.qty_name_tX
@@ -757,14 +749,16 @@ class TestConvertBack(unittest.TestCase):
 
         pulp_variables = {"battery1.power": pulp_vars}
 
+        run_id = "test_run"
         self.converter.convert_back(
-            self.model, problem, pulp_variables, time_set=self.time_set
+            self.model,
+            problem,
+            pulp_variables,
+            time_set=self.time_set,
+            run_id=run_id,
         )
 
-        # Verify set_value was called with correct arguments
-        qty.set_value.assert_called_once()
-        args, kwargs = qty.set_value.call_args
-        np.testing.assert_array_equal(args[0], [100, 110, 120])
+        self.assertEqual(qty.run(run_id).result, [100, 110, 120])
 
     def test_convert_back_missing_entity_warning(self):
         """Test that convert_back logs warning and continues on missing entity"""
@@ -783,7 +777,11 @@ class TestConvertBack(unittest.TestCase):
 
         # Should not raise, but log warning
         self.converter.convert_back(
-            self.model, problem, pulp_variables, time_set=self.time_set
+            self.model,
+            problem,
+            pulp_variables,
+            time_set=self.time_set,
+            run_id="test_run",
         )
 
         # set_value should not be called for missing entity
@@ -806,7 +804,11 @@ class TestConvertBack(unittest.TestCase):
 
         # Should not raise, but log warning
         self.converter.convert_back(
-            self.model, problem, pulp_variables, time_set=self.time_set
+            self.model,
+            problem,
+            pulp_variables,
+            time_set=self.time_set,
+            run_id="test_run",
         )
 
         # set_value should not be called for missing quantity
@@ -828,7 +830,11 @@ class TestConvertBack(unittest.TestCase):
 
         # Should not raise, but log warning
         self.converter.convert_back(
-            self.model, problem, pulp_variables, time_set=self.time_set
+            self.model,
+            problem,
+            pulp_variables,
+            time_set=self.time_set,
+            run_id="test_run",
         )
 
         qty.set_value.assert_not_called()
@@ -848,19 +854,18 @@ class TestConvertBack(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             self.converter.convert_back(
-                self.model, problem, {}, time_set=invalid_time_set
+                self.model, problem, {}, time_set=invalid_time_set, run_id="test_run"
             )
 
     def test_convert_back_multiple_entities_and_quantities(self):
         """Test convert_back with multiple entities and quantities"""
-        from app.model.entity import Entity
 
         entity2 = Entity(id="pv1")
         self.model.add_entity(entity2)
 
-        qty1 = Mock(spec=Quantity)
-        qty2 = Mock(spec=Quantity)
-        qty3 = Mock(spec=Quantity)
+        qty1 = TimeseriesObject(data=[0, 0, 0], time_set=self.time_set)
+        qty2 = TimeseriesObject(data=[0, 0, 0], time_set=self.time_set)
+        qty3 = TimeseriesObject(data=[0, 0, 0], time_set=self.time_set)
 
         self.entity.quantities["power"] = qty1
         self.entity.quantities["energy"] = qty2
@@ -890,15 +895,18 @@ class TestConvertBack(unittest.TestCase):
             "battery1.energy": pulp_vars_energy,
             "pv1.irradiance": pulp_vars_irr,
         }
-
+        run_id = "test_run"
         self.converter.convert_back(
-            self.model, problem, pulp_variables, time_set=self.time_set
+            self.model, problem, pulp_variables, time_set=self.time_set, run_id=run_id
         )
 
-        # Verify all quantities were updated
-        self.assertEqual(qty1.set_value.call_count, 1)
-        self.assertEqual(qty2.set_value.call_count, 1)
-        self.assertEqual(qty3.set_value.call_count, 1)
+        # Verify all quantities were updated through their run data objects
+        for quantity, expected_values in [
+            (qty1, [10, 11, 12]),
+            (qty2, [100, 110, 120]),
+            (qty3, [500, 510, 520]),
+        ]:
+            self.assertEqual(quantity.run(run_id).result, expected_values)
 
 
 if __name__ == "__main__":

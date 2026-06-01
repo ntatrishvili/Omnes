@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
+import numpy as np
 import pulp
 
 from app.conversion.conversion_utils import (
@@ -69,7 +70,6 @@ class PulpConverter(Converter):
         self.__current_entity_id: Optional[str] = (
             None  # Track current entity being processed
         )
-        self._current_run_id: Optional[str] = None  # Track current run for reading aligned data
 
     def _register_converters(self):
         """
@@ -78,30 +78,6 @@ class PulpConverter(Converter):
         """
         # Intentionally empty - all entities use _convert_entity_default
         pass
-
-    def _prepare_conversion(self, model: Model, **kwargs) -> tuple[TimeSet, Dict[str, Any]]:
-        """
-        Prepare for conversion: extract run_id and call parent.
-        
-        Parameters
-        ----------
-        model : Model
-            The model to convert
-        **kwargs
-            Additional options, including optional 'run_id' parameter
-        
-        Returns
-        -------
-        tuple[TimeSet, Dict[str, Any]]
-            (effective_time_set, conversion_context)
-        """
-        # Extract and store run_id for use in convert_quantity
-        self._current_run_id = kwargs.pop("run_id", None)
-        if self._current_run_id:
-            log.debug(f"Using run_id: {self._current_run_id}")
-        
-        # Call parent implementation
-        return super()._prepare_conversion(model, **kwargs)
 
     def _convert_entity_default(
         self,
@@ -205,6 +181,12 @@ class PulpConverter(Converter):
         )  # Remove from kwargs to avoid duplicate args
         effective_time_set = extract_effective_time_properties(model, time_set)
 
+        # Extract and store run_id for use in convert_quantity
+        current_run_id = kwargs.pop("run_id", None)
+        if current_run_id:
+            self._current_run_id = current_run_id
+            log.debug(f"Using run_id: {self._current_run_id}")
+
         # Reset state for new conversion
         self.__objects = {}
         self.__current_entity_id = None
@@ -286,26 +268,30 @@ class PulpConverter(Converter):
             Either a list of PuLP variables (for empty quantities) or the quantity values
         """
         from app.infra.timeseries_object import TimeseriesObject
-        
+
         run = quantity.run(self._current_run_id)
 
         if isinstance(quantity, Parameter):
             return quantity.value
 
         if quantity.empty():
-            # Create a rundata, with correct id and store empty vars in self._vars
             normalized_time_range = validate_and_normalize_time_range(
                 time_set, self.DEFAULT_TIME_RANGE_SIZE
             )
-            return create_empty_pulp_var(name, len(normalized_time_range))
-        
-        if  isinstance(quantity, TimeseriesObject):
+            run.add_var(name, create_empty_pulp_var(name, len(normalized_time_range)))
+            log.debug(
+                f"Created empty variable '{name}' with {len(normalized_time_range)} time steps for run_id '{self._current_run_id}'"
+            )
+            return run._vars[name]
+
+        if isinstance(quantity, TimeseriesObject):
             if run.aligned is not None:
                 # Use pre-resampled aligned data (avoids double resampling)
                 return run.aligned
-        
-        # Otherwise, resample as normal TODO: remove this
-        # Extract time range and frequency from TimeSet
+
+        log.warning(
+            f"Quantity '{name}' is not empty but has no aligned data for run_id '{self._current_run_id}'. Attempting to resample raw data."
+        )
         time_range = time_set.number_of_time_steps if time_set else None
         freq = time_set.freq if time_set else None
         return quantity.value(time_set=time_range, freq=freq)
@@ -483,6 +469,9 @@ class PulpConverter(Converter):
         if isinstance(pulp_var, list):
             actual_time = handle_time_bounds(actual_time, pulp_var, entity_id)
             return pulp_var[actual_time]
+        elif isinstance(pulp_var, np.ndarray):
+            actual_time = handle_time_bounds(actual_time, pulp_var, entity_id)
+            return pulp_var[actual_time].item()
         elif hasattr(pulp_var, "__getitem__"):  # Dict-like or other indexable
             return pulp_var[actual_time]
         else:
@@ -672,13 +661,18 @@ class PulpConverter(Converter):
         return entity_id, qty_name
 
     def convert_back(
-        self, model: Model, problem: pulp.LpProblem, pulp_variables: dict, **kwargs
+        self,
+        model: Model,
+        problem: pulp.LpProblem,
+        pulp_variables: dict,
+        run_id: str,
+        **kwargs,
     ) -> None:
         """Extract solved optimization values and store directly into model run data.
-        
+
         Maps optimization results from flat PuLP variable format ('entity_id.qty_name_tX')
         into TimeSeriesObject._runs[run_id].result.
-        
+
         Parameters
         ----------
         model : Model
@@ -695,25 +689,22 @@ class PulpConverter(Converter):
             'time_points' attribute.
         **kwargs
             Additional parameters (unused)
-        
+
         Raises
         ------
         ValueError
             If time_set is missing or invalid
         """
         from app.infra.timeseries_object import TimeseriesObject
-        run_id = kwargs.get("run_id")
-        if run_id is None:
-            raise ValueError("run_id must be provided in kwargs")
+
+        log.info(f"Extracting results to run {run_id}")
 
         time_set = kwargs.get("time_set") or model.time_set
         if not hasattr(time_set, "time_points"):
             raise ValueError("time_set must have 'time_points' attribute")
-        
-        log.info(f"Extracting results to run {run_id}")
+
         num_time_steps = len(time_set.time_points)
-        
-        # Extract variables to update from problem
+
         modified_variables = {}
         for variable in problem.variables():
             try:
@@ -727,18 +718,18 @@ class PulpConverter(Converter):
             except (IndexError, ValueError) as e:
                 log.debug(f"Skipped variable '{variable.name}': {e}")
                 continue
-        
+
         log.debug(f"Found {len(modified_variables)} variables to update")
-        
+
         # Extract and store results in TimeSeriesObject._runs
         updated_count = 0
         failed_count = 0
-        
+
         for full_name, (entity_id, qty_name) in modified_variables.items():
             try:
                 # Retrieve entity from model
                 entity = model[entity_id]
-                
+
                 # Check if quantity exists
                 if qty_name not in entity.quantities:
                     log.warning(
@@ -746,38 +737,40 @@ class PulpConverter(Converter):
                     )
                     failed_count += 1
                     continue
-                
+
                 quantity = entity.quantities[qty_name]
-                
+
                 # Only store results for TimeSeriesObjects
                 if not isinstance(quantity, TimeseriesObject):
                     log.debug(f"Skipping non-TimeSeries quantity '{full_name}'")
                     continue
-                
+
                 # Extract optimization values for all time steps
                 if full_name not in pulp_variables:
                     log.warning(f"Variable '{full_name}' not in optimization results")
                     failed_count += 1
                     continue
-                
+
                 optimized_values = [
                     pulp.value(pulp_variables[full_name][t])
                     for t in range(num_time_steps)
                 ]
-                
+
                 # Store results in run data (not in raw quantity)
                 run = quantity.run(run_id)
                 run.result = optimized_values
-                log.debug(f"Stored result for '{full_name}' ({num_time_steps} steps) in run {run_id}")
+                log.debug(
+                    f"Stored result for '{full_name}' ({num_time_steps} steps) in run {run_id}"
+                )
                 updated_count += 1
-                
+
             except KeyError as e:
                 log.warning(f"Entity '{entity_id}' not found in model: {e}")
                 failed_count += 1
             except (IndexError, TypeError) as e:
                 log.warning(f"Failed to extract values for '{full_name}': {e}")
                 failed_count += 1
-        
+
         # Log summary
         total = updated_count + failed_count
         if total > 0:

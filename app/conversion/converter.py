@@ -18,6 +18,9 @@ class Converter(object):
 
     def __init__(self):
         # Registry mapping entity types to their converter methods
+        self._current_run_id: Optional[str] = (
+            None  # Track current run for reading aligned data
+        )
         self._entity_converters: Dict[Type[Entity], Callable] = {}
         self._register_converters()
 

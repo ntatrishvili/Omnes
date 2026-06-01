@@ -462,6 +462,7 @@ class TestVisualizeHighVoltageDay(unittest.TestCase):
         with self.assertRaises(ValueError):
             visualize.visualize_high_voltage_day(self.net)
 
+
 @pytest.mark.skip(reason="Visualization functionality TODO")
 class TestPlotEnergyFlows(unittest.TestCase):
     """Test plot_energy_flows function"""
@@ -698,6 +699,7 @@ class TestElegantDrawNetworkColors(unittest.TestCase):
         mf = pv_circle.get_markerfacecolor()
         mf_hex = mcolors.to_hex(mf)
         self.assertEqual(mf_hex.lower(), pal["soft_cyan"].lower())
+
 
 @pytest.mark.skip(reason="Visualization functionality TODO")
 class TestMoreVisualizeBranches(unittest.TestCase):

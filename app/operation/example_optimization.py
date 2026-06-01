@@ -15,7 +15,7 @@ log = get_logger(__name__)
 
 def all_timeseries(model: Model) -> Generator[TimeseriesObject, None, None]:
     """Recursively yield all TimeSeriesObjects in model.
-    
+
     :param Model model: The model to traverse
     :yields TimeseriesObject: Each time series in the model
     """
@@ -26,9 +26,11 @@ def all_timeseries(model: Model) -> Generator[TimeseriesObject, None, None]:
         yield from _all_timeseries_from_entity(entity)
 
 
-def _all_timeseries_from_entity(entity: Entity) -> Generator[TimeseriesObject, None, None]:
+def _all_timeseries_from_entity(
+    entity: Entity,
+) -> Generator[TimeseriesObject, None, None]:
     """Recurse into sub-entities to find all TimeSeriesObjects.
-    
+
     :param Entity entity: The entity to traverse
     :yields TimeseriesObject: Each time series found
     """
@@ -41,9 +43,9 @@ def _all_timeseries_from_entity(entity: Entity) -> Generator[TimeseriesObject, N
 
 def optimize_energy_system_pulp(model, timeset=None, freq=None, **kwargs):
     """Optimize energy system.
-    Generates run_id, resamples TimeSeriesObjects, 
-    Then converts to solver variables, solves optimization problem, 
-    extracts results, and returns RunView.    
+    Generates run_id, resamples TimeSeriesObjects,
+    Then converts to solver variables, solves optimization problem,
+    extracts results, and returns RunView.
     :param Model model: The model to optimize
     :param timeset: Target TimeSet for resampling (optional)
     :param freq: Target frequency string (optional)
@@ -51,28 +53,42 @@ def optimize_energy_system_pulp(model, timeset=None, freq=None, **kwargs):
     :returns: RunView of optimized model
     """
     effective_timeset = timeset if timeset is not None else model.time_set
-    effective_freq = freq if freq is not None else (model.time_set.freq if hasattr(model.time_set, 'freq') else None)
-    
+    effective_freq = (
+        freq
+        if freq is not None
+        else (model.time_set.freq if hasattr(model.time_set, "freq") else None)
+    )
+
     run_id = f"{id(effective_timeset)}_{effective_freq or 'auto'}"
-    
+
     log.info(f"Starting optimization run: {run_id} for {model.id} model")
-    
+
     log.info("Resampling time series...")
     ts_count = 0
     for ts_obj in all_timeseries(model):
         run = ts_obj.run(run_id)
         if run.aligned is None:
-            num_steps = effective_timeset.number_of_time_steps if hasattr(effective_timeset, 'number_of_time_steps') else -1
+            num_steps = (
+                effective_timeset.number_of_time_steps
+                if hasattr(effective_timeset, "number_of_time_steps")
+                else -1
+            )
             if effective_freq is not None:
-                run.aligned = ts_obj.value(time_set=num_steps, freq=effective_freq) # np arrays
+                run.aligned = ts_obj.value(
+                    time_set=num_steps, freq=effective_freq
+                )  # np arrays
             else:
-                run.aligned = ts_obj.value(time_set=num_steps)  # Use raw data as np arrays
+                run.aligned = ts_obj.value(
+                    time_set=num_steps
+                )  # Use raw data as np arrays
             ts_count += 1
     log.info(f"Resampled {ts_count} time series to {effective_freq or 'raw'}")
-    
+
     log.info("Converting to solver variables...")
     converter = PulpConverter()
-    pulp_variables = converter.convert_model(model, run_id=run_id, timeset=effective_timeset, freq=effective_freq, **kwargs)
+    pulp_variables = converter.convert_model(
+        model, run_id=run_id, timeset=effective_timeset, freq=effective_freq, **kwargs
+    )
     time_set = pulp_variables.get("time_set", model.time_set)
 
     pv_names = model.find_all_of_type_in_subentities("PV")
@@ -130,7 +146,7 @@ def optimize_energy_system_pulp(model, timeset=None, freq=None, **kwargs):
         pulp_variables[f"{s}.p_in"][t] + pulp_variables[f"{s}.p_out"][t]
         for s in slack_names
         for t in range(time_set.number_of_time_steps)
-    )   
+    )
 
     status = prob.solve()
     if pulp.LpStatus[status] != "Optimal":
@@ -140,7 +156,14 @@ def optimize_energy_system_pulp(model, timeset=None, freq=None, **kwargs):
     log.info(f"Objective value: {pulp.value(prob.objective)}")
 
     log.info("Extracting results...")
-    converter.convert_back(model, problem=prob, pulp_variables=pulp_variables, run_id=run_id, time_set=time_set, **kwargs)
+    converter.convert_back(
+        model,
+        problem=prob,
+        pulp_variables=pulp_variables,
+        run_id=run_id,
+        time_set=time_set,
+        **kwargs,
+    )
 
     log.info("Cleaning up solver variables...")
     for ts_obj in all_timeseries(model):

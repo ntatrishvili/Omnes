@@ -10,21 +10,21 @@ if TYPE_CHECKING:
 
 class QuantityRunView:
     """Wraps TimeSeriesObject, returns run-specific values.
-    
+
     Provides access to optimization results with fallback chain:
     1. Optimization result (if available)
     2. Resampled/aligned data (if available)
     3. Raw data
     """
-    
+
     def __init__(self, quantity: "TimeseriesObject", run_id: str):
         self._quantity = quantity
         self._run_id = run_id
-    
+
     @property
     def value(self):
         """Return result → aligned → raw (in priority order).
-        
+
         :returns: Optimization result, aligned data, or raw data
         """
         run = self._quantity.run(self._run_id)
@@ -33,19 +33,32 @@ class QuantityRunView:
         if run.aligned is not None:
             return run.aligned
         return self._quantity.value()  # Raw data fallback
-    
+
+    @property
+    def get_aligned_ts(self):
+        """Return aligned data for this run, or None if not available."""
+        run = self._quantity.run(self._run_id)
+        return run.aligned
+
+    @property
+    def get_final_ts(self):
+        """Return final data for this run, or None if not available."""
+        run = self._quantity.run(self._run_id)
+        return run.result
+
     def __getattr__(self, name: str):
         """Proxy other attributes to underlying quantity."""
-        return getattr(self._quantity, name)
+        if hasattr(self._quantity, name):
+            return getattr(self._quantity, name)
 
 
 class EntityRunView:
     """Wraps Entity, proxies quantities with run awareness.
-    
+
     Provides access to entity quantities through RunView when they are
     TimeSeriesObjects, enabling transparent access to run-specific data.
     """
-    
+
     def __init__(self, entity: "Entity", run_id: str):
         self.entity = entity
         self.run_id = run_id
@@ -54,10 +67,10 @@ class EntityRunView:
             e_id: EntityRunView(sub_e, run_id)
             for e_id, sub_e in entity.sub_entities.items()
         }
-    
+
     def __getattr__(self, name: str):
         """Proxy quantity/entity access with run awareness.
-        
+
         :param str name: Attribute name (quantity or sub-entity ID)
         :returns: QuantityRunView for TimeSeriesObjects, raw quantity otherwise
         :raises AttributeError: If name not found
@@ -66,21 +79,24 @@ class EntityRunView:
             qty = self.entity.quantities[name]
             # Import here to avoid circular dependency
             from app.infra.timeseries_object import TimeseriesObject
+
             if isinstance(qty, TimeseriesObject):
                 return QuantityRunView(qty, self.run_id)
             return qty
         if name in self.entity.sub_entities:
             return self.sub_entities[name]
-        raise AttributeError(f"Quantity/Entity '{name}' not found in entity '{self.id}'")
+        raise AttributeError(
+            f"Quantity/Entity '{name}' not found in entity '{self.id}'"
+        )
 
 
 class RunView:
     """Read-only projection of model for a specific run.
-    
+
     Provides clean access to model data for a specific optimization run,
     with automatic fallback to optimization results, aligned data, or raw data.
     """
-    
+
     def __init__(self, model: "Model", run_id: str, time_set=None):
         self.model = model
         self.run_id = run_id
@@ -90,19 +106,19 @@ class RunView:
             e_id: EntityRunView(entity, run_id)
             for e_id, entity in model.entities.items()
         }
-    
+
     def __getitem__(self, entity_id: str) -> EntityRunView:
         """Access entity by ID.
-        
+
         :param str entity_id: Entity ID
         :returns EntityRunView: Wrapped entity with run awareness
         :raises KeyError: If entity not found
         """
         return self.entities[entity_id]
-    
+
     def __getattr__(self, name: str) -> EntityRunView:
         """Access entity by attribute name.
-        
+
         :param str name: Entity ID (used as attribute)
         :returns EntityRunView: Wrapped entity with run awareness
         :raises AttributeError: If entity not found
