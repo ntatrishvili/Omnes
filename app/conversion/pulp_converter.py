@@ -26,7 +26,6 @@ from app.infra.logging_setup import get_logger
 from app.model.entity import Entity
 from app.model.model import Model
 
-
 log = get_logger(__name__)
 
 
