@@ -21,7 +21,7 @@ class Converter(object):
         self._current_run_id: Optional[str] = (
             None  # Track current run for reading aligned data
         )
-        self._entity_converters: Dict[Type[Entity], Callable] = {}
+        self._entity_converters_by_type: Dict[Type[Entity], Callable] = {}
         self._register_converters()
 
     def _register_converters(self):
@@ -62,8 +62,8 @@ class Converter(object):
         entity_type = type(entity)
 
         # Convert this entity's quantities/structure
-        if entity_type in self._entity_converters:
-            result = self._entity_converters[entity_type](entity, time_set)
+        if entity_type in self._entity_converters_by_type:
+            result = self._entity_converters_by_type[entity_type](entity, time_set)
         else:
             # 2) Walk MRO (method resolution order) to find the first registered handler
             handler_found = False
@@ -71,8 +71,8 @@ class Converter(object):
                 log.debug(
                     f"Checking for converter for base class '{base.__name__}' of entity '{entity.id}'"
                 )
-                if base in self._entity_converters:
-                    result = self._entity_converters[base](entity, time_set)
+                if base in self._entity_converters_by_type:
+                    result = self._entity_converters_by_type[base](entity, time_set)
                     handler_found = True
                     break
 
@@ -95,8 +95,15 @@ class Converter(object):
         self, entity: Entity, time_set: Optional[TimeSet] = None, **kwargs
     ):
         """
-        Default entity conversion logic.
-        Subclasses must implement this method.
+        Default fallback conversion routine for entities without a specialized converter.
+
+        Called by convert_entity when no type-specific converter is registered in
+        _entity_converters. Implementations should extract quantities (both parameters
+        and time series) from the entity and persist them into the target format.
+
+        This is the common case: most entities follow the same quantity extraction pattern.
+        Only entities requiring special network element creation (e.g., buses, lines,
+        generators) have specialized converters registered.
 
         Parameters
         ----------
@@ -104,6 +111,9 @@ class Converter(object):
             The entity to convert
         time_set : TimeSet, optional
             TimeSet object containing time configuration
+        kwargs : dict
+            Subclass-specific options (e.g., 'entity_type', 'idx', 'profile_type' for
+            PandapowerConverter)
         """
         raise NotImplementedError(
             "Subclasses must implement '_convert_entity_default'."
@@ -129,9 +139,8 @@ class Converter(object):
             Merged result
         """
         if isinstance(parent_result, dict) and isinstance(child_result, dict):
+            log.debug("Merging conversion results.")
             parent_result.update(child_result)
-            return parent_result
-        # For non-dict results (e.g., pandapower side effects), just return parent
         return parent_result
 
     def convert_model(self, model: Model, **kwargs):
@@ -204,6 +213,7 @@ class Converter(object):
             - effective_time_set: The resolved TimeSet to use
             - conversion_context: Dict for storing state during conversion
         """
+        self._current_run_id = kwargs.pop("run_id", None)
         time_set = kwargs.pop("time_set", None)
         if time_set is not None:
             log.info("Using provided TimeSet from kwargs.")
@@ -244,14 +254,7 @@ class Converter(object):
                 continue
             entity_result = self.convert_entity(entity, time_set)
 
-            # Merge entity results
-            if isinstance(result, dict) and isinstance(entity_result, dict):
-                log.debug(
-                    f"Merging results from entity '{entity.id}' into overall result."
-                )
-                result.update(entity_result)
-            # For non-dict results (e.g., side effects), subclass should override
-
+            self._merge_entity_results(result, child_result=entity_result)
         return result
 
     def _post_process_conversion(
@@ -345,7 +348,6 @@ class Converter(object):
     def convert_relation(
         self,
         relation: Relation,
-        entity_variables: Dict[str, Any],
         time_set: Optional[TimeSet] = None,
     ):
         """
@@ -356,8 +358,6 @@ class Converter(object):
         ----------
         relation : Relation
             The relation to convert
-        entity_variables : Dict[str, Any]
-            Dictionary mapping entity IDs to their variables
         time_set : TimeSet, optional
             The TimeSet object containing full time information
         """

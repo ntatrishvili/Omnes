@@ -53,11 +53,7 @@ def optimize_energy_system_pulp(model, timeset=None, freq=None, **kwargs):
     :returns: RunView of optimized model
     """
     effective_timeset = timeset if timeset is not None else model.time_set
-    effective_freq = (
-        freq
-        if freq is not None
-        else (model.time_set.freq if hasattr(model.time_set, "freq") else None)
-    )
+    effective_freq = freq if freq is not None else effective_timeset.freq
 
     run_id = f"{id(effective_timeset)}_{effective_freq or 'auto'}"
 
@@ -68,19 +64,9 @@ def optimize_energy_system_pulp(model, timeset=None, freq=None, **kwargs):
     for ts_obj in all_timeseries(model):
         run = ts_obj.run(run_id)
         if run.aligned is None:
-            num_steps = (
-                effective_timeset.number_of_time_steps
-                if hasattr(effective_timeset, "number_of_time_steps")
-                else -1
-            )
-            if effective_freq is not None:
-                run.aligned = ts_obj.value(
-                    time_set=num_steps, freq=effective_freq
-                )  # np arrays
-            else:
-                run.aligned = ts_obj.value(
-                    time_set=num_steps
-                )  # Use raw data as np arrays
+            run.aligned = ts_obj.value(
+                time_set=effective_timeset.number_of_time_steps, freq=effective_freq
+            )  # np arrays
             ts_count += 1
     log.info(f"Resampled {ts_count} time series to {effective_freq or 'raw'}")
 
@@ -89,7 +75,6 @@ def optimize_energy_system_pulp(model, timeset=None, freq=None, **kwargs):
     pulp_variables = converter.convert_model(
         model, run_id=run_id, timeset=effective_timeset, freq=effective_freq, **kwargs
     )
-    time_set = pulp_variables.get("time_set", model.time_set)
 
     pv_names = model.find_all_of_type_in_subentities("PV")
     load_names = model.find_all_of_type_in_subentities("Load")
@@ -104,7 +89,7 @@ def optimize_energy_system_pulp(model, timeset=None, freq=None, **kwargs):
     prob = pulp.LpProblem("CSCopt", pulp.LpMinimize)
 
     # Global energy balance
-    for t in range(time_set.number_of_time_steps):
+    for t in range(effective_timeset.number_of_time_steps):
         total_pv = np.sum(pulp_variables[f"{pv}.p_out"][t] for pv in pv_names)
         total_load = np.sum(pulp_variables[f"{load}.p_cons"][t] for load in load_names)
         total_bess_in = pulp.lpSum(pulp_variables[f"{b}.p_in"][t] for b in bess_names)
@@ -131,7 +116,7 @@ def optimize_energy_system_pulp(model, timeset=None, freq=None, **kwargs):
             max_p = pulp_variables[f"{b}.max_charge_rate"]
 
             # maximum input and output power and mutual exclusivity
-            k = (t + 1) % time_set.number_of_time_steps
+            k = (t + 1) % effective_timeset.number_of_time_steps
             prob += e_stor[k] - e_stor[t] == p_in[t] - p_out[t]
             prob += e_stor[t] <= cap
             prob += p_in[t] <= min(
@@ -145,7 +130,7 @@ def optimize_energy_system_pulp(model, timeset=None, freq=None, **kwargs):
     prob += pulp.lpSum(
         pulp_variables[f"{s}.p_in"][t] + pulp_variables[f"{s}.p_out"][t]
         for s in slack_names
-        for t in range(time_set.number_of_time_steps)
+        for t in range(effective_timeset.number_of_time_steps)
     )
 
     status = prob.solve()
@@ -161,7 +146,7 @@ def optimize_energy_system_pulp(model, timeset=None, freq=None, **kwargs):
         problem=prob,
         pulp_variables=pulp_variables,
         run_id=run_id,
-        time_set=time_set,
+        time_set=effective_timeset,
         **kwargs,
     )
 
@@ -171,4 +156,4 @@ def optimize_energy_system_pulp(model, timeset=None, freq=None, **kwargs):
         run._vars = None  # Explicitly clear (garbage collection)
 
     log.info(f"Optimization complete: {pulp.LpStatus[status]}")
-    return RunView(model, run_id, time_set)
+    return RunView(model, run_id, effective_timeset)

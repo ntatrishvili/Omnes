@@ -1359,7 +1359,7 @@ def plot_energy_flows(
     Plot energy flows for a given model and time range.
 
     Parameters:
-    - model: the trained model containing energy flow data
+    - model: the model to plot, containing energy flow data
     - time_range_to_plot: tuple of (start_time, end_time) to specify the time range for plotting
     - output_path: if provided, save the figure to this path
     """

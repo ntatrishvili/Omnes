@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Union
 
-import numpy as np
 import pulp
+from collections.abc import Iterable
 
 from app.conversion.conversion_utils import (
     create_empty_pulp_var,
@@ -12,15 +12,14 @@ from app.conversion.conversion_utils import (
 )
 from app.conversion.converter import Converter
 from app.conversion.validation_utils import (
-    handle_time_bounds,
     validate_and_normalize_time_range,
     validate_entity_exists,
-    extract_effective_time_properties,
 )
 from app.infra.parameter import Parameter
 from app.infra.quantity import Quantity
 from app.infra.relation import EntityReference
 from app.infra.relation import Relation
+from app.infra.timeseries_object import TimeseriesObject
 from app.infra.util import TimeSet
 from app.infra.logging_setup import get_logger
 from app.model.entity import Entity
@@ -65,7 +64,6 @@ class PulpConverter(Converter):
     def __init__(self):
         super().__init__()
         self.__objects: Dict[str, Any] = {}
-        self.result_model: Optional[Model] = None
         self.__current_entity_id: Optional[str] = (
             None  # Track current entity being processed
         )
@@ -156,8 +154,9 @@ class PulpConverter(Converter):
 
         # Convert relations to constraints
         for relation in entity.relations:
-            constraints = self.convert_relation(relation, time_set=time_set)
-            relation_constraints.update(constraints)
+            relation_constraints.update(
+                self.convert_relation(relation, time_set=time_set)
+            )
 
         # Recursively convert sub-entity relations
         for _, sub_entity in entity.sub_entities.items():
@@ -175,22 +174,13 @@ class PulpConverter(Converter):
 
         Initializes __objects to empty dict for fresh conversion.
         """
-        time_set = kwargs.pop(
-            "time_set", None
-        )  # Remove from kwargs to avoid duplicate args
-        effective_time_set = extract_effective_time_properties(model, time_set)
-
-        # Extract and store run_id for use in convert_quantity
-        current_run_id = kwargs.pop("run_id", None)
-        if current_run_id:
-            self._current_run_id = current_run_id
-            log.debug(f"Using run_id: {self._current_run_id}")
+        effective_time_set, context = super()._prepare_conversion(model, **kwargs)
 
         # Reset state for new conversion
         self.__objects = {}
         self.__current_entity_id = None
 
-        context = {"skip_entities": kwargs.get("skip_entities", set())}
+        context.update({"skip_entities": kwargs.get("skip_entities", set())})
         return effective_time_set, context
 
     def _convert_entities(
@@ -201,13 +191,7 @@ class PulpConverter(Converter):
 
         Populates __objects with all entity variables for later relation conversion.
         """
-        skip_entities = context.get("skip_entities", set())
-        model_variables = {}
-
-        for _, entity in model.entities.items():
-            if type(entity) in skip_entities:
-                continue
-            model_variables.update(self.convert_entity(entity, time_set))
+        model_variables = super()._convert_entities(model, time_set, context, **kwargs)
 
         # Store all entity variables in __objects for relation conversion
         self.__objects = dict(model_variables)
@@ -233,8 +217,7 @@ class PulpConverter(Converter):
         for _, entity in model.entities.items():
             if type(entity) in skip_entities:
                 continue
-            relation_constraints = self._convert_entity_relations(entity, time_set)
-            result.update(relation_constraints)
+            result.update(self._convert_entity_relations(entity, time_set))
 
         return result
 
@@ -266,8 +249,6 @@ class PulpConverter(Converter):
         Union[List[pulp.LpVariable], Any]
             Either a list of PuLP variables (for empty quantities) or the quantity values
         """
-        from app.infra.timeseries_object import TimeseriesObject
-
         run = quantity.run(self._current_run_id)
 
         if isinstance(quantity, Parameter):
@@ -298,7 +279,6 @@ class PulpConverter(Converter):
     def convert_relation(
         self,
         relation: Relation,
-        entity_variables: Optional[Dict[str, Any]] = None,
         time_set: Optional[TimeSet] = None,
     ) -> Dict[str, List]:
         """
@@ -314,10 +294,6 @@ class PulpConverter(Converter):
         ----------
         relation : Relation
             The relation to convert
-        entity_variables : Dict[str, Any], optional
-            Dictionary mapping entity IDs to their PuLP variables.
-            If provided, updates __objects for backward compatibility.
-            When called from convert_model, this is None since __objects is pre-populated.
         time_set : TimeSet, optional
             The TimeSet object containing full time information including time_points.
             Required for TimeConditionExpression conversions.
@@ -338,10 +314,6 @@ class PulpConverter(Converter):
         should be None. When called directly (e.g., in tests), entity_variables can be
         provided for backward compatibility.
         """
-        # For backward compatibility: if entity_variables provided, update __objects
-        if entity_variables is not None:
-            self.__objects.update(entity_variables)
-
         # Validate that all required entities exist in __objects
         self._validate_relation_entities(relation)
 
@@ -465,17 +437,16 @@ class PulpConverter(Converter):
         Any
             The value at the specified time index, or the variable itself if not time-indexed
         """
-        if isinstance(pulp_var, list):
-            actual_time = handle_time_bounds(actual_time, pulp_var, entity_id)
-            return pulp_var[actual_time]
-        elif isinstance(pulp_var, np.ndarray):
-            actual_time = handle_time_bounds(actual_time, pulp_var, entity_id)
-            return pulp_var[actual_time].item()
-        elif hasattr(pulp_var, "__getitem__"):  # Dict-like or other indexable
-            return pulp_var[actual_time]
-        else:
-            # Single variable, not time-indexed
-            return pulp_var
+        if isinstance(pulp_var, Iterable) or hasattr(pulp_var, "__getitem__"):
+            try:
+                return pulp_var[actual_time]
+            except IndexError:
+                log.error(
+                    f"Time index {actual_time} out of bounds for variable '{entity_id}'"
+                )
+                raise
+
+        return pulp_var
 
     def convert_binary_expression(
         self,
@@ -694,17 +665,11 @@ class PulpConverter(Converter):
         ValueError
             If time_set is missing or invalid
         """
-        from app.infra.timeseries_object import TimeseriesObject
-
         log.info(f"Extracting results to run {run_id}")
 
         time_set = kwargs.get("time_set") or model.time_set
-        if not hasattr(time_set, "time_points"):
-            raise ValueError("time_set must have 'time_points' attribute")
-
-        num_time_steps = len(time_set.time_points)
-
         modified_variables = {}
+
         for variable in problem.variables():
             try:
                 entity_id, qty_name = self._extract_entity_quantity_names(variable.name)
@@ -752,16 +717,13 @@ class PulpConverter(Converter):
                     failed_count += 1
                     continue
 
-                optimized_values = [
-                    pulp.value(pulp_variables[full_name][t])
-                    for t in range(num_time_steps)
-                ]
+                optimized_values = [var.value() for var in pulp_variables[full_name]]
 
                 # Store results in run data (not in raw quantity)
                 run = quantity.run(run_id)
                 run.result = optimized_values
                 log.debug(
-                    f"Stored result for '{full_name}' ({num_time_steps} steps) in run {run_id}"
+                    f"Stored result for '{full_name}' ({time_set.number_of_time_steps} steps) in run {run_id}"
                 )
                 updated_count += 1
 
