@@ -94,16 +94,16 @@ class PandapowerConverter(Converter):
         from app.model.generic_entity import GenericEntity
 
         # Register entity types that need special network element creation
-        self._entity_converters_by_type[Bus] = self._convert_bus_entity
-        self._entity_converters_by_type[Line] = self._convert_line_entity
-        self._entity_converters_by_type[Slack] = self._convert_slack_entity
-        self._entity_converters_by_type[PV] = self._convert_pv_entity
-        self._entity_converters_by_type[Wind] = self._convert_wind_entity
-        self._entity_converters_by_type[Battery] = self._convert_battery_entity
-        self._entity_converters_by_type[Load] = self._convert_load_entity
+        self._entity_converters[Bus] = self._convert_bus_entity
+        self._entity_converters[Line] = self._convert_line_entity
+        self._entity_converters[Slack] = self._convert_slack_entity
+        self._entity_converters[PV] = self._convert_pv_entity
+        self._entity_converters[Wind] = self._convert_wind_entity
+        self._entity_converters[Battery] = self._convert_battery_entity
+        self._entity_converters[Load] = self._convert_load_entity
         # Transformer converter
-        self._entity_converters_by_type[Transformer] = self._convert_transformer_entity
-        self._entity_converters_by_type[GenericEntity] = self._convert_generic_entity
+        self._entity_converters[Transformer] = self._convert_transformer_entity
+        self._entity_converters[GenericEntity] = self._convert_generic_entity
 
     def _prepare_conversion(
         self, model: Model, **kwargs
@@ -572,13 +572,36 @@ class PandapowerConverter(Converter):
         """
         if quantity.empty():
             return None
-        if isinstance(quantity, Parameter):
-            return quantity.value
+        return quantity.convert(self, name=name, time_set=time_set)
+
+        # if isinstance(quantity, Parameter):
+        #     return quantity.value
+        # else:
+
+    def convert_timeseries_object(self, timeseries_object: "TimeseriesObject", name: str, time_set: Optional[TimeSet] = None):
+        """
+        Convert a TimeseriesObject to a numpy array for pandapower profiles.
+
+        Parameters
+        ----------
+        timeseries_object
+            The TimeseriesObject to convert.
+        name
+            Human-readable identifier used for logging/debugging.
+        time_set : TimeSet, optional
+            TimeSet object containing time configuration.
+        Returns
+        -------
+        numpy.ndarray
+            Array of values across the time range.
+        """
+        if timeseries_object.empty():
+            return None
         else:
             # Extract time range and frequency from TimeSet
             time_range = time_set.number_of_time_steps if time_set else None
             freq = time_set.freq if time_set else None
-            return quantity.value(time_set=time_range, freq=freq)
+        return timeseries_object.value(time_set=time_range, freq=freq)
 
     def convert_back(self, model: Model) -> None:
         """

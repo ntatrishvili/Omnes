@@ -37,8 +37,8 @@ class Quantity(ABC):
         self.direction = kwargs.pop("direction", None)
 
     def convert(self, converter, **kwargs):
-        """Converts the quantity into a pulp-compatible format (e.g., a time series array or a value-variable)."""
-        return converter.convert_quantity(self, **kwargs)
+        """Converts the quantity into a solver-compatible format (e.g., a time series array or a value-variable)."""
+        raise NotImplementedError("Subclasses must implement 'convert' method.")
 
     def set(self, value, **kwargs):
         """Sets the value of the quantity, if applicable."""

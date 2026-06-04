@@ -17,6 +17,10 @@ class Parameter(Quantity):
         super().__init__(**kwargs)
         self._value = kwargs.pop("value", None)
 
+    def convert(self, converter, **kwargs):
+        """Converts the quantity into a solver-compatible format."""
+        return converter.convert_parameter(self, **kwargs)
+
     def __str__(self):
         return f"{self._value}"
 

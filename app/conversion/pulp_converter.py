@@ -15,7 +15,6 @@ from app.conversion.validation_utils import (
     validate_and_normalize_time_range,
     validate_entity_exists,
 )
-from app.infra.parameter import Parameter
 from app.infra.quantity import Quantity
 from app.infra.relation import EntityReference
 from app.infra.relation import Relation
@@ -249,32 +248,78 @@ class PulpConverter(Converter):
         Union[List[pulp.LpVariable], Any]
             Either a list of PuLP variables (for empty quantities) or the quantity values
         """
-        run = quantity.run(self._current_run_id)
+        return quantity.convert(self, name=name, time_set=time_set)
 
-        if isinstance(quantity, Parameter):
-            return quantity.value
+    def convert_timeseries_object(
+        self,
+        timeseries_object: "TimeseriesObject",
+        name: str,
+        time_set: Optional[TimeSet] = None,
+    ) -> Union[List[pulp.LpVariable], Any]:
+        """
+        Convert a TimeseriesObject to a format suitable for pulp optimization.
+        If the timeseries_object is empty, create an empty pulp variable.
+        If the timeseries_object has aligned data for the current run, use it directly.
+        Otherwise, return the values resampled to the standard time range and frequency.
+        Parameters
+        ----------
+        timeseries_object : TimeseriesObject
+            The TimeseriesObject to convert
+        name : str
+            The name for the generated variables
+        time_set : TimeSet, optional
+            TimeSet object containing time configuration. If None, uses default size.
+        Returns
+        -------
+        Union[List[pulp.LpVariable], Any]
+            Either a list of PuLP variables (for empty timeseries) or the timeseries values
+        """
+        run = timeseries_object.run(self._current_run_id)
 
-        if quantity.empty():
-            normalized_time_range = validate_and_normalize_time_range(
-                time_set, self.DEFAULT_TIME_RANGE_SIZE
+        if timeseries_object.empty():
+            return self._create_empty_variable_for_timeseries(name, time_set, run)
+        elif run.aligned is not None:
+            # Use pre-resampled aligned data (avoids double resampling)
+            return run.aligned
+        else:
+            log.warning(
+                f"Quantity '{name}' is not empty but has no aligned data for run_id '{self._current_run_id}'. Attempting to resample raw data."
             )
-            run.add_var(name, create_empty_pulp_var(name, len(normalized_time_range)))
-            log.debug(
-                f"Created empty variable '{name}' with {len(normalized_time_range)} time steps for run_id '{self._current_run_id}'"
-            )
-            return run._vars[name]
+            time_range = time_set.number_of_time_steps if time_set else None
+            freq = time_set.freq if time_set else None
+        return timeseries_object.value(time_set=time_range, freq=freq)
 
-        if isinstance(quantity, TimeseriesObject):
-            if run.aligned is not None:
-                # Use pre-resampled aligned data (avoids double resampling)
-                return run.aligned
+    def _create_empty_variable_for_timeseries(
+        self, name: str, time_set: Optional[TimeSet], run
+    ) -> List[pulp.LpVariable]:
+        """
+        Create a list of empty PuLP variables for a timeseries quantity.
 
-        log.warning(
-            f"Quantity '{name}' is not empty but has no aligned data for run_id '{self._current_run_id}'. Attempting to resample raw data."
+        The number of variables is determined by the time_set configuration.
+        If time_set is None, uses a default number of time steps.
+
+        Parameters
+        ----------
+        name : str
+            The base name for the generated variables
+        time_set : TimeSet, optional
+            TimeSet object containing time configuration. If None, uses default size.
+        run : RunData
+            The run data object to store the generated variables
+
+        Returns
+        -------
+        List[pulp.LpVariable]
+            A list of PuLP variables representing the empty timeseries quantity
+        """
+        num_steps = len(
+            validate_and_normalize_time_range(time_set, self.DEFAULT_TIME_RANGE_SIZE)
         )
-        time_range = time_set.number_of_time_steps if time_set else None
-        freq = time_set.freq if time_set else None
-        return quantity.value(time_set=time_range, freq=freq)
+        run.add_var(name, create_empty_pulp_var(name, num_steps))
+        log.debug(
+            f"Created empty variable '{name}' with {num_steps} time steps for run_id '{self._current_run_id}'"
+        )
+        return run._vars[name]
 
     def convert_relation(
         self,

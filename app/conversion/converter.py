@@ -21,7 +21,7 @@ class Converter(object):
         self._current_run_id: Optional[str] = (
             None  # Track current run for reading aligned data
         )
-        self._entity_converters_by_type: Dict[Type[Entity], Callable] = {}
+        self._entity_converters: Dict[Type[Entity], Callable] = {}
         self._register_converters()
 
     def _register_converters(self):
@@ -62,8 +62,8 @@ class Converter(object):
         entity_type = type(entity)
 
         # Convert this entity's quantities/structure
-        if entity_type in self._entity_converters_by_type:
-            result = self._entity_converters_by_type[entity_type](entity, time_set)
+        if entity_type in self._entity_converters:
+            result = self._entity_converters[entity_type](entity, time_set)
         else:
             # 2) Walk MRO (method resolution order) to find the first registered handler
             handler_found = False
@@ -71,8 +71,8 @@ class Converter(object):
                 log.debug(
                     f"Checking for converter for base class '{base.__name__}' of entity '{entity.id}'"
                 )
-                if base in self._entity_converters_by_type:
-                    result = self._entity_converters_by_type[base](entity, time_set)
+                if base in self._entity_converters:
+                    result = self._entity_converters[base](entity, time_set)
                     handler_found = True
                     break
 
@@ -344,6 +344,46 @@ class Converter(object):
             TimeSet object containing time configuration
         """
         raise NotImplementedError("Subclasses must implement 'convert_quantity'.")
+
+    def convert_timeseries_object(
+        self,
+        timeseries_object: "TimeseriesObject",
+        name: str,
+        time_set: Optional[TimeSet] = None,
+    ):
+        """
+        Convert a TimeSeriesObject to target format, handling empty and aligned cases.
+        Parameters
+        ----------
+        timeseries_object : TimeseriesObject
+            The TimeSeriesObject to convert
+        name : str
+            Name for the quantity
+        time_set : TimeSet, optional
+            TimeSet object containing time configuration
+
+        Returns
+        -------
+        Union[List[pulp.LpVariable], Any]
+            Converted timeseries
+        """
+        run = timeseries_object.run(self._current_run_id)
+
+        if timeseries_object.empty():
+            return self._create_empty_variable_for_timeseries(name, time_set, run)
+        elif run.aligned is not None:
+            # Use pre-resampled aligned data (avoids double resampling)
+            return run.aligned
+        else:
+            log.warning(
+                f"Quantity '{name}' is not empty but has no aligned data for run_id '{self._current_run_id}'. Attempting to resample raw data."
+            )
+            time_range = time_set.number_of_time_steps if time_set else None
+            freq = time_set.freq if time_set else None
+        return timeseries_object.value(time_set=time_range, freq=freq)
+
+    def convert_parameter(self, parameter: "Parameter", **kwargs):
+        return parameter.value
 
     def convert_relation(
         self,
