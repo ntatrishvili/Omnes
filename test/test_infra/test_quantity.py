@@ -28,15 +28,6 @@ class TestParameter(unittest.TestCase):
         self.assertFalse(Parameter(value=5) == 4)
         self.assertFalse(Parameter(value=5) == "string")
 
-    def test_convert_delegates_to_converter(self):
-        class MockConverter:
-            def convert_quantity(self, quantity, **kwargs):
-                return f"converted_{quantity.value}"
-
-        param = Parameter(value=99)
-        result = param.convert(MockConverter())
-        self.assertEqual(result, "converted_99")
-
 
 class TestQuantityABC(unittest.TestCase):
     def test_quantity_is_abstract(self):

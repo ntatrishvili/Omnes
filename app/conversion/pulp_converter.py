@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import pulp
 from collections.abc import Iterable
@@ -14,6 +14,7 @@ from app.conversion.converter import Converter
 from app.conversion.validation_utils import (
     validate_and_normalize_time_range,
     validate_entity_exists,
+    handle_time_bounds,
 )
 from app.infra.quantity import Quantity
 from app.infra.relation import EntityReference
@@ -23,6 +24,9 @@ from app.infra.util import TimeSet
 from app.infra.logging_setup import get_logger
 from app.model.entity import Entity
 from app.model.model import Model
+
+if TYPE_CHECKING:
+    pass
 
 log = get_logger(__name__)
 
@@ -324,6 +328,7 @@ class PulpConverter(Converter):
     def convert_relation(
         self,
         relation: Relation,
+        entity_variables: Optional[Dict[str, Any]] = None,
         time_set: Optional[TimeSet] = None,
     ) -> Dict[str, List]:
         """
@@ -339,6 +344,10 @@ class PulpConverter(Converter):
         ----------
         relation : Relation
             The relation to convert
+        entity_variables : Dict[str, Any], optional
+            Dictionary mapping entity IDs to their PuLP variables.
+            If provided, updates __objects for backward compatibility.
+            When called from convert_model, this is None since __objects is pre-populated.
         time_set : TimeSet, optional
             The TimeSet object containing full time information including time_points.
             Required for TimeConditionExpression conversions.
@@ -352,13 +361,10 @@ class PulpConverter(Converter):
         ------
         ValueError
             If any entity referenced in the relation is not found in __objects.
-
-        Notes
-        -----
-        When called from convert_model(), __objects is pre-populated and entity_variables
-        should be None. When called directly (e.g., in tests), entity_variables can be
-        provided for backward compatibility.
         """
+        if entity_variables is not None:
+            self.__objects.update(entity_variables)
+
         # Validate that all required entities exist in __objects
         self._validate_relation_entities(relation)
 
@@ -484,7 +490,8 @@ class PulpConverter(Converter):
         """
         if isinstance(pulp_var, Iterable) or hasattr(pulp_var, "__getitem__"):
             try:
-                return pulp_var[actual_time]
+                bounded_time = handle_time_bounds(actual_time, pulp_var, entity_id)
+                return pulp_var[bounded_time]
             except IndexError:
                 log.error(
                     f"Time index {actual_time} out of bounds for variable '{entity_id}'"

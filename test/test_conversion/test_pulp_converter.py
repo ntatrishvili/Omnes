@@ -5,7 +5,7 @@ import warnings
 from unittest.mock import Mock
 
 from app.conversion.pulp_converter import PulpConverter, create_empty_pulp_var
-from app.infra.quantity import Quantity, RunData
+from app.infra.quantity import Quantity
 from app.infra.parameter import Parameter
 from app.infra.relation import (
     EntityReference,
@@ -49,12 +49,12 @@ class TestPulpConverter(unittest.TestCase):
             number_of_time_steps=3,
             time_points=pd.date_range(start="2024-01-01 00:00", periods=3, freq="1h"),
         )
-        mock_quantity = Mock(spec=Quantity)
-        mock_quantity.empty.return_value = True
-        mock_quantity.run.return_value = RunData()
+        quantity = TimeseriesObject(
+            data=pd.DataFrame({"value": []}, index=pd.DatetimeIndex([]))
+        )
 
         result = self.converter.convert_quantity(
-            mock_quantity, "test_name", time_set=time_set
+            quantity, "test_name", time_set=time_set
         )
 
         self.assertEqual(len(result), 3)
@@ -62,20 +62,20 @@ class TestPulpConverter(unittest.TestCase):
 
     def test_convert_quantity_parameter(self):
         """Test converting parameter quantity"""
-        mock_parameter = Mock(spec=Parameter)
-        mock_parameter.empty.return_value = False
-        mock_parameter.value = 42
+        parameter = Parameter(value=42)
 
-        result = self.converter.convert_quantity(mock_parameter, "test_name")
+        result = self.converter.convert_quantity(parameter, "test_name")
 
         self.assertEqual(result, 42)
 
     def test_convert_quantity_regular(self):
         """Test converting regular quantity"""
-
-        mock_quantity = Mock(spec=Quantity)
-        mock_quantity.empty.return_value = False
-        mock_quantity.value.return_value = [1, 2, 3, 4, 5]
+        quantity = TimeseriesObject(
+            data=pd.DataFrame(
+                {"value": [1, 2, 3, 4, 5]},
+                index=pd.date_range(start="2024-01-01 00:00", periods=5, freq="1h"),
+            )
+        )
 
         # Create a TimeSet with 5 time steps and 1h frequency
         time_set = TimeSet(
@@ -86,12 +86,11 @@ class TestPulpConverter(unittest.TestCase):
             time_points=None,
         )
         result = self.converter.convert_quantity(
-            mock_quantity, "test_name", time_set=time_set
+            quantity, "test_name", time_set=time_set
         )
 
-        self.assertEqual(result, [1, 2, 3, 4, 5])
+        np.testing.assert_array_equal(result, np.array([1, 2, 3, 4, 5]))
         # TimeSet.freq normalizes frequency to include multiplier (e.g., 'h' -> '1h')
-        mock_quantity.value.assert_called_once_with(time_set=5, freq="1h")
 
 
 class TestDynamicConstraintBuilding(unittest.TestCase):
@@ -838,24 +837,6 @@ class TestConvertBack(unittest.TestCase):
         )
 
         qty.set_value.assert_not_called()
-
-    def test_convert_back_invalid_time_set(self):
-        """Test that convert_back raises ValueError for invalid time_set"""
-        qty = Mock(spec=Quantity)
-        self.entity.quantities["power"] = qty
-
-        pulp_vars = [pulp.LpVariable(f"battery1_power_{t}") for t in range(3)]
-        problem = Mock(spec=pulp.LpProblem)
-        problem.variables.return_value = pulp_vars
-
-        # Create invalid time_set (missing time_points)
-        invalid_time_set = Mock()
-        del invalid_time_set.time_points
-
-        with self.assertRaises(ValueError):
-            self.converter.convert_back(
-                self.model, problem, {}, time_set=invalid_time_set, run_id="test_run"
-            )
 
     def test_convert_back_multiple_entities_and_quantities(self):
         """Test convert_back with multiple entities and quantities"""

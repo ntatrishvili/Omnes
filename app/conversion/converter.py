@@ -388,6 +388,7 @@ class Converter(object):
     def convert_relation(
         self,
         relation: Relation,
+        entity_variables: Dict[str, Any],
         time_set: Optional[TimeSet] = None,
     ):
         """
@@ -398,6 +399,8 @@ class Converter(object):
         ----------
         relation : Relation
             The relation to convert
+        entity_variables : Dict[str, Any]
+            Dictionary mapping entity IDs to their variables
         time_set : TimeSet, optional
             The TimeSet object containing full time information
         """

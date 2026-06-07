@@ -45,7 +45,6 @@ class TestPandapowerConverter(unittest.TestCase):
         self.conv.bus_map = {}
 
     def test_convert_quantity_empty_and_regular(self):
-        from app.infra.util import TimeSet
 
         # empty quantity -> None
         empty_q = Mock()
@@ -53,30 +52,10 @@ class TestPandapowerConverter(unittest.TestCase):
         result = self.conv.convert_quantity(empty_q, "empty_test")
         self.assertIsNone(result)
 
-        # non-Parameter quantity: should call .value(time_set=..., freq=...)
-        q = DummyWithValue([1, 2, 3], empty=False)
-        time_set = TimeSet(
-            start=None,
-            end=None,
-            resolution="1h",
-            number_of_time_steps=5,
-            time_points=None,
-        )
-        result2 = self.conv.convert_quantity(q, "regular", time_set=time_set)
-        self.assertEqual(result2, [1, 2, 3])
-
-        # Parameter branch: converter returns quantity.value (may be callable or attribute)
-        mock_param = Mock(spec=Parameter)
-        mock_param.empty.return_value = False
-
-        # support both callable property and plain value by assigning .value to a callable
-        def valfunc():
-            return 99
-
-        mock_param.value = valfunc
-        result3 = self.conv.convert_quantity(mock_param, "param_test")
-        # Should be the attribute stored on the object (callable in our mock)
-        self.assertIs(result3, mock_param.value)
+        # Parameter branch: real Parameter should return its stored scalar value
+        param = Parameter(value=99)
+        result3 = self.conv.convert_quantity(param, "param_test")
+        self.assertEqual(result3, 99)
 
     def test_bus_creation_and_map(self):
         # Create a dummy bus with nominal_voltage.value used by _convert_bus

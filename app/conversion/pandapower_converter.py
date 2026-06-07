@@ -574,11 +574,17 @@ class PandapowerConverter(Converter):
             return None
         return quantity.convert(self, name=name, time_set=time_set)
 
-        # if isinstance(quantity, Parameter):
-        #     return quantity.value
-        # else:
+    def convert_parameter(self, parameter, **kwargs):
+        if parameter.empty():
+            return None
+        return parameter.value
 
-    def convert_timeseries_object(self, timeseries_object: "TimeseriesObject", name: str, time_set: Optional[TimeSet] = None):
+    def convert_timeseries_object(
+        self,
+        timeseries_object: "TimeseriesObject",
+        name: str,
+        time_set: Optional[TimeSet] = None,
+    ):
         """
         Convert a TimeseriesObject to a numpy array for pandapower profiles.
 
