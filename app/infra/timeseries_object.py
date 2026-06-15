@@ -329,6 +329,10 @@ class TimeseriesObject(Quantity):
             return f"1{freq}"
         return freq
 
+    def convert(self, converter, **kwargs):
+        """Converts the quantity into a solver-compatible format (e.g., a time series array or a value-variable)."""
+        return converter.convert_timeseries_object(self, **kwargs)
+
     def to_1h(self, closed="left") -> "TimeseriesObject":
         """Convert to 1-hour frequency.
 

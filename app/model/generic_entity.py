@@ -5,7 +5,7 @@ input model contains objects that do not have a dedicated subclass. It
 wraps generic quantities and forwards quantity creation to a factory.
 """
 
-from typing import Dict, Optional
+from typing import Optional
 
 from app.infra.parameter import Parameter
 from app.infra.quantity import Quantity
