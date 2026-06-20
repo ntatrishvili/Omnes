@@ -453,7 +453,7 @@ class BinaryExpression(Expression):
         return f"({self.left} {self.operator} {self.right})"
 
     def get_ids(self) -> list[str]:
-        return self.left.get_ids() + self.right.get_ids()
+        return list(dict.fromkeys(self.left.get_ids() + self.right.get_ids()))
 
     def convert(self, converter, t: int, time_set: Optional["TimeSet"] = None):
         """Convert binary expression using the provided converter"""
@@ -646,7 +646,9 @@ class IfThenExpression(Expression):
         return f"(if {self.condition} then {self.consequence})"
 
     def get_ids(self) -> list[str]:
-        return self.condition.get_ids() + self.consequence.get_ids()
+        return list(
+            dict.fromkeys(self.condition.get_ids() + self.consequence.get_ids())
+        )
 
     def convert(self, converter, t: int, time_set: Optional["TimeSet"] = None):
         """Convert if-then expression using the provided converter"""
@@ -710,7 +712,7 @@ class TimeConditionExpression(Expression):
     def get_ids(self) -> list[str]:
         # For time conditions, we need to handle the case where condition might be a string
         if hasattr(self.condition, "get_ids"):
-            return [self.entity] + self.condition.get_ids()
+            return list(dict.fromkeys([self.entity] + self.condition.get_ids()))
         else:
             return [self.entity]
 
@@ -854,7 +856,7 @@ class AssignmentExpression(Expression):
             if hasattr(self.value, "get_ids")
             else self._extract_ids_from_raw_value(self.value)
         )
-        return target_ids + value_ids
+        return list(dict.fromkeys(target_ids + value_ids))
 
 
 # --- Convenience factory for self-references ---
