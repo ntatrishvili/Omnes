@@ -527,7 +527,7 @@ class TestAdditionalRelationCases(unittest.TestCase):
         self.assertEqual(expr_float.value, 2.5)
 
     def test_get_ids_with_duplicates(self):
-        # left is 'a', right is (a + b) -> get_ids returns ['a','b'] 
+        # left is 'a', right is (a + b) -> get_ids returns ['a', 'b']
         inner = BinaryExpression(
             EntityReference("a"), Operator.ADD, EntityReference("b")
         )
