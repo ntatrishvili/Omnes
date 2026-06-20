@@ -527,13 +527,13 @@ class TestAdditionalRelationCases(unittest.TestCase):
         self.assertEqual(expr_float.value, 2.5)
 
     def test_get_ids_with_duplicates(self):
-        # left is 'a', right is (a + b) -> get_ids returns ['a','a','b']
+        # left is 'a', right is (a + b) -> get_ids returns ['a','b'] 
         inner = BinaryExpression(
             EntityReference("a"), Operator.ADD, EntityReference("b")
         )
         top = BinaryExpression(EntityReference("a"), Operator.ADD, inner)
         ids = top.get_ids()
-        self.assertEqual(ids, ["a", "a", "b"])
+        self.assertEqual(ids, ["a", "b"])
 
     def test_time_condition_malformed_raises(self):
         # malformed time string should raise ValueError in parsing
@@ -655,7 +655,7 @@ class TestSelfReferenceParsing(unittest.TestCase):
         self.assertIsInstance(expr, BinaryExpression)
         # Should have self references on both sides
         ids = expr.get_ids()
-        self.assertEqual(ids, ["$", "$", "$"])
+        self.assertEqual(ids, ["$"])
 
 
 class TestTimeConditionExpressionExtended(unittest.TestCase):
@@ -788,7 +788,7 @@ class TestAssignmentExpressionExtended(unittest.TestCase):
         """Test get_ids when both target and value are self references"""
         assign = AssignmentExpression("$.output", "$.input")
         ids = assign.get_ids()
-        self.assertEqual(ids, ["$", "$"])
+        self.assertEqual(ids, ["$"])
 
     def test_assignment_convert_with_self_reference_target(self):
         """Test conversion with self reference target string"""
