@@ -868,8 +868,58 @@ def Own(property_name: str, t: int = 0) -> SelfReference:
     Use Own("power") instead of the string "$.power" when building
     expressions programmatically. The returned object is a SelfReference
     instance with the given property name and optional time offset.
+
+    Parameters
+    ----------
+    property_name : str
+        The name of the property to reference (e.g., 'power', 'soc')
+    t : int, optional
+        Time offset relative to current time step. Default is 0.
+        Use negative values for past time steps (e.g., -1 for t-1).
+
+    Returns
+    -------
+    SelfReference
+        A self reference expression for use in Relations
     """
     return SelfReference(property_name, t)
+
+
+def If(condition: Expression, *, then: Expression) -> IfThenExpression:
+    """Convenience factory for if-then conditional expressions.
+
+    Use If(condition, then=consequence) instead of parsing string
+    "if condition then consequence" when building expressions programmatically.
+    The condition determines when the consequence applies.
+
+    Example
+    -------
+    # Old string-based syntax
+    Relation("if $.power < 0 then $.output = 2")
+
+    # New programmatic syntax with If factory
+    Relation(If(My("power") < 0, then=(My("output"):=Literal(2))))
+
+    Parameters
+    ----------
+    condition : Expression
+        The condition to evaluate. Use comparison operators like <, <=, ==, !=, >, >=
+        which are defined in the Expression class.
+    then : Expression
+        The consequence that applies when the condition is true.
+        Must be passed as a keyword argument.
+
+    Returns
+    -------
+    IfThenExpression
+        An if-then conditional expression for use in Relations
+
+    Raises
+    ------
+    TypeError
+        If 'then' is not passed as a keyword argument (enforced by * in signature)
+    """
+    return IfThenExpression(condition, then)
 
 
 class Relation:
