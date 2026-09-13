@@ -207,6 +207,37 @@ class Expression(ABC):
     def __ne__(self, other: Any):
         return self._binary_op(other, Operator.NOT_EQUAL)
 
+    def assign(self, value: Any) -> "AssignmentExpression":
+        """
+        Create an assignment expression with this expression as the target.
+
+        This convenience method creates an AssignmentExpression that assigns
+        a value to this expression. Numeric values are automatically wrapped
+        in Literal expressions.
+
+        Parameters
+        ----------
+        value : Union[int, float, Expression]
+            The value to assign. Numeric types are converted to Literal expressions.
+
+        Returns
+        -------
+        AssignmentExpression
+            An assignment expression with self as target and the value as the assigned value.
+
+        Examples
+        --------
+        >>> # Assign a constant to a self-reference
+        >>> Own("output").assign(2)
+        AssignmentExpression(SelfReference("output"), Literal(2))
+
+        >>> # Assign an expression to an entity reference
+        >>> Reference("heater", "p_in").assign(Own("demand") * 2)
+        AssignmentExpression(EntityReference("heater.p_in"), BinaryExpression(...))
+        """
+        coerced_value = self._coerce_operand(value)
+        return AssignmentExpression(self, coerced_value)
+
     def __bool__(self) -> bool:
         """
         Prevent symbolic expressions from being used as booleans.

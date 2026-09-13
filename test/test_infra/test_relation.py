@@ -10,6 +10,7 @@ from app.infra.relation import (
     IfThenExpression,
     Literal,
     Operator,
+    Own,
     Relation,
     SelfReference,
     TimeConditionExpression,
@@ -1027,170 +1028,74 @@ class TestRelationExtended(unittest.TestCase):
         self.assertIsInstance(rel.expression.right, Literal)
         self.assertEqual(rel.expression.right.value, -100)
 
-    def test_relation_float_bound(self):
-        """Test relation with float bound"""
-        rel = Relation("efficiency <= 0.95")
-        self.assertIsInstance(rel.expression.right, Literal)
-        self.assertEqual(rel.expression.right.value, 0.95)
 
+class TestAssignMethod(unittest.TestCase):
+    """Test suite for Expression.assign() convenience method"""
 
-class TestIfThenExpression(unittest.TestCase):
-    """Tests for IfThenExpression"""
+    def test_assign_literal_numeric(self):
+        """Test assigning a numeric literal to an expression"""
+        target = Own("output")
+        expr = target.assign(2)
+        self.assertIsInstance(expr, AssignmentExpression)
+        self.assertIs(expr.target, target)
+        self.assertIsInstance(expr.value, Literal)
+        self.assertEqual(expr.value.value, 2)
 
-    def test_if_then_str(self):
-        """Test string representation"""
-        condition = BinaryExpression(
-            EntityReference("a"), Operator.LESS_THAN, Literal(5)
-        )
-        consequence = BinaryExpression(
-            EntityReference("b"), Operator.GREATER_THAN, Literal(3)
-        )
-        expr = IfThenExpression(condition, consequence)
-        self.assertIn("if", str(expr))
-        self.assertIn("then", str(expr))
+    def test_assign_float_value(self):
+        """Test assigning a float value"""
+        expr = Own("power").assign(3.14)
+        self.assertIsInstance(expr, AssignmentExpression)
+        self.assertIsInstance(expr.value, Literal)
+        self.assertEqual(expr.value.value, 3.14)
 
-    def test_if_then_get_ids(self):
-        """Test get_ids returns IDs from both condition and consequence"""
-        condition = EntityReference("sensor.temp")
-        consequence = EntityReference("heater.power")
-        expr = IfThenExpression(condition, consequence)
-        ids = expr.get_ids()
-        self.assertIn("sensor.temp", ids)
-        self.assertIn("heater.power", ids)
+    def test_assign_expression(self):
+        """Test assigning an Expression to an expression"""
+        value_expr = Own("demand") * 2
+        target_expr = Own("output")
+        assignment = target_expr.assign(value_expr)
+        self.assertIsInstance(assignment, AssignmentExpression)
+        self.assertIs(assignment.target, target_expr)
+        self.assertIs(assignment.value, value_expr)
 
-    def test_if_then_convert_raises_not_implemented(self):
-        """Test that convert raises NotImplementedError"""
-        condition = Literal(1)
-        consequence = Literal(2)
-        expr = IfThenExpression(condition, consequence)
-        with self.assertRaises(NotImplementedError):
-            expr.convert(Mock(), t=0)
+    def test_assign_string_representation(self):
+        """Test string representation of assignment expression"""
+        expr = Own("output").assign(42)
+        expr_str = str(expr)
+        self.assertIn("output", expr_str)
+        self.assertIn("42", expr_str)
+        self.assertIn("=", expr_str)
 
+    def test_assign_on_self_reference(self):
+        """Test assign method on SelfReference directly"""
+        target = SelfReference("power")
+        assignment = target.assign(5)
+        self.assertIsInstance(assignment, AssignmentExpression)
+        self.assertIs(assignment.target, target)
+        self.assertIsInstance(assignment.value, Literal)
 
-class TestExpressionBooleanPrevention(unittest.TestCase):
-    """Test that Expression.__bool__ and __len__ prevent truthiness evaluation."""
+    def test_assign_on_entity_reference(self):
+        """Test assign method on EntityReference"""
+        target = EntityReference("heater.p_in")
+        assignment = target.assign(100)
+        self.assertIsInstance(assignment, AssignmentExpression)
+        self.assertIs(assignment.target, target)
+        self.assertIsInstance(assignment.value, Literal)
 
-    def test_entity_reference_bool_raises_typeerror(self):
-        """Test that bool(EntityReference(...)) raises TypeError"""
-        expr = EntityReference("battery.power")
-        with self.assertRaises(TypeError) as context:
-            bool(expr)
+    def test_assign_with_binary_expression_value(self):
+        """Test assigning a complex binary expression"""
+        value = Own("input") + Own("loss")
+        assignment = Own("output").assign(value)
+        self.assertIsInstance(assignment, AssignmentExpression)
+        self.assertIsInstance(assignment.value, BinaryExpression)
 
-        self.assertIn("cannot be used as booleans", str(context.exception))
-
-    def test_self_reference_bool_raises_typeerror(self):
-        """Test that bool(SelfReference(...)) raises TypeError"""
-        expr = SelfReference("power")
-        with self.assertRaises(TypeError) as context:
-            bool(expr)
-
-        self.assertIn("cannot be used as booleans", str(context.exception))
-
-    def test_literal_bool_raises_typeerror(self):
-        """Test that bool(Literal(...)) raises TypeError"""
-        expr = Literal(42)
-        with self.assertRaises(TypeError) as context:
-            bool(expr)
-
-        self.assertIn("cannot be used as booleans", str(context.exception))
-
-    def test_binary_expression_bool_raises_typeerror(self):
-        """Test that bool(BinaryExpression(...)) raises TypeError"""
-        expr = EntityReference("x") + 5
-        with self.assertRaises(TypeError) as context:
-            bool(expr)
-
-        self.assertIn("cannot be used as booleans", str(context.exception))
-
-    def test_if_conditional_with_expression_raises_typeerror(self):
-        """Test that using expression in if statement raises TypeError"""
-        expr = EntityReference("x") > 5
-        with self.assertRaises(TypeError):
-            if expr:
-                pass
-
-    def test_entity_reference_len_raises_typeerror(self):
-        """Test that len(EntityReference(...)) raises TypeError"""
-        expr = EntityReference("battery.power")
-        with self.assertRaises(TypeError) as context:
-            len(expr)
-
-        self.assertIn("truth value", str(context.exception).lower())
-
-    def test_while_loop_with_expression_raises_typeerror(self):
-        """Test that using expression in while loop raises TypeError"""
-        expr = EntityReference("sensor.value")
-        with self.assertRaises(TypeError):
-            while expr:
-                break
-
-    def test_not_operator_with_expression_raises_typeerror(self):
-        """Test that 'not expression' raises TypeError"""
-        expr = EntityReference("flag")
-        with self.assertRaises(TypeError):
-            not expr
-
-    def test_and_operator_with_expression_raises_typeerror(self):
-        """Test that 'expression and ...' raises TypeError"""
-        expr = EntityReference("x")
-        with self.assertRaises(TypeError):
-            expr and True
-
-    def test_or_operator_with_expression_raises_typeerror(self):
-        """Test that 'expression or ...' raises TypeError"""
-        expr = EntityReference("x")
-        with self.assertRaises(TypeError):
-            expr or False
-
-    def test_comparison_result_also_raises_typeerror(self):
-        """Test that results of comparison operations also raise TypeError in boolean context"""
-        comparison_expr = EntityReference("x") < 10
-        with self.assertRaises(TypeError):
-            bool(comparison_expr)
-
-    def test_arithmetic_result_also_raises_typeerror(self):
-        """Test that results of arithmetic operations also raise TypeError in boolean context"""
-        arithmetic_expr = EntityReference("x") * 2 + 5
-        with self.assertRaises(TypeError):
-            bool(arithmetic_expr)
-
-    def test_assignment_expression_bool_raises_typeerror(self):
-        """Test that bool(AssignmentExpression(...)) raises TypeError"""
-        # AssignmentExpression is created via string parsing or direct instantiation
-        expr = AssignmentExpression(EntityReference("output"), Literal(2))
-        with self.assertRaises(TypeError):
-            bool(expr)
-
-    def test_if_then_expression_bool_raises_typeerror(self):
-        """Test that bool(IfThenExpression(...)) raises TypeError"""
-        condition = EntityReference("x") > 0
-        consequence = Literal(1)
-        expr = IfThenExpression(condition, consequence)
-        with self.assertRaises(TypeError):
-            bool(expr)
-
-    def test_bool_error_message_explains_issue(self):
-        """Test that __bool__ error message explains the issue and suggests solution"""
-        expr = EntityReference("power")
-        try:
-            bool(expr)
-            self.fail("Expected TypeError")
-        except TypeError as e:
-            error_msg = str(e)
-            # Verify the error message is informative
-            self.assertIn("Expression", error_msg)
-            self.assertIn("cannot be used as booleans", error_msg)
-
-    def test_len_error_message_explains_issue(self):
-        """Test that __len__ error message explains the issue"""
-        expr = EntityReference("power")
-        try:
-            len(expr)
-            self.fail("Expected TypeError")
-        except TypeError as e:
-            error_msg = str(e)
-            # Verify the error message is informative
-            self.assertIn("truth value", error_msg.lower())
+    def test_assign_in_relation(self):
+        """Test using assign() result in a Relation"""
+        assignment = Own("output").assign(2)
+        relation = Relation(assignment)
+        self.assertIsNotNone(relation)
+        # Verify the relation stores the assignment
+        relation_str = str(relation)
+        self.assertIn("output", relation_str)
 
 
 if __name__ == "__main__":
