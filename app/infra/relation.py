@@ -898,7 +898,7 @@ def If(condition: Expression, *, then: Expression) -> IfThenExpression:
     Relation("if $.power < 0 then $.output = 2")
 
     # New programmatic syntax with If factory
-    Relation(If(My("power") < 0, then=(My("output"):=Literal(2))))
+    Relation(If(Own("power") < 0, then=AssignmentExpression(Own("output"), Literal(2))))
 
     Parameters
     ----------

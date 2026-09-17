@@ -1279,7 +1279,6 @@ class TestIfFactory(unittest.TestCase):
         inner_condition = Own("power") > 10
         inner_consequence = Literal(2)
         inner_if = If(inner_condition, then=inner_consequence)
-        
         outer_condition = Own("soc") < 0.5
         outer_expr = If(outer_condition, then=inner_if)
         self.assertIsInstance(outer_expr, IfThenExpression)
@@ -1313,7 +1312,6 @@ class TestIfFactory(unittest.TestCase):
         condition = Own("power") < 0
         consequence = Own("output")
         expr = If(condition, then=consequence)
-        
         rel = Relation(expr, name="heater_logic")
         self.assertEqual(rel.name, "heater_logic")
         self.assertIsInstance(rel.expression, IfThenExpression)
