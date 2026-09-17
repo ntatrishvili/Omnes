@@ -872,6 +872,37 @@ def Own(property_name: str, t: int = 0) -> SelfReference:
     return SelfReference(property_name, t)
 
 
+# --- Convenience factory for time condition expressions ---
+
+
+def Enabled(
+    entity_id: str, *, from_time: str, to_time: str, condition: str = "enabled"
+) -> TimeConditionExpression:
+    """Convenience factory for time-based enabled/disabled conditions.
+
+    Use Enabled("heater.power", from_time="09:00", to_time="17:00") instead of
+    the string "heater.power enabled from 09:00 to 17:00" when building
+    expressions programmatically.
+
+    Parameters
+    ----------
+    entity_id : str
+        The entity ID (e.g., 'heater1.p_in')
+    from_time : str
+        Start time in HH:MM format (e.g., '10:00'). Keyword-only argument.
+    to_time : str
+        End time in HH:MM format (e.g., '16:00'). Keyword-only argument.
+    condition : str, default='enabled'
+        The condition type ('enabled', 'disabled', etc.)
+
+    Returns
+    -------
+    TimeConditionExpression
+        A TimeConditionExpression representing the time-based constraint
+    """
+    return TimeConditionExpression(entity_id, condition, from_time, to_time)
+
+
 class Relation:
     def __init__(self, raw_expr: Union[str, Expression], name: str = None):
         self.name = name if name else f"{uuid.uuid4().hex}"

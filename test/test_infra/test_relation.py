@@ -6,6 +6,7 @@ import pandas as pd
 from app.infra.relation import (
     AssignmentExpression,
     BinaryExpression,
+    Enabled,
     EntityReference,
     IfThenExpression,
     Literal,
@@ -748,6 +749,144 @@ class TestTimeConditionExpressionExtended(unittest.TestCase):
         tc.convert(mock_converter, t=0, time_set=mock_time_set2)
 
         self.assertEqual(mock_converter.convert_time_condition_expression.call_count, 2)
+
+
+class TestEnabledFactory(unittest.TestCase):
+    """Tests for the Enabled() convenience factory function"""
+
+    def test_enabled_creates_time_condition_expression(self):
+        """Test that Enabled() returns a TimeConditionExpression instance"""
+        enabled_expr = Enabled("heater.power", from_time="09:00", to_time="17:00")
+        self.assertIsInstance(enabled_expr, TimeConditionExpression)
+
+    def test_enabled_sets_entity_id(self):
+        """Test that Enabled() correctly sets the entity_id"""
+        entity_id = "battery.discharge_power"
+        enabled_expr = Enabled(entity_id, from_time="08:00", to_time="18:00")
+        self.assertEqual(enabled_expr.entity, entity_id)
+
+    def test_enabled_sets_default_condition(self):
+        """Test that Enabled() defaults to 'enabled' condition"""
+        enabled_expr = Enabled("pump.power", from_time="10:00", to_time="16:00")
+        self.assertEqual(enabled_expr.condition, "enabled")
+
+    def test_enabled_sets_custom_condition(self):
+        """Test that Enabled() allows custom condition type"""
+        enabled_expr = Enabled(
+            "pump.power", from_time="10:00", to_time="16:00", condition="disabled"
+        )
+        self.assertEqual(enabled_expr.condition, "disabled")
+
+    def test_enabled_sets_start_time(self):
+        """Test that Enabled() correctly sets start time"""
+        start_time = "06:30"
+        enabled_expr = Enabled("device.power", from_time=start_time, to_time="22:00")
+        self.assertEqual(enabled_expr.start_time, start_time)
+
+    def test_enabled_sets_end_time(self):
+        """Test that Enabled() correctly sets end time"""
+        end_time = "14:45"
+        enabled_expr = Enabled("device.power", from_time="08:00", to_time=end_time)
+        self.assertEqual(enabled_expr.end_time, end_time)
+
+    def test_enabled_string_representation(self):
+        """Test string representation of Enabled() expression"""
+        enabled_expr = Enabled("heater.power", from_time="09:00", to_time="17:00")
+        expected_str = "(heater.power enabled from 09:00 to 17:00)"
+        self.assertEqual(str(enabled_expr), expected_str)
+
+    def test_enabled_string_representation_custom_condition(self):
+        """Test string representation with custom condition"""
+        enabled_expr = Enabled(
+            "device.p_in",
+            from_time="10:00",
+            to_time="14:00",
+            condition="inactive",
+        )
+        expected_str = "(device.p_in inactive from 10:00 to 14:00)"
+        self.assertEqual(str(enabled_expr), expected_str)
+
+    def test_enabled_get_ids(self):
+        """Test get_ids() returns entity ID"""
+        entity_id = "furnace.thermal_power"
+        enabled_expr = Enabled(entity_id, from_time="08:00", to_time="20:00")
+        ids = enabled_expr.get_ids()
+        self.assertEqual(ids, [entity_id])
+
+    def test_enabled_requires_from_time_keyword(self):
+        """Test that from_time must be passed as keyword argument"""
+        with self.assertRaises(TypeError):
+            # Trying to pass from_time as positional argument should fail
+            Enabled("device.power", "10:00", to_time="16:00")  # type: ignore
+
+    def test_enabled_requires_time_arguments_keyword(self):
+        """Test that from_time and to_time must be passed as keyword arguments"""
+        with self.assertRaises(TypeError):
+            # Trying to pass to_time as positional argument should fail
+            Enabled("device.power", "10:00", "16:00")  # type: ignore
+
+    def test_enabled_with_various_time_formats(self):
+        """Test Enabled() with various HH:MM time formats"""
+        test_cases = [
+            ("00:00", "23:59"),  # Midnight to just before midnight
+            ("06:00", "18:00"),  # Morning to evening
+            ("12:00", "13:00"),  # Single hour window
+            ("01:30", "22:45"),  # Non-standard minutes
+        ]
+
+        for start, end in test_cases:
+            with self.subTest(start=start, end=end):
+                enabled_expr = Enabled("device.power", from_time=start, to_time=end)
+                self.assertEqual(enabled_expr.start_time, start)
+                self.assertEqual(enabled_expr.end_time, end)
+
+    def test_enabled_with_complex_entity_ids(self):
+        """Test Enabled() with complex entity IDs"""
+        entity_ids = [
+            "battery1.p_out",
+            "pv_array.generation",
+            "grid_connection.p_import_max",
+            "heater_zone_a.p_in",
+        ]
+
+        for entity_id in entity_ids:
+            with self.subTest(entity_id=entity_id):
+                enabled_expr = Enabled(entity_id, from_time="10:00", to_time="14:00")
+                self.assertEqual(enabled_expr.entity, entity_id)
+
+    def test_enabled_programmatic_usage_in_relation(self):
+        """Test that Enabled() expression can be used in Relation"""
+        enabled_expr = Enabled("pump.power", from_time="08:00", to_time="20:00")
+        relation = Relation(enabled_expr)
+
+        # Relation should accept the expression and extract entity ID
+        self.assertIn("pump.power", relation.get_ids())
+
+    def test_enabled_disabled_condition(self):
+        """Test Enabled() with 'disabled' condition"""
+        disabled_expr = Enabled(
+            "device.power", from_time="22:00", to_time="06:00", condition="disabled"
+        )
+        self.assertEqual(disabled_expr.condition, "disabled")
+        self.assertIn("disabled", str(disabled_expr))
+
+    def test_enabled_convert_integration(self):
+        """Test that Enabled() expression can be converted with a mock converter"""
+        enabled_expr = Enabled("heater.power", from_time="09:00", to_time="17:00")
+
+        mock_converter = Mock()
+        mock_converter.convert_time_condition_expression.return_value = (
+            "converted_constraint"
+        )
+
+        mock_time_set = Mock()
+        mock_time_set.hex_id = "test_id"
+        mock_time_set.number_of_time_steps = 24
+        mock_time_set.time_points = pd.date_range("2024-01-01", periods=24, freq="h")
+
+        result = enabled_expr.convert(mock_converter, t=5, time_set=mock_time_set)
+        self.assertEqual(result, "converted_constraint")
+        mock_converter.convert_time_condition_expression.assert_called_once()
 
 
 class TestAssignmentExpressionExtended(unittest.TestCase):
