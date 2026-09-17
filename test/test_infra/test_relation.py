@@ -1310,7 +1310,7 @@ class TestIfFactory(unittest.TestCase):
         """Test If() with a realistic use case"""
         # If heater power is negative, output should be 2
         condition = Own("power") < 0
-        consequence = Own("output")
+        consequence = AssignmentExpression(Own("output"), Literal(2))
         expr = If(condition, then=consequence)
         rel = Relation(expr, name="heater_logic")
         self.assertEqual(rel.name, "heater_logic")
