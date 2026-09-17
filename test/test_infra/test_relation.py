@@ -819,11 +819,11 @@ class TestEnabledFactory(unittest.TestCase):
             # Trying to pass from_time as positional argument should fail
             Enabled("device.power", "10:00", to_time="16:00")  # type: ignore
 
-    def test_enabled_requires_to_time_keyword(self):
-        """Test that to_time must be passed as keyword argument"""
+    def test_enabled_requires_time_arguments_keyword(self):
+        """Test that from_time and to_time must be passed as keyword arguments"""
         with self.assertRaises(TypeError):
             # Trying to pass to_time as positional argument should fail
-            Enabled("device.power", from_time="10:00", to_time_positional="16:00")  # type: ignore
+            Enabled("device.power", "10:00", "16:00")  # type: ignore
 
     def test_enabled_with_various_time_formats(self):
         """Test Enabled() with various HH:MM time formats"""
