@@ -425,6 +425,12 @@ class TestRelation(unittest.TestCase):
         self.assertIsInstance(relation.expression.condition, BinaryExpression)
         self.assertIsInstance(relation.expression.consequence, AssignmentExpression)
 
+    def test_relation_created_on_entities(self):
+        """Test that Relation can be created on entities and get_ids works"""
+        relation = Relation("battery1.power <= pv1.power", "entity_relation")
+        ids = relation.get_ids()
+        self.assertEqual(sorted(ids), sorted(["battery1.power", "pv1.power"]))
+
 
 class TestAdditionalRelationCases(unittest.TestCase):
     def test_entity_reference_invalid_id_raises(self):
