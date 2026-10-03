@@ -1164,7 +1164,6 @@ class TestIfFactory(unittest.TestCase):
         condition = Own("power") < 10
         consequence = Literal(2)
         expr = If(condition, then=consequence)
-        # Use assertIs to check the object is the same reference
         self.assertIs(expr.condition, condition)
 
     def test_if_stores_consequence(self):
@@ -1172,10 +1171,9 @@ class TestIfFactory(unittest.TestCase):
         condition = Own("power") < 10
         consequence = Literal(2)
         expr = If(condition, then=consequence)
-        # Use assertIs to check the object is the same reference
         self.assertIs(expr.consequence, consequence)
 
-    def test_if_requires_keyword_argument(self):
+    def test_if_consequence_as_positional_raises(self):
         """Test that If() enforces then= as keyword argument"""
         condition = Own("power") < 10
         consequence = Literal(2)
@@ -1298,7 +1296,7 @@ class TestIfFactory(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             expr.convert(Mock(), t=0)
 
-    def test_if_keyword_argument_name_matters(self):
+    def test_if_consequence_without_then_keyword_raises(self):
         """Test that If() specifically requires 'then' keyword"""
         condition = Own("power") < 10
         consequence = Literal(2)
