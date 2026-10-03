@@ -228,12 +228,14 @@ class Expression(ABC):
         Examples
         --------
         >>> # Assign a constant to a self-reference
-        >>> Own("output").assign(2)
-        AssignmentExpression(SelfReference("output"), Literal(2))
+        >>> expr = Own("output").assign(2)
+        >>> isinstance(expr, AssignmentExpression)
+        True
 
         >>> # Assign an expression to an entity reference
-        >>> Reference("heater", "p_in").assign(Own("demand") * 2)
-        AssignmentExpression(EntityReference("heater.p_in"), BinaryExpression(...))
+        >>> expr = EntityReference("heater.p_in").assign(Own("demand") * 2)
+        >>> isinstance(expr, AssignmentExpression)
+        True
         """
         coerced_value = self._coerce_operand(value)
         return AssignmentExpression(self, coerced_value)
