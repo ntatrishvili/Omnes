@@ -214,6 +214,9 @@ class PulpConverter(Converter):
 
         This is the second pass that requires all entity variables to be available.
         """
+        for relation in model.relations:
+            result.update(self.convert_relation(relation, time_set=time_set))
+
         skip_entities = context.get("skip_entities", set())
 
         # Convert relations for all entities
@@ -362,6 +365,7 @@ class PulpConverter(Converter):
         ValueError
             If any entity referenced in the relation is not found in __objects.
         """
+        log.debug(f"Converting relation '{relation.name}' with expression: {relation.expression}")
         if entity_variables is not None:
             self.__objects.update(entity_variables)
 

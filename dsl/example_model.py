@@ -211,7 +211,7 @@ load2 = Load(
     ],
 )
 
-# relation1 = Relation("battery1.max_discharge_rate < 2 * pv1.peak_power")
+relation1 = Relation("battery1.max_discharge_rate < 2 * pv1.peak_power")
 # e = Entity(relations=[relation1,])
 
 # Global relations
@@ -245,6 +245,11 @@ model = Model(
         hot_water_storage2,
     ],
 )
+
+model.add_relation(relation1)
+model.add_relation(global_relation1)
+model.add_relation(global_relation2)
+
 
 number_of_time_steps = model.number_of_time_steps
 optimized_model = optimize_energy_system_pulp(model=model)

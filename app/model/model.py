@@ -4,6 +4,7 @@ import secrets
 from typing import Optional
 
 from app.infra.logging_setup import get_logger
+from app.infra.relation import Relation
 from app.infra.util import get_input_path, TimesetBuilder, TimeSet
 from app.model.entity import Entity
 from app.model.generator.pv import PV
@@ -41,6 +42,11 @@ class Model:
         )
         ent_list = kwargs.pop("entities", [])
         self.entities: dict[str, Entity] = {e.id: e for e in ent_list}
+
+        self.relations: list[Relation] = kwargs.pop("relations", [])
+
+    def add_relation(self, relation: Relation):
+        self.relations.append(relation)
 
     def add_entity(self, entity: Entity):
         self.entities[entity.id] = entity
@@ -151,6 +157,10 @@ class Model:
         """
         Convert the model to an optimization/simulation problem
         """
+        if time_set is None:
+            time_set = self.time_set
+        if new_freq is None:
+            new_freq = self.frequency
         log.info(f"Converting model with {time_set} steps and {new_freq} freq.")
         return converter.convert_model(self, time_set=time_set, new_freq=new_freq)
 
