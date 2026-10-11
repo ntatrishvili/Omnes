@@ -71,6 +71,21 @@ class PulpConverter(Converter):
             None  # Track current entity being processed
         )
 
+    @staticmethod
+    def relation_constraints(result: Dict[str, Any]) -> Dict[str, List]:
+        """The relation constraints (one per time step) contained in a ``convert_model`` result.
+
+        ``convert_model`` returns variables, constants and constraints in one dict; the
+        caller adds these constraints to its own ``LpProblem``.
+        """
+        return {
+            k: v
+            for k, v in result.items()
+            if isinstance(v, list)
+            and v
+            and all(isinstance(c, pulp.LpConstraint) for c in v)
+        }
+
     def _register_converters(self):
         """
         PulpConverter doesn't need specialized entity converters.

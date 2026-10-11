@@ -7,6 +7,7 @@ variables, constraints, and expressions.
 
 import warnings
 
+import numpy as np
 import pulp
 
 from app.infra.relation import Operator
@@ -158,6 +159,11 @@ def warn_about_not_equal_constraint() -> None:
     )
 
 
+def _is_constant(value) -> bool:
+    """Python or numpy number (time series constants arrive as numpy scalars)."""
+    return isinstance(value, (int, float, np.number))
+
+
 def validate_linear_multiplication(left_result, right_result) -> None:
     """
     Validate that multiplication maintains linearity.
@@ -174,9 +180,7 @@ def validate_linear_multiplication(left_result, right_result) -> None:
     ValueError
         If both operands are variables (non-linear)
     """
-    if not isinstance(right_result, (int, float)) and not isinstance(
-        left_result, (int, float)
-    ):
+    if not _is_constant(right_result) and not _is_constant(left_result):
         raise ValueError(
             "Multiplication of two variables is not supported in linear programming. "
             "At least one side must be a constant."
@@ -197,7 +201,7 @@ def validate_linear_division(right_result) -> None:
     ValueError
         If divisor is a variable (non-linear)
     """
-    if not isinstance(right_result, (int, float)):
+    if not _is_constant(right_result):
         raise ValueError(
             "Division by variables is not supported in linear programming. "
             "Only division by constants is allowed."

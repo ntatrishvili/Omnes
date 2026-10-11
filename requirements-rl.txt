@@ -1,0 +1,5 @@
+﻿# Optional: training of the RL agent (see app/case_studies/kfki_campus/rl/README_RL.md)
+-r requirements.txt
+stable-baselines3
+torch
+tensorboard

@@ -213,3 +213,94 @@ Relations:
   pv1.p_out + wind1.p_out >= load1.power + battery1.p_in
   battery1.p_out * 0.95 <= battery1.capacity / 4
 
+# ----------------------------------------------------------------------------------------
+# Reinforcement learning. Like an optimisation problem, it is a description of how to operate
+# the Model above (it is NOT an entity of the Model). Every key has a default; only what
+# differs has to be written. Names after "reward" / "observe" are registry entries
+# (app/operation/rl/rewards.py, observations.py), "events" refer to the generator registry.
+# ----------------------------------------------------------------------------------------
+RL:
+  name: ev_v1g
+  # the Model the agent operates; its time step is the step of the environment
+  model: Energy_Community
+  # step: run the power flow in every step (voltage / loading terms in the reward),
+  # post: only when evaluating (much faster training)
+  power_flow: step
+  # what happens with the battery: self_consumption_rule | none
+  battery: self_consumption_rule
+  # perfect = read from the data, persistence = value of the previous day
+  forecast: perfect
+
+  Episode:
+    days: 1
+    # random_day | sequential | full_period
+    mode: random_day
+    train_fraction: 0.7
+    split_seed: 0
+
+  # Charging events: when a vehicle connects, how long it stays, how much energy it needs
+  Events:
+    # file | generator | mixed
+    source: mixed
+    # CSV columns: session_id, charger_id, plug_in, connected_h (or plug_out), energy_kwh [, max_power_kw]
+    file: data/charging_sessions.csv
+    # dummy | joint (joint needs a sampler of (start, energy, connected time))
+    generator: dummy
+    arrivals_per_day: 1.5
+    energy_median_kwh: 14
+    p_generator: 0.5
+
+  # The agent sets, per controllable device, the fraction (0..1) of its rated power.
+  Action:
+    controls: ev_c01, ev_c02, ev_c03
+    # none | laxity: force the minimum power that still delivers the energy in time
+    safety_layer: none
+
+  # Observation vector = the listed terms, in this order
+  Observe:
+    - time_sin_cos
+    - weekday
+    - pv_now
+    - pv_forecast k=3
+    - base_load_now
+    - net_residual
+    - battery_soc
+    - trafo_loading_prev
+    - v_max_prev
+    - charger_connected
+    - charger_energy_remaining
+    - charger_time_remaining
+    - charger_laxity
+    - charger_p_prev
+
+  # Payoff: reward = -(sum of weight * transform(metric) - exogenous baseline) / reference_energy
+  # Units of the weights: kWh-equivalents per unit of the metric
+  Reward:
+    baseline: exogenous
+    # default: rated energy of the controlled chargers per step
+    reference_energy: auto
+    # self-sufficiency: grid import energy
+    - import_kwh weight: 1.0
+    # self-consumption: grid export energy
+    - export_kwh weight: 1.0
+    # EV energy not delivered at departure (must be larger than the import weight)
+    - unmet_kwh weight: 5.0
+    - voltage_excess_pu weight: 200 v_hi=1.05 v_lo=0.95
+    - trafo_overload_kvah weight: 3.0
+    - line_overload_kvah weight: 3.0
+    # battery cycling
+    - battery_throughput_kwh weight: 0.1
+    - losses_kwh weight: 0.5
+    - ramp_kw weight: 0.005
+    # transform: linear (default) | square | hinge threshold=<x>
+    # - clipped_kw weight: 0.01 transform: hinge threshold=1
+
+  Agent:
+    algo: PPO
+    policy: MlpPolicy
+    total_timesteps: 200000
+    learning_rate: 0.0003
+    gamma: 0.995
+    net_arch: [128, 128]
+    seed: 0
+

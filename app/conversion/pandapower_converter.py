@@ -27,6 +27,7 @@ from app.infra.quantity import Quantity
 from app.infra.parameter import Parameter
 from app.infra.timeseries_object import TimeseriesObject
 from app.infra.util import TimeSet
+from app.model.device import Vector
 from app.model.entity import Entity
 from app.model.generator.pv import PV
 from app.model.generator.wind_turbine import Wind
@@ -37,6 +38,7 @@ from app.model.load.load import Load
 from app.model.model import Model
 from app.model.slack import Slack
 from app.model.storage.battery import Battery
+from app.model.transducer.transducer import Transducer
 from app.infra.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -167,6 +169,9 @@ class PandapowerConverter(Converter):
             Internal options: 'entity_type', 'idx', and 'profile_type'.
         """
         entity_type = kwargs.pop("entity_type", None)
+        if entity_type is None and self._is_non_electrical(entity):
+            logger.info(f"Entity '{entity.id}' is not part of the electrical network")
+            return None
         idx = kwargs.pop("idx", 0)
         profile_type = kwargs.pop("profile_type", entity_type)
         for key, quantity in entity.quantities.items():
@@ -183,6 +188,19 @@ class PandapowerConverter(Converter):
                 self.net.profiles[profile_type].loc[
                     :, f"{entity.id}_{key}"
                 ] = converted_value
+
+    @staticmethod
+    def _is_non_electrical(entity: Entity) -> bool:
+        """Heat/material devices and energy converters (Transducer) have no network element.
+
+        Their electrical side is represented by a regular device (e.g. the Load a
+        Transducer takes its input from); the power flow only sees that device.
+        """
+        vector = getattr(entity, "tags", {}).get("vector")
+        return isinstance(entity, Transducer) or vector in (
+            Vector.HEAT,
+            Vector.MATERIAL,
+        )
 
     # Wrapper methods that create network elements AND extract quantities
     def _convert_bus_entity(self, bus: Bus, time_set=None):
@@ -283,6 +301,12 @@ class PandapowerConverter(Converter):
         self.bus_map[bus.id] = b
         return b
 
+    def _bus_index(self, bus_id: str) -> int:
+        """Resolve a bus id; an exact match wins, else a phase suffix ('bus_A') is dropped."""
+        if bus_id in self.bus_map:
+            return self.bus_map[bus_id]
+        return self.bus_map[bus_id.split("_")[0]]
+
     def _convert_line(self, line: Line) -> tuple[int, str]:
         """
         Create a pandapower line or switch from a Line entity.
@@ -307,11 +331,14 @@ class PandapowerConverter(Converter):
         capacitance = line.capacitance.value
         max_current = line.max_current.value
 
+        from_idx = self._bus_index(line.from_bus)
+        to_idx = self._bus_index(line.to_bus)
+
         if length == 0 or reactance == 0 or resistance == 0:
             idx = pp.create_switch(
                 self.net,
-                bus=self.bus_map[line.from_bus.split("_")[0]],
-                element=self.bus_map[line.to_bus.split("_")[0]],
+                bus=from_idx,
+                element=to_idx,
                 et="b",
                 type="CB",
                 name=line.id,
@@ -320,8 +347,8 @@ class PandapowerConverter(Converter):
         else:
             idx = pp.create_line_from_parameters(
                 self.net,
-                from_bus=self.bus_map[line.from_bus.split("_")[0]],
-                to_bus=self.bus_map[line.to_bus.split("_")[0]],
+                from_bus=from_idx,
+                to_bus=to_idx,
                 length_km=length,
                 r_ohm_per_km=resistance,
                 x_ohm_per_km=reactance,
@@ -523,7 +550,7 @@ class PandapowerConverter(Converter):
             # map SimBench vmImp -> vk_percent (short-circuit impedance)
             "vk_percent": _param("vmImp", None),
             # vkr_percent (resistance percent) not provided by default, set to zero
-            "vkr_percent": 0.8,
+            "vkr_percent": _param("vkr", 0.8),
             # copper and iron losses (convert names appropriately)
             "i0_percent": _param("iNoLoad", None),
             "tap_step_percent": _param("dVm", None),

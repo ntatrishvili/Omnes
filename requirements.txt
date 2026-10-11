@@ -9,3 +9,6 @@ pandapower
 lxml
 numba
 networkx
+openpyxl
+pvlib
+gymnasium

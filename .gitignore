@@ -24,3 +24,10 @@ config.ini
 
 # mkdocs documentation
 /site/
+*.npz
+*.png
+*.csv
+*.pdf
+*.tex
+*.docx
+*.xlsx
