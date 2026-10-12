@@ -8,6 +8,10 @@ power flow and KPIs.
 
 * Step-by-step guide (data, constants, descriptors, payoff, agent, evaluation, what influences the
   outcome): `app/case_studies/kfki_campus/rl/README_RL.md`
+* The guide starts with a learning path for beginners (reading list, RL vocabulary mapped to this
+  project, four-week plan); step 4 explains the charging-event scenarios (fixed session file,
+  random sessions, plugging in an existing distribution as a Python object, mixed sources) with
+  runnable examples in `app/case_studies/kfki_campus/rl/examples`
 * Generic code: `app/operation/rl` (environment, payoff, observations, events, agents)
 * Case study: `app/case_studies/kfki_campus/rl`
 * DSL syntax of the problem description: the `RL:` block of `dsl/model_example.txt`

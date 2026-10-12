@@ -1,5 +1,92 @@
 # Reinforcement learning of EV-charger control (KFKI campus)
 
+> **New to reinforcement learning?** Start with the learning path right below, then follow steps 0-10.
+> Charging-event scenarios (fixed sessions from a file, random sessions, your own distributions) are in step 4.
+
+## Before you start - learning reinforcement learning
+
+You do not need to know RL to run this project, but you need it to *understand* what you are
+doing. This is a beginner path; plan **about four weeks at a few hours per week**. Read in this
+order and stop when you have what you need - the project only uses the basics (an environment,
+a reward, the PPO algorithm).
+
+### 1. Get the intuition (1-2 hours)
+
+| Source | What for |
+|---|---|
+| Lilian Weng, ["A (Long) Peek into Reinforcement Learning"](https://lilianweng.github.io/posts/2018-02-19-rl-overview/) (blog, 2018) | One readable overview: the vocabulary, Bellman equations, and the main families of methods. Skim the maths on a first read. |
+| Hugging Face, [Deep Reinforcement Learning Course](https://huggingface.co/learn/deep-rl-course/unit0/introduction) (free, hands-on) | Follow the first unit(s): an agent is trained in a ready-made environment, which makes the loop observation -> action -> reward concrete. |
+
+### 2. Learn the foundations (core, 2-4 weeks)
+
+| Source | What for |
+|---|---|
+| Sutton & Barto, [*Reinforcement Learning: An Introduction*](http://incompleteideas.net/book/the-book-2nd.html), 2nd ed. (free online from the authors' page; the site's certificate sometimes triggers a browser warning) | The standard textbook. For this project **chapters 1 (introduction), 3 (finite MDPs), 6 (temporal-difference learning) and 13 (policy gradient methods)** are enough; do the small exercises. |
+| David Silver, [RL lectures](https://davidstarsilver.wordpress.com/teaching/) (slides and videos) | Lecture 1 (introduction), 2 (Markov decision processes) and 7 (policy gradient methods) - the same ideas as the book, in lecture form. |
+| OpenAI, [Spinning Up: Key Concepts in RL](https://spinningup.openai.com/en/latest/spinningup/rl_intro.html) | A short, precise glossary: states and observations, action spaces, policies, reward and return, value functions. Keep it open while you read this guide. |
+
+### 3. Get your hands dirty (alongside the reading)
+
+| Source | What for |
+|---|---|
+| [Gymnasium documentation](https://gymnasium.farama.org/introduction/basic_usage/) | `reset` / `step`, observation and action spaces. Then its tutorial *Create a custom environment*: that is exactly what `OmnesEnv` is. |
+| [Stable-Baselines3](https://stable-baselines3.readthedocs.io/) docs, esp. [RL Tips and Tricks](https://stable-baselines3.readthedocs.io/en/master/guide/rl_tips.html) | The library that trains the PPO agent here; the tips page explains evaluation, normalisation and why one run proves nothing. |
+| [CleanRL](https://github.com/vwxyzjn/cleanrl) | PPO in one readable file - read it once to see what "training" does. |
+
+### 4. Go deeper (optional)
+
+| Source | What for |
+|---|---|
+| Sergey Levine, [CS 285 Deep Reinforcement Learning](https://rail.eecs.berkeley.edu/deeprlcourse/) (UC Berkeley) | A full university course (policy gradients, actor-critic, value-based, model-based). |
+| Schulman et al., ["Proximal Policy Optimization Algorithms"](https://arxiv.org/abs/1707.06347) (2017) | The paper behind the algorithm we train with. |
+
+### 5. RL for energy systems
+
+| Source | What for |
+|---|---|
+| Vázquez-Canteli & Nagy, "Reinforcement learning for demand response: A review of algorithms and modeling techniques", *Applied Energy* 235 (2019), 1072-1089, [doi:10.1016/j.apenergy.2018.11.002](https://doi.org/10.1016/j.apenergy.2018.11.002) | The standard review: what has been done, and the reproducibility problems of the field. |
+| [CityLearn](https://github.com/intelligent-environments-lab/CityLearn) | An open-source Gymnasium environment for building and community energy coordination: compare its design with ours. |
+| [Grid2Op](https://github.com/Grid2op/grid2op) and the L2RPN competitions | RL for power-grid operation; the grid-side counterpart of what we do with Pandapower. |
+
+### RL vocabulary and where it lives in this project
+
+| RL term | Meaning here | Where |
+|---|---|---|
+| environment | the campus: loads, PV, battery, chargers, network | `KfkiChargingEnv` (`rl/env.py`), base `OmnesEnv` |
+| step | one time step of the model (1 h) | `OmnesEnv.step` |
+| episode | one day (`episode_days`) | `reset(options={"day": ...})` |
+| state / observation | what the agent sees: time, PV, load, battery, charger status | `ObsState`, observation terms (`observations.py`) |
+| action | the fraction (0..1) of rated power of each charger | `action_space = Box(0, 1, (n_chargers,))` |
+| reward | the negative cost of a step (SS, SC, penalties) | `RewardFunction` (`rewards.py`) |
+| return | the sum of rewards of an episode | `EpisodeResult.reward` |
+| policy | the rule action = f(observation) | `RLAgent.predict` |
+| value function, advantage | the agent's estimate of future reward (inside the neural network) | Stable-Baselines3 (PPO) |
+| discount factor | how much future reward counts (`gamma`) | `AgentSpec.gamma` |
+| exploration | random actions while learning | PPO's stochastic policy; `deterministic=True` when evaluating |
+| on-policy | PPO learns from data of its own current policy | PPO |
+| training / test | days the agent learns on / days it never saw | `EpisodeSpec.train_fraction`, `split_seed` |
+| baseline | a simple policy to beat | `uncontrolled`, `pv_following`, `oracle` (`rl/baselines.py`) |
+
+### A four-week study path with exercises in this repo
+
+| Week | Read / watch | Do |
+|---|---|---|
+| 1 | Weng's overview, Sutton & Barto ch. 1 and 3, Spinning Up *Key Concepts* | Run the smoke test of step 8 and open `rl_example_days.png` and `rl_kpi_comparison.png`: what do `uncontrolled` and `pv_following` do differently? |
+| 2 | Sutton & Barto ch. 6, Gymnasium *Basic usage* | Read `OmnesEnv.step`; change **one** reward weight (step 6) and compare the `rl_reward_decomposition.png` before and after. |
+| 3 | Sutton & Barto ch. 13, SB3 *RL Tips and Tricks* | Train PPO with two seeds (`--seeds 0 1`) and read the learning curve and `rl_seed_variability.png`. |
+| 4 | Gymnasium *Create a custom environment*, Silver lecture 7 | Plug in an event distribution of your own (step 4.2, "B2") and compare the policies on it. |
+
+### Common beginner mistakes
+
+* **Reward is not the KPI.** The agent maximises the reward you wrote, not SC or SS. If the two disagree, the reward is wrong (step 6).
+* **More training steps do not always help**, and a rising curve on the training days says nothing: look at the test days.
+* **One run proves nothing.** Neural-network training is random; use at least three seeds before you claim a difference.
+* **Test days must be unseen.** Never tune on the days you report.
+* **Compare with a simple baseline** before celebrating: if `pv_following` is as good as the agent, the agent has learned nothing useful yet.
+* **Do not trust a result on `--synthetic` data**: it only tests the tooling.
+
+## What this guide does
+
 A step-by-step guide to define, train and evaluate an RL controller for the EV chargers of the
 KFKI campus REC. The agent decides **how much power each charger delivers in every time step**
 (V1G smart charging, no discharging to the grid). It is rewarded for **self-sufficiency (SS)**
@@ -36,6 +123,7 @@ violations and loadings are computed by the **same** `compute_kpis` and plotted 
 | `rl/train.py`, `rl/run_rl.py` | training, evaluation, experiments, CLI |
 | `rl/plots_rl.py` | figures |
 | `rl/data/make_rl_inputs.py` | writes `rl/data/rl.xlsx` and an **example** session file |
+| `rl/examples/` | runnable examples of event distributions (scipy marginals, KDE, bootstrap, weekday generator), `SafeSampler`, sampler checks, `run_custom_events.py` |
 | `dsl/model_example.txt` (`RL:` block) | syntax for the future DSL compiler |
 
 ---
@@ -142,7 +230,7 @@ groups). The compiler is under construction; the block uses the same keys as the
 | | `mode` | `random_day` | `random_day` (train days at random), `sequential`, `full_period` |
 | | `train_fraction`, `split_seed` | 0.7, 0 | seeded split of the days; `train_days` / `test_days` set them explicitly |
 | events | `source` | `generator` | `file`, `generator`, `mixed` (`p_generator` = share of generated episodes) |
-| | `session_file`, `generator`, `generator_params` | - | generator name from `GENERATOR_REGISTRY` (`dummy`, `joint`) |
+| | `session_file`, `generator`, `generator_params` | - | generator name from `GENERATOR_REGISTRY` (`dummy`, `joint`, or your own); the scenarios are explained in **step 4** (4.1 file, 4.2 random / own distribution, 4.3 mixed) |
 | action | `charger_kw`, `safety_layer` | site, `none` | `laxity` forces the minimum power that still delivers the energy in time |
 | observation | list of terms | see step 5 | |
 | reward | list of terms, `reward_baseline`, `reward_scale` | see step 6 | |
@@ -150,26 +238,508 @@ groups). The compiler is under construction; the block uses the same keys as the
 
 Unknown names, negative weights and impossible values raise a `ValueError` when the problem is built.
 
-## Step 4 - Charging events
+## Step 4 - Charging-event scenarios
 
-* **Action space** `Box(0, 1, (n_chargers,))`: fraction of the rated power. The environment
-  projects the request on what is physically possible: no vehicle -> 0; at most the rated /
-  vehicle power; at most the remaining energy of the session. The request removed by this
-  projection is the metric `clipped_kw`.
-* **Deterministic (`file`)**: the sessions of the file, identical in every episode of a day.
-  Use it for evaluation and for training when the real behaviour is known.
-* **Random (`generator`)**: a `ChargingEventGenerator.sample(rng, start, end, chargers)`; the
-  environment seeds it, so a seed reproduces an episode. `DummyChargingEventGenerator` draws
-  **independent** marginals (Poisson arrivals with an hour-of-day profile, lognormal energy,
-  connected time = charging time x `flex_factor` + lognormal dwell). It is a placeholder.
-* **`mixed`**: each episode uses the file with probability `1 - p_generator`; good for robustness.
-* **Plugging in your joint distribution later**: either give `JointDistributionGenerator` a
-  sampler object with `sample(n, rng) -> (start_hour, energy_kwh, connected_h)` or subclass
-  `ChargingEventGenerator`, add it to `GENERATOR_REGISTRY` and name it in `events.generator`.
-  Nothing else changes.
-* Time grid: a session occupies the steps from `floor(plug_in)` to `ceil(plug_out)`; its
-  energy is clipped to what rated power can deliver in those steps. With 1 h steps sessions
-  shorter than an hour look longer than they are: use a finer resolution if that matters.
+The agent can only learn from the vehicles it sees. A **charging event** (session) says: *when
+a vehicle plugs in, how long it stays, how much energy it needs*. Where the events come from is
+the most important modelling choice after the reward.
+
+### 4.0 Overview
+
+First, what the agent controls. The **action space** is `Box(0, 1, (n_chargers,))`: the fraction
+of the rated power of each charger. The environment projects the request on what is physically
+possible: no vehicle -> 0; at most the rated / vehicle power; at most the remaining energy of the
+session. The request removed by this projection is the metric `clipped_kw`.
+
+| Scenario | `events.source` | Events | Same every episode of a day? | Typical use | Needs |
+|---|---|---|---|---|---|
+| **A. Fixed sessions** | `file` | exactly the rows of your session file | yes | evaluation; training when behaviour is known | a session file |
+| **B1. Dummy generator** | `generator` (`dummy`) | random, independent marginals | no (seeded) | first experiments, tests | nothing |
+| **B2. Own distribution** | `generator` (`joint`, or your own class) | random, from your distribution | no (seeded) | training on realistic variety | a fitted distribution / sampler |
+| **C. Mixed** | `mixed` | file with probability `1 - p_generator`, else generated | partly | robustness: learn from variety, check on reality | both |
+
+What each source can teach, and its danger:
+
+* **fixed** - the agent can *memorise* the days of the file; keep test days unseen (step 4.1, point 6);
+* **random** - the agent learns a policy that works for *many* plausible days, but only as realistic as your distribution (step 4.2).
+
+### 4.1 Scenario A - fixed charging sessions from a file
+
+**1. What you need.** One row per plug-in, with the columns of step 1 (`session_id`, `charger_id`,
+`plug_in`, `connected_h` or `plug_out`, `energy_kwh`, optional `max_power_kw`). Charger back-ends
+usually export start time, end time and energy per session; turn that export into the file with
+pandas (adapt the column names to your export - this snippet is illustrative):
+
+```python
+import pandas as pd
+
+raw = pd.read_csv("export.csv")                       # one row per charging session
+ids = {"Charger A": "ev_c01", "Charger B": "ev_c02"}  # your names -> ids of assets.xlsx:ev_chargers
+sessions = pd.DataFrame(
+    {
+        "session_id": raw["Session ID"],
+        "charger_id": raw["Charger"].map(ids),
+        "plug_in": pd.to_datetime(raw["Start"]).dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "plug_out": pd.to_datetime(raw["End"]).dt.strftime("%Y-%m-%d %H:%M:%S"),
+        "energy_kwh": raw["Energy (kWh)"],             # at the charger, AC side
+    }
+)
+sessions.to_csv("sessions.csv", index=False)
+```
+
+Two things go wrong most often: the **clock** (the file must be on the fixed UTC+1 clock of the
+time-series CSV, not on local time with daylight saving) and the **units** (kWh and hours, not Wh
+and minutes).
+
+**2. Validate it.** `read_sessions` checks the file and returns the sessions plus a report of
+what it had to change:
+
+```python
+import pandas as pd
+from app.case_studies.kfki_campus.excel_io import load_campus_data
+from app.case_studies.kfki_campus.rl.env import charger_ratings
+from app.case_studies.kfki_campus.rl.sessions import read_sessions
+
+chargers = charger_ratings(load_campus_data(), 10)        # rated kW of every charger id
+period = (pd.Timestamp("2025-05-28"), pd.Timestamp("2026-03-02"))
+events, report = read_sessions("sessions.csv", chargers, period)
+print(len(events), "sessions;", len(report), "adjusted or dropped")
+print(report)        # session_id | issue | energy_kwh | energy_kept_kwh
+```
+
+A `ValueError` means the file is wrong (missing column, unknown charger, duplicate id, negative
+value, overlapping sessions on one charger). A row in the report means the session was *kept but
+adjusted* ("clipped to power x time": it asked for more energy than the charger can deliver while
+the car stays) or *dropped* ("outside period"). Many clipped rows usually mean a wrong unit or
+a wrong charger rating.
+
+**3. Look at the data before you train.** The key quantity is the **laxity**: how many hours the
+vehicle stays *beyond* the time it needs at full power. No laxity = no flexibility = nothing for
+the agent to gain.
+
+```python
+import matplotlib.pyplot as plt
+
+df = pd.DataFrame(
+    [
+        {
+            "day": e.plug_in.date(),
+            "energy_kwh": e.energy_kwh,
+            "connected_h": e.connected_h,
+            "laxity_h": e.connected_h - e.energy_kwh / chargers[e.charger_id],
+        }
+        for e in events
+    ]
+)
+print(df.groupby("day").size().describe())                 # sessions per day
+print(df[["energy_kwh", "connected_h", "laxity_h"]].describe())
+df[["energy_kwh", "connected_h", "laxity_h"]].hist(bins=30)
+plt.show()
+```
+
+**4. Use it.** The events enter through the `Setup`; the command line does it with
+`--session-file`:
+
+```bash
+python -m app.case_studies.kfki_campus.rl.run_rl all --csv <csv> --start 2025-05-28 --end 2026-03-01 \
+    --session-file sessions.csv --events file --out results_rl
+```
+
+or from Python:
+
+```python
+from app.operation.rl.problem import RLProblem, EventSpec
+from app.case_studies.kfki_campus.rl.train import Setup, load_events, make_env
+
+problem = RLProblem(scenario=dict(n_chargers=6), events=EventSpec(source="file"))
+setup = Setup(csv, load_campus_data(), "2025-05-28 00:00", "2026-03-02 00:00")
+setup.events = load_events("sessions.csv", problem, setup)   # validated like step 2
+env = make_env(problem, setup, split="test")
+```
+
+(`EventSpec.session_file` / the workbook cell only document the path; the file is read where
+`--session-file` or `load_events` says so.)
+
+**5. What happens inside.** For an episode window the environment takes the sessions that
+overlap it; the same day therefore always has the same sessions and the seed has no effect on
+the events. A vehicle already connected when the window starts enters with the energy left
+pro rata; a vehicle leaving after the end is cut pro rata. Only the first `n_chargers`
+charger ids of the file are used (the others are ignored, not an error). On the time grid a
+session occupies the steps from `floor(plug_in)` to `ceil(plug_out)` and its energy is clipped
+to what the rated power can deliver in them - with 1 h steps a 20-minute stop looks like an
+hour: use a finer resolution if that matters.
+
+**6. Consequences for training and evaluation.** (a) The agent can learn the specific days:
+keep the day split (`EpisodeSpec.train_fraction`, `split_seed`) and report **test days only**.
+(b) A day without sessions teaches nothing but still costs training time. (c) The more distinct days
+the file covers, the better; with only a few weeks of data use `mixed` (4.3) so the agent also
+sees other days.
+
+**7. Common problems.**
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `unknown charger_id [...]` | id not in `assets.xlsx:ev_chargers` | map your names (point 1) |
+| `overlapping sessions A / B on ev_c01` | two vehicles on one charger at once | one `charger_id` is one outlet: give the second vehicle its own id |
+| `connected_h must be positive` | `plug_out` before `plug_in` (clock, date format) | check the time columns |
+| report: "clipped to power x time" | energy in Wh, or time in minutes, or too low a charger rating (`action.charger_kw`) | check units and rating |
+| report: "outside period" | the file covers more than `--start`..`--end` | normal; or widen the period |
+| all policies identical | no laxity (cars stay only as long as they need) | look at `laxity_h` (point 3) |
+| evaluation much better than a fresh test | the agent saw those days | evaluate on test days only |
+
+**8. Exercise.** Compute the laxity distribution of your file. Predict which policy gains most
+(`pv_following` wins when laxity is large *and* the sessions overlap the sun hours). Then run
+`evaluate` and check your prediction in `rl_kpis.csv` (`ev_pv_share`, `ev_unmet_kwh`).
+
+### 4.2 Scenario B - randomly sampled charging sessions
+
+**1. How it works.** Every episode asks a *generator* for events:
+
+```
+ rng (seeded by reset(seed=...)) --> generator.sample(rng, start, end, chargers) --> [ChargingEvent, ...] --> environment
+```
+
+`sample` receives the environment's random-number generator, so a seed reproduces an episode
+exactly, and different seeds give different days. The agent therefore never sees the same day
+twice, which forces it to learn a *rule* instead of memorising days. Rule for everything below:
+**use only the `rng` you are given** (never `np.random` or a generator created inside), otherwise
+runs cannot be reproduced.
+
+**B1. The dummy generator** (`events.generator = dummy`) draws, for every charger and day, a
+Poisson number of arrivals, an hour of arrival from an hour-of-day profile, a lognormal energy,
+and a connected time = the time at full power x `flex_factor` + a lognormal extra dwell time.
+Its parameters go into `events.generator_params`:
+
+| Parameter | Default | Effect |
+|---|---|---|
+| `arrivals_per_day` | 1.5 | mean plug-ins per charger on a weekday; raise = busier chargers |
+| `weekend_factor` | 0.4 | weekend rate relative to weekdays |
+| `energy_median_kwh`, `energy_sigma` | 14, 0.6 | typical energy and its spread (lognormal) |
+| `energy_max_kwh` | 80 | upper cut |
+| `flex_factor` | 1.3 | connected time / charging time: **the flexibility knob** (1.0 = no slack) |
+| `dwell_median_h`, `dwell_sigma` | 2.0, 0.7 | extra time the car stays after it could have finished |
+| `hour_weights_weekday`, `hour_weights_weekend` | peaks 8-9 h and 17 h | 24 weights for the arrival hour |
+
+Start, energy and connected time are **independent** here: a big energy does not imply a long
+stay (except through `flex_factor`). It is a placeholder for experiments - not for conclusions.
+
+**B2. Plug in an existing distribution** - the main tutorial. You have a distribution of
+(start, energy, connected time), maybe fitted by a colleague, and you want the environment to
+draw its sessions from it. The tool is `JointDistributionGenerator(sampler, arrivals_per_day)`,
+and everything you have to provide is the **sampler**.
+
+*Step 1 - What form does your distribution have?*
+
+| You have | Recipe |
+|---|---|
+| a fitted `scipy.stats` distribution for each variable (independent) | Recipe A: `MarginalsSampler` |
+| a fitted *joint* object that can draw samples (`scipy.stats.gaussian_kde`, scikit-learn `GaussianMixture` / `KernelDensity`, a copula) | Recipe B: wrap its sampling call |
+| a table of measured sessions | Recipe C: bootstrap, or fit a KDE to it (Recipe B) |
+| only a function / formulas in numpy | Recipe D: write the `sample` method yourself |
+| distributions that depend on the day type or the charger | Step 6: a generator subclass |
+
+*Step 2 - The contract.* A sampler is any Python object with one method:
+
+```python
+sampler.sample(n, rng) -> (start_hour, energy_kwh, connected_h)
+```
+
+* `n` is how many sessions to draw; return **three arrays of length n**;
+* `start_hour`: hour of the day, `0 <= x < 24` (8.5 = 08:30);
+* `energy_kwh`: energy to deliver, **kWh, > 0**;
+* `connected_h`: how long the vehicle stays, **hours, > 0**;
+* use **only `rng`** (a `numpy.random.Generator`); be vectorised; keep no state between calls.
+
+What the generator does with it, and what it does *not* do: for every charger and every day (starting
+one day before the window, so that vehicles connected at midnight exist) it draws a Poisson
+number of arrivals with mean `arrivals_per_day` and asks the sampler for exactly that many
+sessions. It does **not** validate the sampler's output (a negative energy would become a
+negative-energy session), the sampler does not know the day, the charger or its rated power, and
+the arrival count does not come from your distribution - if any of that matters, use Step 6.
+Sessions that would overlap on one charger are dropped (the earlier wins), so a too-high
+`arrivals_per_day` loses events.
+
+Because of the missing validation, wrap your sampler in `SafeSampler`
+(`rl/examples/_guards.py`): it checks the shape, **redraws** rows with non-positive or non-finite
+energy / time, and wraps the hour into `[0, 24)`.
+
+*Step 3 - Write the sampler.* Four recipes; each is a runnable file in
+`rl/examples/` (try it with `run_custom_events`, step 7).
+
+**Recipe A - independent `scipy.stats` marginals** (`ex_scipy_marginals.py`):
+
+```python
+class MarginalsSampler:
+    """Independent start hour, energy and connected time.
+
+    :ivar np.ndarray hour_weights: 24 weights, arrival probability per hour of the day
+    :ivar energy: Frozen scipy distribution of the energy (kWh)
+    :ivar dwell: Frozen scipy distribution of the connected time (h)
+    """
+
+    def __init__(self, hour_weights, energy, dwell):
+        w = np.asarray(hour_weights, dtype=float)
+        self.hour_p = w / w.sum()
+        self.energy = energy
+        self.dwell = dwell
+
+    def sample(self, n, rng):
+        hour = rng.choice(24, size=n, p=self.hour_p) + rng.random(n)  # hour + minutes
+        energy = self.energy.rvs(size=n, random_state=rng)  # always pass the given rng
+        dwell = self.dwell.rvs(size=n, random_state=rng)
+        return hour, energy, dwell
+```
+
+The parameters of the frozen distributions come from your fit, e.g.
+`stats.lognorm(s=0.6, scale=12.0)` (median 12 kWh) and `stats.gamma(a=3.0, scale=1.5)`
+(mean 4.5 h). Pass `random_state=rng` to every `.rvs` call.
+
+**Recipe B - a fitted joint object** (`ex_kde_joint.py`): a kernel-density estimate of
+(start hour, log energy, log connected time) keeps the correlations of your data:
+
+```python
+class KdeSampler:
+    """Joint density of (start hour, log energy, log connected time).
+
+    Logs keep energy and time positive after the transformation back; ``SafeSampler``
+    wraps the start hour into [0, 24) and redraws anything that is still invalid.
+
+    :param pd.DataFrame sessions: Columns ``plug_in``, ``connected_h``, ``energy_kwh``
+    """
+
+    def __init__(self, sessions: pd.DataFrame):
+        t = pd.to_datetime(sessions["plug_in"])
+        hour = t.dt.hour + t.dt.minute / 60.0
+        data = np.vstack(
+            [hour, np.log(sessions["energy_kwh"]), np.log(sessions["connected_h"])]
+        )
+        self.kde = stats.gaussian_kde(data)  # data shape: (variables, observations)
+
+    def sample(self, n, rng):
+        hour, log_energy, log_dwell = self.kde.resample(n, seed=rng)  # pass the rng
+        return hour, np.exp(log_energy), np.exp(log_dwell)
+```
+
+Any fitted object that can draw samples fits the same pattern: call its drawing method inside
+`sample`. Two traps: (1) it must use *your* `rng` - scikit-learn's `GaussianMixture.sample` does
+not accept one, and a fixed `random_state` would return the same numbers at every call (see the
+commented variant in `ex_kde_joint.py`); (2) a normal or KDE model can give negative values -
+modelling the **logarithm** (as above) or using `SafeSampler` avoids that.
+
+**Recipe C - bootstrap from a table of sessions** (`ex_bootstrap.py`): draw whole rows, so every
+correlation in the data survives:
+
+```python
+class BootstrapSampler:
+    """Resample rows of a sessions table, with a little noise so that days differ.
+
+    :param pd.DataFrame sessions: Columns ``plug_in``, ``connected_h``, ``energy_kwh``
+    :param float jitter: Relative noise of energy and connected time (0 = exact copies)
+    :param float hour_jitter: Noise of the start hour in hours
+    """
+
+    def __init__(
+        self, sessions: pd.DataFrame, jitter: float = 0.1, hour_jitter: float = 0.25
+    ):
+        t = pd.to_datetime(sessions["plug_in"])
+        self.hour = (t.dt.hour + t.dt.minute / 60.0).to_numpy()
+        self.energy = sessions["energy_kwh"].to_numpy(dtype=float)
+        self.dwell = sessions["connected_h"].to_numpy(dtype=float)
+        self.jitter, self.hour_jitter = jitter, hour_jitter
+
+    def sample(self, n, rng):
+        i = rng.integers(0, len(self.hour), size=n)  # whole rows keep the correlations
+        noise = lambda: rng.lognormal(0.0, self.jitter, size=n)  # noqa: E731
+        hour = self.hour[i] + rng.normal(0.0, self.hour_jitter, size=n)
+        return hour, self.energy[i] * noise(), self.dwell[i] * noise()
+```
+
+Use it with your own file: `BootstrapSampler(pd.read_csv("sessions.csv"))`.
+
+**Recipe D - your own function.** Anything with the right `sample` method works, for example a
+sampler from formulas:
+
+```python
+class FormulaSampler:
+    def sample(self, n, rng):
+        hour = rng.normal(8.5, 1.5, n)                       # arrivals around 08:30
+        energy = rng.gamma(shape=3.0, scale=5.0, size=n)     # kWh, mean 15
+        dwell = 8.0 + rng.normal(0.0, 1.0, n)                # about a working day
+        return hour, energy, dwell                           # SafeSampler fixes hour/sign problems
+```
+
+*Step 4 - Check the sampler before you use it.* Never train on a sampler you have not looked at:
+
+```python
+from app.case_studies.kfki_campus.rl.examples._guards import SafeSampler, check_sampler, plot_sampler
+
+sampler = SafeSampler(FormulaSampler())
+summary, corr = check_sampler(sampler, n=10_000)
+print(summary)    # min / 5% / median / 95% / max per variable, share_non_positive must be 0
+print(corr)       # do start, energy and connected time correlate as in your data?
+plot_sampler(sampler, "sampler_check.png")
+```
+
+Check: hours in [0, 24); energies of a few to a few tens of kWh (not 15 000: Wh!); connected times of
+minutes to a day *in hours* (not 480: minutes!); the histograms look like your data.
+
+*Step 5 - Wrap it and look at the events.* Estimate `arrivals_per_day` from your data (sessions per
+charger per day: `len(sessions) / (n_chargers * n_days)`), then:
+
+```python
+import numpy as np
+import pandas as pd
+from app.operation.rl.events import JointDistributionGenerator
+
+generator = JointDistributionGenerator(sampler, arrivals_per_day=1.5)
+events = generator.sample(
+    np.random.default_rng(0),
+    pd.Timestamp("2025-06-02"), pd.Timestamp("2025-06-09"),     # one week
+    {"ev_c01": 22.0, "ev_c02": 22.0},                           # charger id -> rated kW
+)
+print(len(events), "events;", sum(e.energy_kwh for e in events), "kWh")
+```
+
+Run it twice with the same seed: you must get the same events; with another seed, other ones.
+
+*Step 6 - When a sampler is not enough: write a generator.* If the distribution depends on the
+weekday, the charger, or if the number of arrivals itself should follow your data, subclass
+`ChargingEventGenerator` (`ex_weekday_generator.py`): it owns the loop over days and chargers.
+
+```python
+class WeekdayGenerator(ChargingEventGenerator):
+    """Weekday / weekend samplers and a plug-in rate per charger.
+
+    :ivar weekday: Sampler used Monday-Friday
+    :ivar weekend: Sampler used Saturday-Sunday
+    :ivar dict rates: Mean plug-ins per day for each charger id (``default_rate`` otherwise)
+    :ivar float weekend_factor: Weekend rate relative to the weekday rate
+    """
+
+    def __init__(
+        self,
+        weekday,
+        weekend,
+        rates: Optional[dict] = None,
+        default_rate: float = 1.5,
+        weekend_factor: float = 0.4,
+    ):
+        self.weekday, self.weekend = weekday, weekend
+        self.rates = rates or {}
+        self.default_rate = default_rate
+        self.weekend_factor = weekend_factor
+
+    def sample(self, rng, start, end, chargers):
+        # start one day early: vehicles connected at ``start`` came the day before
+        days = pd.date_range(start.floor("D") - pd.Timedelta(days=1), end, freq="D")
+        events = []
+        for cid in chargers:
+            for day in days:
+                weekend = day.dayofweek >= 5
+                rate = self.rates.get(cid, self.default_rate)
+                n = rng.poisson(rate * (self.weekend_factor if weekend else 1.0))
+                if n == 0:
+                    continue
+                hour, energy, dwell = (
+                    self.weekend if weekend else self.weekday
+                ).sample(n, rng)
+                for k in range(n):
+                    events.append(
+                        ChargingEvent(
+                            f"{cid}_{day:%Y%m%d}_{k}",
+                            cid,
+                            day + pd.Timedelta(hours=float(hour[k])),
+                            float(dwell[k]),
+                            float(energy[k]),
+                        )
+                    )
+        events = drop_overlaps(events)  # one vehicle per charger at a time
+        return [e for e in events if e.plug_out > start and e.plug_in < end]
+```
+
+Register it once, then it can be named in `events.generator`:
+
+```python
+GENERATOR_REGISTRY["weekday"] = (
+    WeekdayGenerator  # now usable as ``events.generator: weekday``
+)
+```
+
+*Step 7 - Run training and evaluation with it.* The command line builds the problem from the
+workbook, and a workbook holds text only - it can name a registered generator (`events.generator:
+weekday`) but cannot carry a *fitted Python object*. So hand the object over from a short script.
+The trick is to register a factory under a name and use that name:
+
+```python
+def make_problem(generator, n_chargers: int = 3) -> RLProblem:
+    """Hand a generator OBJECT to the problem: register a factory under a name, use the name."""
+    GENERATOR_REGISTRY["custom"] = (
+        lambda **_: generator
+    )  # the env calls it with the params
+    return RLProblem(
+        scenario=dict(n_chargers=n_chargers),
+        power_flow_mode="post",  # fast; use "step" for voltage / loading terms
+        events=EventSpec(source="generator", generator="custom"),
+    )
+```
+
+`rl/examples/run_custom_events.py` does this end to end (synthetic data, the chosen example
+generator, the reference policies, optional PPO training, figures):
+
+```bash
+python -m app.case_studies.kfki_campus.rl.examples.run_custom_events --generator kde --out results_custom
+python -m app.case_studies.kfki_campus.rl.examples.run_custom_events --generator weekday --train-steps 5000 --out results_custom
+```
+
+Copy the script, replace the example generator by yours and the synthetic CSV by your time series
+(`Setup(csv, data, start, end)`); the functions `train_agent`, `evaluate_all`, `sweep_weight` and
+`generalization` of `rl/train.py` accept the same `problem` / `setup`.
+
+*Step 8 - Check the result.*
+
+* Events per day and charger vs your data (Step 5); the share dropped by overlaps (compare the number of sessions the generator returns with `arrivals_per_day * days * chargers`);
+* `uncontrolled` should have **~0 unmet energy** in `rl_kpis.csv`; if not, the sessions are infeasible (energy too large for the stay) - check the sampler;
+* `ev_pv_share` and the example-days figure: do the sessions overlap the sun hours at all?
+* the reward decomposition: is `unmet_kwh` or a grid term dominating for a reason you understand?
+* the generalisation test (4.3).
+
+*Troubleshooting.*
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `RuntimeError: sampler returned too many invalid rows` | sampler gives mostly non-positive energy / time (units, wrong sign) | `check_sampler`; model logs; fix the units |
+| `ValueError: sampler must return 3 arrays of length n` | wrong return shape or order | return `(start_hour, energy_kwh, connected_h)` as 1-D arrays |
+| far fewer events than expected | arrivals overlap on one charger (connected times too long for the rate) | lower `arrivals_per_day` or the dwell times |
+| all sessions start at the same hour | `start_hour` in the wrong unit (minutes, or a fraction of the day) | hours, 0..24 |
+| `uncontrolled` has unmet energy | energy larger than rated power x stay | smaller energies / longer stays / check units |
+| two runs with one seed differ | sampler uses `np.random` or its own generator | use only the given `rng` (also in scikit-learn models: reseed from it) |
+| every day looks identical | a fixed `random_state` inside a fitted object | reseed it from `rng` at each call |
+| pickling error (only if you switch training to `SubprocVecEnv`) | the generator object cannot be pickled | define sampler and generator classes in a module, not interactively |
+
+### 4.3 Scenario C - mixed sources and how to design the experiment
+
+`events.source = mixed` takes the file with probability `1 - p_generator` and a generated
+episode otherwise (this needs a session file *and* a generator). It is the standard choice when
+you have real sessions for only some days.
+
+A protocol that holds up:
+
+| Question | Train on | Test on | How |
+|---|---|---|---|
+| Does smart charging help on real behaviour? | file (train days) | file (test days) | `run_rl all --events file` |
+| Does the agent cope with variety? | generator | generator (other seeds) | `--events generator` |
+| Does it transfer from random to real? | generator or mixed | **file** (test days) | `run_rl generalization --session-file ...` |
+| How much does the distribution matter? | generator A, generator B | the same file | repeat with two generators (step 7 script) |
+
+`run_rl generalization` trains one agent per source (`file`, `generator`, `mixed`) and tests each on
+`file` and on `generator` events; `rl_generalization.png` shows reward, SC, SS and unmet energy as
+a train-source x test-source matrix. How to read it: the **diagonal** shows how well an agent does
+on what it learned; the **off-diagonal** cells show transfer - an agent that is good on its own
+source and bad on the other has learned the source, not charging. With a custom generator call
+`generalization(problem, setup, out_dir)` from your script (step 7).
+
+Use at least three seeds (`--seeds 0 1 2`), report test days only, and always include
+`uncontrolled` and `pv_following` in the comparison.
 
 ## Step 5 - Observation
 
@@ -283,7 +853,7 @@ random sample of the data period; report them together with the results.
 | Grid weights | too low: voltage / loading never matters; too high: dominates, the agent learns the safety terms only | violations or flat policy | check `viol_frac`, sweep |
 | `power_flow_mode` | `post` is 10x faster but blind to voltages and loadings | agent ignores the grid | `step` for the final runs |
 | Reward baseline / scale | `exogenous` lowers variance; the scale sets the gradient size | noisy, slow learning | keep defaults; consider `VecNormalize` |
-| Event source / seed | a policy trained on one source may not transfer | good on file, bad on generator | use `mixed`, run `generalization` |
+| Event source / seed | a policy trained on one source may not transfer | good on file, bad on generator | use `mixed`, run `generalization` (step 4.3) |
 | Train / test split | the data has 278 days, no spring | optimistic estimates | evaluate on test days only; vary `split_seed` |
 | Training length, `gamma`, network | PPO needs 1e5 - 1e6 steps for a day-long problem | learning curve still rising | more steps, more seeds, `net_arch` |
 | Observation | missing information cannot be learned | agent no better than random | add forecast, laxity |
@@ -293,8 +863,14 @@ random sample of the data period; report them together with the results.
 * The battery follows a rule inside the environment; the agent does not control it (planned hook:
   an `Action` group listing more controllable devices).
 * No V2G, no tariff / price (placeholders: add a metric and a weight), no per-phase effects.
-* `JointDistributionGenerator` is a stub until the measured joint distribution (start, energy,
-  connected time) is available.
+* `JointDistributionGenerator` needs a sampler of your distribution (step 4.2, "B2"); it does not
+  validate it (use `SafeSampler`), draws the number of arrivals itself and knows neither the day
+  type nor the charger (write a generator subclass for that). A Python object cannot come from
+  `rl.xlsx`: use a script (`rl/examples/run_custom_events.py`).
+* `EventSpec.session_file` only documents the path; the file is read where `--session-file` /
+  `load_events` says so.
+* The scikit-learn variant in `rl/examples/ex_kde_joint.py` is untested (scikit-learn is not a
+  dependency of this project).
 * The Pandapower model is the case study's (balanced, constant-PQ loads, assumed cable data); all
   statements about line loading inherit that.
 * Results on `--synthetic` data are placeholders for testing, **not** findings about the campus.
