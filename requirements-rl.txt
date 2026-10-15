@@ -3,3 +3,4 @@
 stable-baselines3
 torch
 tensorboard
+scikit-learn

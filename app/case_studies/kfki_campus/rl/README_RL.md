@@ -123,7 +123,7 @@ violations and loadings are computed by the **same** `compute_kpis` and plotted 
 | `rl/train.py`, `rl/run_rl.py` | training, evaluation, experiments, CLI |
 | `rl/plots_rl.py` | figures |
 | `rl/data/make_rl_inputs.py` | writes `rl/data/rl.xlsx` and an **example** session file |
-| `rl/examples/` | runnable examples of event distributions (scipy marginals, KDE, bootstrap, weekday generator), `SafeSampler`, sampler checks, `run_custom_events.py` |
+| `rl/examples/` | runnable examples of event distributions (scipy marginals, KDE, bootstrap, weekday generator, `.gmm` files), `SafeSampler`, sampler checks, `run_custom_events.py` |
 | `dsl/model_example.txt` (`RL:` block) | syntax for the future DSL compiler |
 
 ---
@@ -257,6 +257,8 @@ session. The request removed by this projection is the metric `clipped_kw`.
 | **B1. Dummy generator** | `generator` (`dummy`) | random, independent marginals | no (seeded) | first experiments, tests | nothing |
 | **B2. Own distribution** | `generator` (`joint`, or your own class) | random, from your distribution | no (seeded) | training on realistic variety | a fitted distribution / sampler |
 | **C. Mixed** | `mixed` | file with probability `1 - p_generator`, else generated | partly | robustness: learn from variety, check on reality | both |
+
+Your own files (`.gmm` mixtures, session CSVs) have a short recipe in **4.4**.
 
 What each source can teach, and its danger:
 
@@ -740,6 +742,254 @@ source and bad on the other has learned the source, not charging. With a custom 
 
 Use at least three seeds (`--seeds 0 1 2`), report test days only, and always include
 `uncontrolled` and `pv_following` in the comparison.
+
+### 4.4 Plug in your own files: `.gmm` mixtures and `session.csv` fixed events
+
+A short, step-by-step recipe for the two kinds of files of this project. Background on the
+sampler contract and the traps is in 4.2; the file format in step 1 and 4.1.
+
+| You have | Used for | Route |
+|---|---|---|
+| `workday.gmm` and `weekend.gmm` - joblib dumps of a scikit-learn `GaussianMixture` over **(start hour, energy kWh, connected hours)**, raw values, the same for all chargers | random events (training and/or testing) | Recipe 1 |
+| one or more session CSV files (fixed events) | evaluation on "reality"; training when behaviour is known | Recipe 2 |
+| both | **train on GMM events, test on the fixed sessions** (recommended), or train on `mixed` | Recipe 3 |
+
+**Prerequisite:** `pip install -r requirements-rl.txt` (it contains scikit-learn). Install the
+**same scikit-learn version that saved the `.gmm` files** - pickles are version-sensitive - and open
+only files you trust (pickle can run code).
+
+#### Recipe 1 - GMM files for random events
+
+**1. Look inside the file.** `load_gmm` loads it and checks that it is a fitted mixture over three
+dimensions:
+
+```python
+def load_gmm(path):
+    """Load a ``.gmm`` file and check that it is a mixture over (start hour, energy, time).
+
+    Only open files you trust: pickle can execute code.
+    """
+    import joblib  # installed with scikit-learn
+
+    gmm = joblib.load(path)
+    means = getattr(gmm, "means_", None)
+    if means is None or means.shape[1] != 3:
+        raise ValueError(
+            f"{path}: expected a fitted GaussianMixture over 3 dimensions "
+            f"(start hour, energy kWh, connected h), got {type(gmm).__name__}"
+            + ("" if means is None else f" with {means.shape[1]} dimensions")
+        )
+    return gmm
+```
+
+```python
+from app.case_studies.kfki_campus.rl.examples.ex_gmm_files import load_gmm
+
+gmm = load_gmm("workday.gmm")
+print(gmm.weights_.round(2))   # component weights
+print(gmm.means_.round(1))     # one row per component: start hour, energy kWh, connected h
+```
+
+The means must look like *start hour, kWh, hours* (for example `8.5, 12.0, 4.0`). Energy means of
+about `2.5` or connected means of `1.4` would mean the mixture was fitted on **logarithms**; means in
+the hundreds would mean Wh or minutes; a different column order shows up here too. In those cases
+do not continue - this recipe expects raw values in the order (start hour, energy, connected time);
+ask the author of the mixture or adapt `GmmSampler` (exp / unit conversion / reorder columns).
+
+**2. Check the raw mixture.** A Gaussian mixture over raw values can produce negative energies and
+times and hours outside 0..24. Look at how often:
+
+```python
+from app.case_studies.kfki_campus.rl.examples._guards import check_sampler
+from app.case_studies.kfki_campus.rl.examples.ex_gmm_files import GmmSampler
+
+summary, corr = check_sampler(GmmSampler(gmm), n=10_000)
+print(summary[["min", "5%", "50%", "95%", "max", "share_non_positive"]])
+x, _ = gmm.sample(10_000)
+print("hours outside 0..24:", ((x[:, 0] < 0) | (x[:, 0] >= 24)).mean())
+```
+
+Few percent are normal (the generator redraws non-positive energy / time - the same as truncating
+the mixture - and wraps hours into 0..24). **More than about 10-20 %** means the mixture does not
+describe this variable set well: stop and check the units (step 1).
+
+**3. Decide the arrival rates.** A mixture says *what* a session looks like, not *how many* sessions
+there are. The generator draws, per charger and day, a Poisson number of arrivals with the mean
+`workday_rate` (Mon-Fri) or `weekend_rate` (Sat-Sun). If you have a session table, take the rates
+from it:
+
+```python
+def arrival_rates(sessions: pd.DataFrame) -> tuple[float, float]:
+    """Mean plug-ins per charger and day on workdays and on weekends, from a session table.
+
+    :param pd.DataFrame sessions: Columns ``charger_id`` and ``plug_in`` (the session file)
+    :returns: ``(workday_rate, weekend_rate)``
+    """
+    t = pd.to_datetime(sessions["plug_in"])
+    days = pd.date_range(t.min().normalize(), t.max().normalize(), freq="D")
+    per_day = t.dt.normalize().value_counts().reindex(days, fill_value=0)
+    n_chargers = sessions["charger_id"].nunique()
+    workday = per_day[days.dayofweek < 5].mean() / n_chargers
+    weekend = per_day[days.dayofweek >= 5].mean() / n_chargers
+    return float(workday), float(weekend)
+```
+
+```python
+import pandas as pd
+from app.case_studies.kfki_campus.rl.examples.ex_gmm_files import arrival_rates
+
+workday_rate, weekend_rate = arrival_rates(pd.read_csv("sessions.csv"))
+print(workday_rate, weekend_rate)   # plug-ins per charger and day
+```
+
+Without data, assume a value, say so, and test the sensitivity (for example 0.5x, 1x, 2x).
+
+**4. Build the generator.** `GmmFilesGenerator` takes the two files and the two rates; it picks the
+workday or the weekend mixture by the day of the week and uses it for **every** charger:
+
+```python
+class GmmSampler:
+    """Draw (start hour, energy kWh, connected h) from a fitted ``GaussianMixture``.
+
+    The mixture is over the raw values, so it can return negative energies or times and hours
+    outside 0..24: wrap it in ``SafeSampler`` (it redraws those rows).
+    """
+
+    def __init__(self, gmm):
+        self.gmm = gmm
+
+    def sample(self, n, rng):
+        # GaussianMixture.sample cannot take our rng: reseed it from it at every call,
+        # otherwise every call (every day) would return the same numbers.
+        self.gmm.random_state = int(rng.integers(2**31))
+        x, _ = self.gmm.sample(n)
+        return x[:, 0], x[:, 1], x[:, 2]
+```
+
+```python
+class GmmFilesGenerator(WeekdayGenerator):
+    """Events from a workday and a weekend ``.gmm`` file (the same for all chargers).
+
+    :param workday: Path of the workday ``.gmm`` file
+    :param weekend: Path of the weekend ``.gmm`` file
+    :param float workday_rate: Mean plug-ins per charger on a workday
+    :param float weekend_rate: Mean plug-ins per charger on a weekend day
+    """
+
+    def __init__(self, workday, weekend, workday_rate=1.5, weekend_rate=0.6):
+        super().__init__(
+            SafeSampler(GmmSampler(load_gmm(workday))),
+            SafeSampler(GmmSampler(load_gmm(weekend))),
+            default_rate=workday_rate,
+            weekend_factor=weekend_rate / workday_rate,
+        )
+
+
+GENERATOR_REGISTRY["gmm_files"] = GmmFilesGenerator  # usable as ``events.generator``
+```
+
+```python
+import numpy as np
+import pandas as pd
+from app.case_studies.kfki_campus.rl.examples.ex_gmm_files import make_generator
+
+generator = make_generator("workday.gmm", "weekend.gmm", workday_rate, weekend_rate)
+events = generator.sample(
+    np.random.default_rng(0),
+    pd.Timestamp("2025-06-02"), pd.Timestamp("2025-06-16"),   # two weeks, a Monday start
+    {"ev_c01": 22.0, "ev_c02": 22.0},                         # charger id -> rated kW
+)
+print(len(events), "events;", round(sum(e.energy_kwh for e in events)), "kWh")
+```
+
+The sampler reseeds the mixture from the environment's random-number generator at every call (a
+fixed `random_state` would repeat the same numbers every day); the same seed gives the same events.
+
+**5. Compare with your data.** Count events per day type and compare with the session table, and
+compare the energy / connected-time distributions (`check_sampler`, `plot_sampler` from 4.2).
+`uncontrolled` should show ~0 unmet energy later: if not, the sessions ask for more energy than
+the stay allows - check the units.
+
+**6. Run it.** The command line cannot carry the objects, so use the script. With your time series:
+
+```bash
+python -m app.case_studies.kfki_campus.rl.examples.run_custom_events \
+    --generator gmm --gmm-workday workday.gmm --gmm-weekend weekend.gmm \
+    --workday-rate 1.8 --weekend-rate 0.7 \
+    --csv <csv> --start 2025-05-28 --end 2026-03-01 --chargers 6 \
+    --train-steps 200000 --out results_gmm
+```
+
+Without `--csv` the script uses placeholder data (good for a first try, `--days 6`). It evaluates
+`uncontrolled`, `pv_following` and `random` (and the trained agent with `--train-steps`) on the
+test days and writes `rl_kpis.csv` and the figures into `--out`.
+
+**7. (Optional) Name it in the workbook.** `GmmFilesGenerator` is registered as `gmm_files`, so the
+problem can say which files to use - paths are plain text, the workbook can hold them. In
+`rl.xlsx`, sheet `problem`: `events.generator` = `gmm_files` and `events.generator_params` =
+`{"workday": "workday.gmm", "weekend": "weekend.gmm", "workday_rate": 1.8, "weekend_rate": 0.7}`.
+The module must be imported for the name to exist (`run_rl` does not import it; do it in your own
+script with `import app.case_studies.kfki_campus.rl.examples.ex_gmm_files`).
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `ValueError: ... expected a fitted GaussianMixture over 3 dimensions` | wrong object or a mixture with other variables | check what was saved (step 1) |
+| `InconsistentVersionWarning` or an error while loading | scikit-learn version differs from the one that saved the file | install that version, or re-save the mixture in a version-independent way (parameters as arrays) |
+| `RuntimeError: sampler returned too many invalid rows` | most samples are non-positive (log scale, Wh / minutes) | step 1 and 2 |
+| all days look alike | the mixture was loaded with a fixed seed somewhere else | use `GmmSampler` (reseeds from our rng) |
+| far fewer events than expected | rates too low, or sessions overlap on a charger and are dropped | check the rates (step 3); long connected times with high rates lose events |
+| weekend and workday identical | the files are swapped or the day-of-week is not what you think | check the means of both files |
+
+#### Recipe 2 - `session.csv` files with fixed events
+
+1. **Check the columns**: `session_id`, `charger_id`, `plug_in`, `connected_h` (or `plug_out`),
+   `energy_kwh`, optional `max_power_kw`; times on the fixed UTC+1 clock, kWh and hours (step 1).
+   If your files have other column names, rename them first (4.1, point 1).
+2. **One file for the pipeline.** The reader takes one CSV. If you have several (per month or per
+   charger), merge them and make sure the ids stay unique:
+
+   ```python
+   import glob
+   import pandas as pd
+
+   parts = [pd.read_csv(f) for f in sorted(glob.glob("sessions_*.csv"))]
+   sessions = pd.concat(parts, ignore_index=True)
+   assert not sessions["session_id"].duplicated().any(), "duplicate session ids across files"
+   sessions.to_csv("sessions_all.csv", index=False)
+   ```
+
+3. **Validate and look at it** with `read_sessions` and the laxity snippet of 4.1 (points 2 and 3):
+   a `ValueError` is a problem of the file; rows in the report were clipped or dropped.
+4. **Run on the fixed sessions only** with the command line:
+
+   ```bash
+   python -m app.case_studies.kfki_campus.rl.run_rl all --csv <csv> --start 2025-05-28 --end 2026-03-01 \
+       --session-file sessions_all.csv --events file --chargers 6 --out results_fixed
+   ```
+
+   Only the first `--chargers` charger ids are used; the others in the file are ignored.
+5. Remember (4.1, points 5-6): the days of the file are the same in every episode - evaluate on
+   test days only.
+
+#### Recipe 3 - train on the GMM events, test on the fixed sessions
+
+This answers "does what the agent learned on random events work on real days?":
+
+```bash
+python -m app.case_studies.kfki_campus.rl.examples.run_custom_events \
+    --generator gmm --gmm-workday workday.gmm --gmm-weekend weekend.gmm \
+    --workday-rate 1.8 --weekend-rate 0.7 \
+    --csv <csv> --start 2025-05-28 --end 2026-03-01 --chargers 6 \
+    --session-file sessions_all.csv --events generator --eval-events file \
+    --train-steps 200000 --out results_gmm_vs_file
+```
+
+* `--events` decides the training events (`generator` = GMM, `mixed` = GMM and file, `file`);
+* `--eval-events` decides the evaluation events (`file` = the fixed sessions); the reference policies
+  run on exactly the same days and sessions;
+* use `--events mixed` when the file covers only part of the period;
+* repeat with different `--workday-rate` / `--weekend-rate` to see how much the result depends on
+  the rates, and use several seeds (step 8) before you claim a difference.
 
 ## Step 5 - Observation
 
