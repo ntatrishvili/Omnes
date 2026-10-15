@@ -45,10 +45,12 @@ def _is_agent(policy: str) -> bool:
 
 
 def _save(fig, path: Path) -> Path:
-    path = Path(path)
+    path = Path(path).resolve()  # absolute: no doubt where the file went
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=170, bbox_inches="tight")
     plt.close(fig)
+    if not path.is_file():
+        raise RuntimeError(f"figure was not written: {path}")
     return path
 
 

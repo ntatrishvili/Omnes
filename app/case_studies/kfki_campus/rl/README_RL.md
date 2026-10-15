@@ -822,6 +822,14 @@ PV share, voltages, loadings, losses, battery cycles, reward by term), `rl_summa
 `rl_full_period.csv` and `details/<policy>.npz` (one continuous run per policy, same keys as the
 scenario sweep plus `ev_power`), `models/*.zip` and `*_curve.csv`, `episodes.pkl`, `figures/`, `logs/`.
 
+**Where are my files?** A relative `--out` (default `results_rl`) is relative to the *working
+directory* of the process (in an IDE: the run configuration's working directory), not to the
+script. `run_rl` prints `results directory: <absolute path>` first and the figures with
+absolute paths. The figures are in `<out>/figures/`. Note that the repository's `.gitignore`
+excludes `*.png`, `*.csv`, `*.npz` and `*.pdf`: tools that honour it (the Git/commit view of an
+IDE, some file trees and searches) do **not show** these results although they are on disk, and
+they are never committed.
+
 | Figure | What it shows |
 |---|---|
 | `rl_learning_curve` | test reward, SC, SS, unmet energy vs training steps (band = seeds) |

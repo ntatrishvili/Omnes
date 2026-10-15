@@ -127,6 +127,8 @@ def main(argv=None) -> None:
     a = _parser().parse_args(argv)
     a.out.mkdir(parents=True, exist_ok=True)
     init_logging(level="INFO", log_dir=str(a.out / "logs"), log_file="rl.log")
+    # results go relative to the working directory: say where that is
+    print("results directory:", a.out.resolve())
     if a.command == "figures":
         for f in make_rl_figures(a.out):
             print("figure:", f)
