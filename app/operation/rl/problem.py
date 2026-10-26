@@ -3,8 +3,8 @@
 Plain dataclasses, in the style of ``TrafoLimit`` / ``WindowSolution`` of the generic
 optimisation: they carry the *description* of the problem (episode, events, action,
 observation, reward, agent) and are consumed by ``OmnesEnv`` and ``RLAgent``. They are not
-entities of the ``Model``. Build them from Python, from a dict (``RLProblem.from_dict``) or
-from a workbook (see the case studies); every value has a default.
+entities of the ``Model``. Build them from Python or from a dict (``RLProblem.from_dict``, e.g. parsed from JSON);
+every value has a default.
 """
 
 from dataclasses import dataclass, field, fields
@@ -15,8 +15,8 @@ from app.operation.rl.rewards import METRIC_REGISTRY, TRANSFORMS
 
 SOURCES = ("file", "generator", "mixed")
 EPISODE_MODES = ("random_day", "sequential", "full_period")
-BATTERY_POLICIES = ("self_consumption_rule", "none")
-POWER_FLOW_MODES = ("step", "post")
+BATTERY_POLICIES = ("self_consumption_rule", "none", "agent")
+POWER_FLOW_MODES = ("step", "post", "feeder")
 SAFETY_LAYERS = ("none", "laxity")
 FORECAST_MODES = ("perfect", "persistence")
 REWARD_BASELINES = ("exogenous", "none")
@@ -93,6 +93,9 @@ class EventSpec:
     :ivar str generator: Name in the event-generator registry (source ``generator`` / ``mixed``)
     :ivar dict generator_params: Keyword arguments of the generator
     :ivar float p_generator: Probability of a generated episode when ``source == mixed``
+    :ivar bool clip_to_deliverable: Reduce a session's energy to what its charger can deliver
+        while the vehicle stays (``True``); ``False`` keeps the request, so that sessions
+        that cannot be served end with unmet energy
     """
 
     source: str = "generator"
@@ -100,6 +103,7 @@ class EventSpec:
     generator: str = "dummy"
     generator_params: dict = field(default_factory=dict)
     p_generator: float = 0.5
+    clip_to_deliverable: bool = True
 
 
 @dataclass
@@ -109,15 +113,26 @@ class ActionSpec:
     :ivar float charger_kw: Rated power of one charger, if not given by the case study
     :ivar str safety_layer: ``none`` | ``laxity`` (forces the minimum power that still
         delivers the requested energy by the departure)
+    :ivar float site_power_cap_kw: Connection limit (kW) of all chargers on one bus together;
+        ``None`` = no limit. The charger powers of a site are scaled down proportionally
+        when the sum exceeds it, so not every session can be served at busy times.
     """
 
     charger_kw: Optional[float] = None
     safety_layer: str = "none"
+    site_power_cap_kw: Optional[float] = None
 
 
 @dataclass
 class AgentSpec:
-    """Hyper-parameters read by ``BasicPPOAgent`` (and available to subclasses)."""
+    """Hyper-parameters read by ``BasicPPOAgent`` (and available to subclasses).
+
+    :ivar bool rescale_actions: Train on actions in [-1, 1] (mapped to the environment's
+        [0, 1]): a Gaussian policy centred on 0 with a clipped [0, 1] action space saturates
+        half of its exploratory actions at 0 or 1 and learns much more slowly
+    :ivar float log_std_init: Initial log standard deviation of the PPO action noise (0 =
+        std 1 in [-1, 1]; a warm-started policy uses a smaller value to keep what it cloned)
+    """
 
     algo: str = "PPO"
     policy: str = "MlpPolicy"
@@ -130,6 +145,8 @@ class AgentSpec:
     n_steps: int = 512
     batch_size: int = 128
     ent_coef: float = 0.0
+    rescale_actions: bool = True
+    log_std_init: float = 0.0
 
 
 def default_reward_terms() -> list[RewardTerm]:
@@ -173,14 +190,21 @@ class RLProblem:
     :ivar str id: Name (used for output folders)
     :ivar dict scenario: Case-study scenario values (e.g. ``added_pv_kwp``, ``n_chargers``)
     :ivar str power_flow_mode: ``step`` (power flow in every step, voltage / loading terms
-        in the reward) | ``post`` (power flow only when evaluating; much faster training)
-    :ivar str battery_policy: ``self_consumption_rule`` | ``none``
+        in the reward) | ``post`` (power flow only when evaluating; much faster training) |
+        ``feeder`` (like ``post``, but the loading of the lines that feed charger buses is
+        computed in closed form every step, so the line-overload term stays in the reward)
+    :ivar str battery_policy: ``self_consumption_rule`` | ``none`` | ``agent`` (one more action
+        entry after the chargers: battery setpoint, 0.5 = idle, 1 = full charge, 0 = full
+        discharge; a policy that gives only the charger actions leaves the battery to the rule)
     :ivar str forecast_mode: ``perfect`` (read from the data) | ``persistence`` (value of
         the previous day)
     :ivar str reward_baseline: ``exogenous`` subtracts the policy-independent cost of the
         campus without EV and battery (variance reduction) | ``none``
     :ivar float reward_scale: Reference energy in kWh the cost is divided by; ``None`` =
         total rated charger energy per step
+    :ivar dict trafo_limits_kva: Operating limit (kVA) of transformers below their rating,
+        keyed by transformer name (e.g. ``{"TR_4T": 300}``, a connection agreement); the
+        transformer overload term and KPI measure against it
     """
 
     id: str = "rl_problem"
@@ -190,6 +214,7 @@ class RLProblem:
     forecast_mode: str = "perfect"
     reward_baseline: str = "exogenous"
     reward_scale: Optional[float] = None
+    trafo_limits_kva: dict = field(default_factory=dict)
     episode: EpisodeSpec = field(default_factory=EpisodeSpec)
     events: EventSpec = field(default_factory=EventSpec)
     action: ActionSpec = field(default_factory=ActionSpec)
@@ -217,6 +242,9 @@ class RLProblem:
             raise ValueError("episode.episode_days must be >= 1")
         if not 0.0 < self.episode.train_fraction <= 1.0:
             raise ValueError("episode.train_fraction must be in (0, 1]")
+        cap = self.action.site_power_cap_kw
+        if cap is not None and cap <= 0:
+            raise ValueError("action.site_power_cap_kw must be positive")
         if self.reward_scale is not None and self.reward_scale <= 0:
             raise ValueError("reward_scale must be positive")
         for term in list(self.reward) + list(self.observation):
@@ -226,7 +254,7 @@ class RLProblem:
 
     @classmethod
     def from_dict(cls, cfg: dict[str, Any]) -> "RLProblem":
-        """Build a problem from nested dicts / lists (e.g. parsed from a workbook or JSON).
+        """Build a problem from nested dicts / lists (e.g. parsed from JSON).
 
         ``reward`` / ``observation`` are lists of dicts (or term objects); the group keys
         ``episode``, ``events``, ``action``, ``agent`` are dicts. Unknown keys raise.

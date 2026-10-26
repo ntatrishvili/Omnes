@@ -24,6 +24,7 @@ import pandas as pd
 
 from app.case_studies.kfki_campus.build_model import Scenario, build_kfki_model
 from app.case_studies.kfki_campus.excel_io import CampusData, load_campus_data
+from app.case_studies.kfki_campus.rl import gmm_events  # noqa: F401  (registers 'gmm_bundle')
 from app.case_studies.kfki_campus.simulate import (
     PowerFlowStepper,
     SimResult,
@@ -39,8 +40,12 @@ from app.operation.rl.problem import RLProblem
 
 log = get_logger(__name__)
 
+# voltage (pu) of the feeders while they export PV: the closed-form feeder loading divides the
+# apparent power by it (the power flow's current is S / (sqrt(3) V))
+FEEDER_V_PU = 1.03
+
 # 2000 kWp added to the existing 9 kWp = 2009 kWp built-in PV
-DEFAULT_SCENARIO = dict(added_pv_kwp=2000.0, battery_kwh=1450.0, n_chargers=6)
+DEFAULT_SCENARIO = dict(added_pv_kwp=2000.0, battery_kwh=1450.0, n_chargers=9)
 
 
 def charger_ratings(
@@ -58,7 +63,7 @@ class KfkiChargingEnv(OmnesEnv):
     """Gymnasium environment of the KFKI campus with controllable EV chargers.
 
     :param RLProblem problem: Problem description (``problem.scenario`` sets PV / battery /
-        chargers; defaults: 2000 kWp added, 1450 kWh, 6 chargers)
+        chargers; defaults: 2000 kWp added, 1450 kWh, 9 chargers)
     :param Path ts_csv: Time-series CSV (README contract)
     :param CampusData data: Input workbooks (default: the case study's)
     :param str time_start: First time stamp of the period (CSV clock)
@@ -144,6 +149,7 @@ class KfkiChargingEnv(OmnesEnv):
         else:
             pv_cols = list(range(len(sgen_names)))
         self._pv_total = self._sgen_base[:, pv_cols].sum(axis=1)
+        self._setup_sites(pv_cols)
         self._base_total = load.sum(axis=1)
         self.series = {"pv_kw": self._pv_total, "base_load_kw": self._base_total}
         self.scale = {
@@ -161,6 +167,10 @@ class KfkiChargingEnv(OmnesEnv):
             * net.line.df.to_numpy()
             * 1000.0
         )
+        self._ev_line_sn = np.where(
+            self._ev_line >= 0, self._line_sn[np.maximum(self._ev_line, 0)], np.inf
+        )
+        self._setup_trafos()
         s = d.settings
         self.v_limits = (
             float(s["v_min_pu"]),
@@ -169,6 +179,81 @@ class KfkiChargingEnv(OmnesEnv):
         )
         if events is not None:
             self._file_generator = SessionFileGenerator(events)
+
+    def _setup_sites(self, pv_cols: list[int]) -> None:
+        """Bus, feeding line and local PV-minus-load of every charger (sites share a bus)."""
+        net = self.net
+        load_bus = net.load.bus.to_numpy()
+        sgen_bus = net.sgen.bus.to_numpy()
+        self._ev_bus = load_bus[self._ev_idx]
+        self._groups = [
+            np.flatnonzero(self._ev_bus == b) for b in dict.fromkeys(self._ev_bus)
+        ]
+        line_of = {}
+        for j, (fb, tb) in enumerate(zip(net.line.from_bus, net.line.to_bus)):
+            line_of.setdefault(tb, j)  # a feeder bus is the end of its line
+        self._ev_line = np.array([line_of.get(b, -1) for b in self._ev_bus])
+        inj = np.zeros((self.n_steps_total, len(self._ev_idx)))
+        for i, b in enumerate(self._ev_bus):
+            gen = [c for c in pv_cols if sgen_bus[c] == b]
+            use = np.flatnonzero(load_bus == b)
+            inj[:, i] = self._sgen_base[:, gen].sum(axis=1) - self._load_base[
+                :, use
+            ].sum(axis=1)
+        self._site_inj = inj
+        q = np.zeros_like(inj)
+        tan = self.stepper.tan_phi
+        for i, b in enumerate(self._ev_bus):
+            use = np.flatnonzero(load_bus == b)
+            q[:, i] = (self._load_base[:, use] * tan[use]).sum(axis=1)
+        self._site_q = q
+
+    def _setup_trafos(self) -> None:
+        """Operating limits of transformers and the base (no EV, no battery) flow through each."""
+        net = self.net
+        names = list(net.trafo.name)
+        limits = self.problem.trafo_limits_kva or {}
+        unknown = set(limits) - set(names)
+        if unknown:
+            raise ValueError(f"trafo_limits_kva: unknown transformers {sorted(unknown)}")
+        self._trafo_eff_sn = self._trafo_sn.copy()
+        for n, v in limits.items():
+            self._trafo_eff_sn[names.index(n)] = float(v)
+        self._trafo_limited = np.array([n in limits for n in names])
+        # bus -> transformer (feeder buses are named <trafo>_<building>, LV buses LV_<trafo>)
+        by_key = {n.removeprefix("TR_"): i for i, n in enumerate(names)}
+
+        def of_bus(bus_name: str) -> int:
+            key = bus_name.removeprefix("LV_") if bus_name.startswith("LV_") else bus_name.split("_")[0]
+            return by_key.get(key, -1)
+
+        bus_name = net.bus.name
+        load_tr = np.array([of_bus(bus_name[b]) for b in net.load.bus])
+        sgen_tr = np.array([of_bus(bus_name[b]) for b in net.sgen.bus])
+        ntr = len(names)
+        tan = self.stepper.tan_phi
+        base_p = np.zeros((self.n_steps_total, ntr))
+        base_q = np.zeros_like(base_p)
+        for j in range(ntr):
+            use = np.flatnonzero(load_tr == j)
+            base_p[:, j] += self._load_base[:, use].sum(axis=1)
+            base_q[:, j] += (self._load_base[:, use] * tan[use]).sum(axis=1)
+            gen = [c for c in range(len(sgen_tr)) if sgen_tr[c] == j and c != self._bat_idx]
+            base_p[:, j] -= self._sgen_base[:, gen].sum(axis=1)
+        self._trafo_base_p, self._trafo_base_q = base_p, base_q
+        self._ev_trafo = load_tr[self._ev_idx]
+        self._bat_trafo = int(sgen_tr[self._bat_idx]) if self._bat_idx is not None else -1
+
+    def _trafo_loading(self, t: int, p: np.ndarray, pch: float, pdis: float) -> np.ndarray:
+        """Loading (% of the operating limit) of the limited transformers (others NaN)."""
+        ntr = len(self._trafo_sn)
+        out = np.full(ntr, np.nan)
+        for j in np.flatnonzero(self._trafo_limited):
+            pk = self._trafo_base_p[t, j] + float(p[self._ev_trafo == j].sum())
+            if j == self._bat_trafo:
+                pk += pch - pdis
+            out[j] = 100.0 * np.hypot(pk, self._trafo_base_q[t, j]) / self._trafo_eff_sn[j]
+        return out
 
     def _load_pf(self, d: CampusData) -> dict:
         return {
@@ -201,7 +286,10 @@ class KfkiChargingEnv(OmnesEnv):
             )  # pro-rata at the edges
             a, d = max(a, 0), min(d, T)
             pmax = min(self._rated[i], e.max_power_kw or np.inf)
-            if energy > pmax * (d - a) * self.dt_h:
+            if (
+                self.problem.events.clip_to_deliverable
+                and energy > pmax * (d - a) * self.dt_h
+            ):
                 energy = pmax * (d - a) * self.dt_h
                 clipped_events += 1
             self._queue[i].append([a, d, energy, pmax, e.event_id])
@@ -228,6 +316,8 @@ class KfkiChargingEnv(OmnesEnv):
         b = self._bat
         self.e_kwh = b["soc0"] * b["cap"] if b else 0.0
         self._last_trafo, self._last_vmax = 0.0, 1.0
+        self._bat_action = 0.5  # effective battery setpoint of the last step (see battery_policy)
+        self._last_line = np.zeros(len(self.net.line))
         if self.problem.power_flow_mode == "step":
             self.stepper.reset()
         nb, ntr, nl = len(self.net.bus), len(self.net.trafo), len(self.net.line)
@@ -269,6 +359,9 @@ class KfkiChargingEnv(OmnesEnv):
     # ------------------------------------------------------------------ one step
     def _physics_step(self, action: np.ndarray):
         k, t, dt = self.k, self.t0 + self.k, self.dt_h
+        n_ch = len(self.chargers)
+        bat_action = action[n_ch] if len(action) > n_ch else None
+        action = action[:n_ch]
         con = (
             self.connected.copy()
         )  # state during this step (departures change it below)
@@ -283,6 +376,12 @@ class KfkiChargingEnv(OmnesEnv):
         if self.problem.action.safety_layer == "laxity":
             p_min = np.minimum(self.remaining / (np.maximum(steps_left, 1) * dt), limit)
             p = np.where(con, np.maximum(p, p_min), 0.0)
+        cap = self.problem.action.site_power_cap_kw
+        if cap is not None:  # connection limit of the chargers sharing a bus
+            for g in self._groups:
+                total = float(p[g].sum())
+                if total > cap:
+                    p[g] *= cap / total
         clipped = float(np.where(con, np.maximum(p_req - limit, 0.0), 0.0).sum())
         self.remaining = np.where(con, self.remaining - p * dt, 0.0)
         ev = float(p.sum())
@@ -290,13 +389,21 @@ class KfkiChargingEnv(OmnesEnv):
         base, pv = self._base_total[t], self._pv_total[t]
         pch = pdis = 0.0
         b = self._bat
-        if b is not None and self.problem.battery_policy == "self_consumption_rule":
+        policy = self.problem.battery_policy
+        if b is not None and policy in ("self_consumption_rule", "agent"):
             net_kw = base + ev - pv
-            if net_kw < 0:
+            if policy == "agent" and bat_action is not None:
+                s = 2.0 * float(bat_action) - 1.0  # -1 full discharge .. +1 full charge
+                if s > 0:
+                    pch = min(s * b["rc"], (b["cap"] - self.e_kwh) / (b["ce"] * dt))
+                else:
+                    pdis = min(-s * b["rd"], self.e_kwh * b["de"] / dt)
+            elif net_kw < 0:
                 pch = min(-net_kw, b["rc"], (b["cap"] - self.e_kwh) / (b["ce"] * dt))
             else:
                 pdis = min(net_kw, b["rd"], self.e_kwh * b["de"] / dt)
             pch, pdis = max(pch, 0.0), max(pdis, 0.0)
+            self._bat_action = 0.5 + 0.5 * (pch / b["rc"] - pdis / b["rd"])
             self.e_kwh = float(
                 np.clip(
                     b["keep"] * self.e_kwh + (b["ce"] * pch - pdis / b["de"]) * dt,
@@ -334,8 +441,15 @@ class KfkiChargingEnv(OmnesEnv):
                     line_loading_pct=r.line_loading_pct,
                     losses_kw=r.losses_kw,
                 )
-                self._last_trafo = float(np.nanmax(r.trafo_loading_pct))
+                if self._trafo_limited.any():  # percent of the operating limit
+                    scale = self._trafo_sn / self._trafo_eff_sn
+                    ctx["trafo_loading_pct"] = np.where(
+                        self._trafo_limited, r.trafo_loading_pct * scale, np.nan
+                    )
+                    ctx["trafo_sn_kva"] = self._trafo_eff_sn
+                self._last_trafo = float(np.nanmax(ctx["trafo_loading_pct"]))
                 self._last_vmax = float(np.nanmax(r.vm_pu))
+                self._last_line = np.nan_to_num(np.asarray(r.line_loading_pct, float))
                 h["vm"][k], h["trafo"][k], h["line"][k] = (
                     r.vm_pu,
                     r.trafo_loading_pct,
@@ -346,6 +460,13 @@ class KfkiChargingEnv(OmnesEnv):
                     r.ext_grid_p_kw,
                     True,
                 )
+
+        elif self.problem.power_flow_mode == "feeder":
+            ctx["line_loading_pct"] = h["line"][k] = self._feeder_loading(t, p)
+            if self._trafo_limited.any():
+                ctx["trafo_loading_pct"] = h["trafo"][k] = self._trafo_loading(t, p, pch, pdis)
+                ctx["trafo_sn_kva"] = self._trafo_eff_sn
+                self._last_trafo = float(np.nanmax(ctx["trafo_loading_pct"]))
 
         # departures at the end of this step: undelivered energy is lost
         unmet = 0.0
@@ -380,6 +501,26 @@ class KfkiChargingEnv(OmnesEnv):
         ref = (max(base - pv, 0.0) * dt, max(pv - base, 0.0) * dt)
         return ctx, ref
 
+    def _feeder_loading(self, t: int, p: np.ndarray) -> np.ndarray:
+        """Loading (%) of the lines that feed charger buses (others NaN).
+
+        A charger bus hangs on a radial feeder, so the line carries exactly the load, the PV
+        and the chargers of that bus: S = |P + jQ|, current = S / (sqrt(3) V) with ``FEEDER_V_PU``.
+        """
+        out = np.full(len(self.net.line), np.nan)
+        for g in self._groups:
+            j = self._ev_line[g[0]]
+            if j < 0:
+                continue
+            pk = -self._site_inj[t, g[0]] + float(p[g].sum())
+            out[j] = (
+                100.0
+                * np.hypot(pk, self._site_q[t, g[0]])
+                / (self._line_sn[j] * FEEDER_V_PU)
+            )
+        self._last_line = np.where(np.isnan(out), self._last_line, out)
+        return out
+
     def _observe_state(self) -> ObsState:
         t = min(self.t0 + self.k, self.n_steps_total - 1)
         return ObsState(
@@ -398,6 +539,12 @@ class KfkiChargingEnv(OmnesEnv):
             steps_left=np.where(self.connected, self._depart - self.k, 0),
             rated_kw=self._rated,
             p_prev=self.p_prev,
+            site_injection_kw=self._site_inj[t],
+            line_sn_kva=self._ev_line_sn,
+            site_id=self._ev_bus,
+            line_loading_prev=np.where(
+                self._ev_line >= 0, self._last_line[np.maximum(self._ev_line, 0)], 0.0
+            ),
         )
 
     # ------------------------------------------------------------------ results of an episode

@@ -1,27 +1,21 @@
-﻿"""Training, evaluation and experiments (reward sweep, event-source generalisation).
+"""Training of the agents on the KFKI environment: set-up, warm start from a rule, PPO.
 
-Thin orchestration on top of ``KfkiChargingEnv``, ``RLAgent`` and ``evaluate``; the command
-line is ``run_rl.py``.
+Thin orchestration on top of ``KfkiChargingEnv``, ``RLAgent`` and ``evaluate``; the case study
+is run by ``run.py``.
 """
 
 import copy
-import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 
 from app.case_studies.kfki_campus.excel_io import CampusData
 from app.case_studies.kfki_campus.rl.baselines import BASELINES
-from app.case_studies.kfki_campus.rl.env import KfkiChargingEnv, charger_ratings
-from app.case_studies.kfki_campus.rl.evaluate import (
-    Evaluation,
-    evaluate_policies,
-    full_period_run,
-)
-from app.case_studies.kfki_campus.rl.sessions import read_sessions
+from app.case_studies.kfki_campus.rl.env import KfkiChargingEnv
+from app.case_studies.kfki_campus.rl.evaluate import evaluate_policies
 from app.infra.logging_setup import get_logger
 from app.operation.rl.agent import BasicPPOAgent, RandomAgent, RLAgent, make_agent
 from app.operation.rl.problem import RLProblem
@@ -48,20 +42,6 @@ class Setup:
     resolution: Optional[str] = None
 
 
-def load_events(path: Path, problem: RLProblem, setup: Setup) -> list:
-    """Read the session file of the problem for the chargers and period of the setup."""
-    # all chargers of the workbook are valid ids; the environment uses the first n_chargers
-    chargers = charger_ratings(
-        setup.data, len(setup.data.ev_chargers), problem.action.charger_kw
-    )
-    period = (pd.Timestamp(setup.time_start), pd.Timestamp(setup.time_end))
-    events, report = read_sessions(Path(path), chargers, period)
-    log.info(
-        f"{len(events)} sessions read from {path} ({len(report)} adjusted / dropped)"
-    )
-    return events
-
-
 def make_env(problem: RLProblem, setup: Setup, split: str = "train") -> KfkiChargingEnv:
     return KfkiChargingEnv(
         problem,
@@ -75,12 +55,71 @@ def make_env(problem: RLProblem, setup: Setup, split: str = "train") -> KfkiChar
     )
 
 
-def with_events(problem: RLProblem, **changes) -> RLProblem:
-    """Copy of the problem with other ``events`` settings (e.g. ``source="file"``)."""
-    p = copy.deepcopy(problem)
-    for k, v in changes.items():
-        setattr(p.events, k, v)
-    return p
+def eval_day_list(env: KfkiChargingEnv, n: Optional[int]) -> list[int]:
+    """``n`` test days spread over the PV range (sunny and dull days alike), sorted by day.
+
+    Days drawn at fixed intervals can miss the sunny days on which the PV surplus, and so
+    the policies, differ; ranking by daily PV energy and taking evenly spaced ranks covers them.
+    """
+    days = list(env.test_days)
+    if not n or n >= len(days):
+        return days
+    spd = env.steps_per_day
+    pv = np.array([env._pv_total[d * spd : (d + 1) * spd].sum() for d in days])
+    ranks = np.linspace(0, len(days) - 1, n).round().astype(int)
+    return sorted(days[i] for i in np.argsort(pv)[ranks])
+
+
+RULES = ("uncontrolled", "pv_following", "line_following", "least_laxity", "grid_guard")
+
+
+def pick_rule(problem: RLProblem, setup: Setup, n_days: int = 8) -> str:
+    """Name of the rule-based policy with the best reward of the problem on training days."""
+    agents = {
+        k: v for k, v in reference_agents(problem, oracle=False).items() if k in RULES
+    }
+    env = make_env(problem, setup, "train")
+    days = env.train_days[:: max(1, len(env.train_days) // n_days)][:n_days]
+    k = evaluate_policies(env, agents, days, seed=5, keep_episodes=False).kpis
+    return str(k.groupby("policy")["reward"].mean().idxmax())
+
+
+def collect_demos(
+    problem: RLProblem, setup: Setup, rule: RLAgent, n_days: int = 250, seed: int = 7
+):
+    """(observations, actions, discounted returns) of a rule on random training days.
+
+    The rule gives the charger actions; with an agent-controlled battery the battery setpoint
+    it actually used (its own rule) is appended, so the policy can clone the whole behaviour.
+    """
+    env = make_env(problem, setup, "train")
+    rng = np.random.default_rng(seed)
+    gamma = problem.agent.gamma
+    days = rng.choice(
+        env.train_days, size=min(n_days, len(env.train_days)), replace=False
+    )
+    obs_l, act_l, ret_l = [], [], []
+    for i, day in enumerate(days):
+        rule.bind(env)
+        obs, _ = env.reset(seed=seed + i, options={"day": int(day)})
+        o, a, r = [], [], []
+        done = False
+        while not done:
+            act = np.clip(np.asarray(rule.predict(obs), float).reshape(-1), 0.0, 1.0)
+            o.append(obs)
+            obs, reward, _, done, _ = env.step(act)
+            if problem.battery_policy == "agent" and len(act) == len(env.chargers):
+                act = np.append(act, env._bat_action)  # what the battery rule did
+            a.append(act)
+            r.append(reward)
+        g, ret = 0.0, np.zeros(len(r))
+        for t in range(len(r) - 1, -1, -1):
+            g = r[t] + gamma * g
+            ret[t] = g
+        obs_l += o
+        act_l += a
+        ret_l += list(ret)
+    return np.array(obs_l, np.float32), np.array(act_l), np.array(ret_l)
 
 
 def train_agent(
@@ -92,12 +131,20 @@ def train_agent(
     eval_every: int = 5000,
     eval_days: int = 5,
     name: Optional[str] = None,
+    warm_start: bool = False,
 ) -> tuple[RLAgent, pd.DataFrame]:
-    """Train one agent; returns it with its learning curve (and saves both under ``out_dir``)."""
+    """Train one agent; returns it with its learning curve (and saves both under ``out_dir``).
+
+    With ``warm_start`` the best rule of the problem (``pick_rule``) is cloned into the
+    policy and the critic before PPO starts (smaller initial action noise), so the learning
+    curve starts at the rule's level and PPO refines it.
+    """
     out_dir = Path(out_dir)
     name = name or f"{problem.agent.algo.lower()}_seed{seed}"
     problem = copy.deepcopy(problem)
     problem.agent.seed = seed
+    if warm_start:
+        problem.agent.log_std_init = -1.0
     agent = make_agent(problem)
     if not isinstance(agent, BasicPPOAgent):  # non-learning agent: nothing to train
         return agent, pd.DataFrame()
@@ -109,10 +156,28 @@ def train_agent(
         [lambda: Monitor(make_env(problem, setup, "train")) for _ in range(n_envs)]
     )
     eval_env = make_env(problem, setup, "test")
-    days = eval_env.test_days[:: max(1, len(eval_env.test_days) // eval_days)][
-        :eval_days
-    ]
-    callback, rows = _curve_callback(agent, eval_env, days, eval_every, name, seed)
+    days = eval_day_list(eval_env, eval_days)
+    ref = evaluate_policies(
+        eval_env,
+        {"uncontrolled": BASELINES["uncontrolled"](problem)},
+        days,
+        seed=1000,
+        keep_episodes=False,
+    ).kpis["reward"].mean()  # the curve shows the gain over uncontrolled charging
+    if warm_start:
+        rule_name = pick_rule(problem, setup)
+        obs, act, ret = collect_demos(
+            problem,
+            setup,
+            reference_agents(problem, oracle=False)[rule_name],
+            seed=seed,
+        )
+        agent.prepare(venv)
+        info = agent.pretrain(obs, act, ret, epochs=150, seed=seed)
+        log.info(f"warm start from '{rule_name}': {info}")
+    callback, rows = _curve_callback(
+        agent, eval_env, days, eval_every, name, seed, float(ref)
+    )
     agent.train(venv, total_timesteps, callback=callback)
     callback.evaluate_now()  # final point
     curve = pd.DataFrame(rows)
@@ -122,7 +187,7 @@ def train_agent(
     return agent, curve
 
 
-def _curve_callback(agent, eval_env, days, every, name, seed):
+def _curve_callback(agent, eval_env, days, every, name, seed, ref_reward=0.0):
     from stable_baselines3.common.callbacks import BaseCallback
 
     rows: list = []
@@ -145,9 +210,12 @@ def _curve_callback(agent, eval_env, days, every, name, seed):
                     seed=seed,
                     timesteps=int(self.num_timesteps),
                     eval_reward=float(k["reward"].mean()),
+                    reward_vs_uncontrolled=float(k["reward"].mean() - ref_reward),
                     SC=float(k["SC"].mean()),
                     SS=float(k["SS"].mean()),
                     ev_unmet_kwh=float(k["ev_unmet_kwh"].mean()),
+                    ev_pv_share=float(k["ev_pv_share"].mean()),
+                    line_overload_kvah=float(k["line_overload_kvah"].mean()),
                     train_reward=(
                         float(np.mean([e["r"] for e in buf])) if len(buf) else np.nan
                     ),
@@ -172,128 +240,12 @@ def reference_agents(problem: RLProblem, oracle: bool = True) -> dict[str, RLAge
     agents: dict[str, RLAgent] = {
         "uncontrolled": BASELINES["uncontrolled"](problem),
         "pv_following": BASELINES["pv_following"](problem),
+        "line_following": BASELINES["line_following"](problem),
+        "least_laxity": BASELINES["least_laxity"](problem),
         "random": RandomAgent(problem, seed=123),
     }
+    if problem.battery_policy == "agent":  # the rules that also dispatch the battery
+        agents["grid_guard"] = BASELINES["grid_guard"](problem)
     if oracle:
         agents["oracle"] = BASELINES["oracle"](problem)
     return agents
-
-
-def evaluate_all(
-    problem: RLProblem,
-    setup: Setup,
-    agents: dict[str, RLAgent],
-    out_dir: Path,
-    days: Optional[Sequence[int]] = None,
-    full_period: bool = True,
-    seed: int = 0,
-) -> Evaluation:
-    """Evaluate on the test days (and one full-period run each); write the result files."""
-    out_dir = Path(out_dir)
-    env = make_env(problem, setup, "test")
-    ev = evaluate_policies(env, agents, days, seed)
-    ev.kpis.to_csv(out_dir / "rl_kpis.csv", index=False)
-    with open(out_dir / "episodes.pkl", "wb") as f:
-        pickle.dump(ev.episodes, f)
-    if full_period:
-        rows = [full_period_run(env, a, n, out_dir, seed) for n, a in agents.items()]
-        pd.DataFrame(rows).to_csv(out_dir / "rl_full_period.csv", index=False)
-    return ev
-
-
-def summarize(kpis: pd.DataFrame) -> pd.DataFrame:
-    """Mean per policy of the main KPIs (rows: policies)."""
-    cols = [
-        "reward",
-        "SC",
-        "SS",
-        "import_kwh",
-        "export_kwh",
-        "ev_unmet_kwh",
-        "ev_satisfaction",
-        "ev_pv_share",
-        "ev_peak_kw",
-        "battery_cycles",
-        "v_max_pu",
-        "viol_frac",
-        "trafo_max_loading_pct",
-        "line_max_loading_pct",
-        "losses_kwh",
-    ]
-    cols = [c for c in cols if c in kpis]
-    return kpis.groupby("policy", sort=False)[cols].mean()
-
-
-def sweep_weight(
-    problem: RLProblem,
-    setup: Setup,
-    out_dir: Path,
-    metric: str,
-    values: Sequence[float],
-    timesteps: Optional[int] = None,
-    days: int = 10,
-) -> pd.DataFrame:
-    """Train one agent per weight of ``metric`` and evaluate it (rows: weight)."""
-    rows = []
-    for w in values:
-        p = copy.deepcopy(problem)
-        for t in p.reward:
-            if t.metric == metric:
-                t.weight = float(w)
-        name = f"{metric}_w{w:g}"
-        agent, _ = train_agent(
-            p, setup, Path(out_dir) / "sweep", 0, timesteps, name=name
-        )
-        env = make_env(p, setup, "test")
-        test = env.test_days[:: max(1, len(env.test_days) // days)][:days]
-        k = evaluate_policies(env, {name: agent}, test, 0, keep_episodes=False).kpis
-        rows.append(
-            {
-                "metric": metric,
-                "weight": w,
-                **k.drop(columns=["policy"]).mean(numeric_only=True).to_dict(),
-            }
-        )
-    df = pd.DataFrame(rows)
-    df.to_csv(Path(out_dir) / "rl_sweep.csv", index=False)
-    return df
-
-
-def generalization(
-    problem: RLProblem,
-    setup: Setup,
-    out_dir: Path,
-    timesteps: Optional[int] = None,
-    days: int = 10,
-) -> pd.DataFrame:
-    """Train on each event source (file / generator / mixed), test on file and generator events."""
-    if setup.events is None:
-        raise ValueError("generalisation needs deterministic events (session file)")
-    rows = []
-    for train_src in ("file", "generator", "mixed"):
-        p = with_events(problem, source=train_src)
-        agent, _ = train_agent(
-            p,
-            setup,
-            Path(out_dir) / "generalization",
-            0,
-            timesteps,
-            name=f"train_{train_src}",
-        )
-        for test_src in ("file", "generator"):
-            pt = with_events(problem, source=test_src)
-            env = make_env(pt, setup, "test")
-            test = env.test_days[:: max(1, len(env.test_days) // days)][:days]
-            k = evaluate_policies(
-                env, {"agent": agent}, test, 0, keep_episodes=False
-            ).kpis
-            rows.append(
-                {
-                    "train_source": train_src,
-                    "test_source": test_src,
-                    **k.drop(columns=["policy"]).mean(numeric_only=True).to_dict(),
-                }
-            )
-    df = pd.DataFrame(rows)
-    df.to_csv(Path(out_dir) / "rl_generalization.csv", index=False)
-    return df

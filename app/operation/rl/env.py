@@ -78,9 +78,9 @@ class OmnesEnv(gym.Env):
         self.index: Optional[pd.DatetimeIndex] = None
         self._file_generator: Optional[ChargingEventGenerator] = None
         self._setup()
-        n = len(self.chargers)
+        n = len(self.chargers) + (1 if problem.battery_policy == "agent" else 0)
         self.action_space = spaces.Box(0.0, 1.0, shape=(n,), dtype=np.float32)
-        size = observation_size(problem.observation, n)
+        size = observation_size(problem.observation, len(self.chargers))
         self.observation_space = spaces.Box(
             -10.0, 10.0, shape=(size,), dtype=np.float32
         )

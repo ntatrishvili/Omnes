@@ -72,6 +72,22 @@ def test_matches_handwritten_dispatch_without_heat(csv, data):
     assert new.p_export.sum() == pytest.approx(old.p_export.sum(), rel=0.01, abs=1.0)
 
 
+def test_battery_does_not_fight_the_grid_exchange(csv, data):
+    """No discharge while the campus exports, no charge while it imports (both dispatches)."""
+    opt, idx = _optimizer(csv, data, Scenario(8000, 1450, 3))
+    new = opt.rolling(idx, 24, 24)
+    b = data.battery.iloc[0]
+    bat = BatteryParams(
+        1450.0, 250.0, 250.0, float(b.eff_charge), float(b.eff_discharge),
+        float(b.soc_min), float(b.soc_max), float(b.soc_init),
+    )  # fmt: skip
+    old = rolling_dispatch(idx, new.demand.to_numpy(), new.pv.to_numpy(), bat, 24, 24)
+    for disp in (new, old):
+        assert disp.p_export.sum() > 0 and disp.p_discharge.sum() > 0
+        assert not ((disp.p_discharge > 1e-3) & (disp.p_export > 1e-3)).any()
+        assert not ((disp.p_charge > 1e-3) & (disp.p_import > 1e-3)).any()
+
+
 def test_dispatch_is_written_back_into_the_model(csv, data):
     """The rolling dispatch is stored in the entities' quantities and readable as a run view."""
     # a large PV plant so that the battery cycles and surplus is exported (non-trivial dispatch)

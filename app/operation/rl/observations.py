@@ -6,7 +6,7 @@ with ``register_observation``.
 """
 
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -25,6 +25,12 @@ class ObsState:
     :ivar np.ndarray steps_left: Per charger, steps until departure
     :ivar np.ndarray rated_kw: Per charger, rated power
     :ivar np.ndarray p_prev: Per charger, power of the previous step
+    :ivar np.ndarray site_injection_kw: Per charger, PV minus load (kW) on its bus, without
+        the chargers (positive = the feeder exports); ``None`` if the case study has none
+    :ivar np.ndarray line_sn_kva: Per charger, rating of the line feeding its bus
+    :ivar np.ndarray line_loading_prev: Per charger, loading (%) of that line in the previous step
+    :ivar np.ndarray site_id: Per charger, id of its bus (chargers with the same id share a
+        connection); ``None`` = every charger is alone
     """
 
     t: int
@@ -43,6 +49,10 @@ class ObsState:
     rated_kw: np.ndarray
     p_prev: np.ndarray
     extra: dict = field(default_factory=dict)
+    site_injection_kw: Optional[np.ndarray] = None
+    line_sn_kva: Optional[np.ndarray] = None
+    line_loading_prev: Optional[np.ndarray] = None
+    site_id: Optional[np.ndarray] = None
 
     @property
     def n_chargers(self) -> int:
@@ -147,23 +157,76 @@ def charger_connected(s, params):
 
 @register_observation("charger_energy_remaining", lambda n, p: n)
 def charger_energy_remaining(s, params):
-    """Remaining energy / (rated power x one day)."""
-    return np.where(s.connected, s.remaining_kwh / (s.rated_kw * 24.0), 0.0)
+    """Remaining energy / (rated power x ``horizon_h``, default one day)."""
+    horizon = float(params.get("horizon_h", 24.0))
+    return np.where(s.connected, s.remaining_kwh / (s.rated_kw * horizon), 0.0)
 
 
 @register_observation("charger_time_remaining", lambda n, p: n)
 def charger_time_remaining(s, params):
-    """Remaining connected time / one day."""
-    return np.where(s.connected, s.steps_left * s.dt_h / 24.0, 0.0)
+    """Remaining connected time / ``horizon_h`` (default one day)."""
+    horizon = float(params.get("horizon_h", 24.0))
+    return np.where(s.connected, s.steps_left * s.dt_h / horizon, 0.0)
 
 
 @register_observation("charger_laxity", lambda n, p: n)
 def charger_laxity(s, params):
-    """(Time left - time needed at full power) / one day; < 0 = cannot finish any more."""
+    """(Time left - time needed at full power) / ``horizon_h`` (default one day); < 0 = cannot finish."""
+    horizon = float(params.get("horizon_h", 24.0))
     need_h = s.remaining_kwh / s.rated_kw
-    return np.where(s.connected, (s.steps_left * s.dt_h - need_h) / 24.0, 0.0)
+    return np.where(s.connected, (s.steps_left * s.dt_h - need_h) / horizon, 0.0)
 
 
 @register_observation("charger_p_prev", lambda n, p: n)
 def charger_p_prev(s, params):
     return s.p_prev / s.rated_kw
+
+
+@register_observation("charger_line_loading_prev", lambda n, p: n)
+def charger_line_loading_prev(s, params):
+    """Loading of the line feeding each charger's bus in the previous step (1 = rating)."""
+    if s.line_loading_prev is None:
+        return np.zeros(s.n_chargers)
+    return np.clip(np.asarray(s.line_loading_prev, float) / 100.0, 0.0, 2.0)
+
+
+@register_observation("charger_site_injection", lambda n, p: n)
+def charger_site_injection(s, params):
+    """PV minus load on each charger's bus / line rating: > 1 = the feeder would overload."""
+    if s.site_injection_kw is None or s.line_sn_kva is None:
+        return np.zeros(s.n_chargers)
+    return np.clip(s.site_injection_kw / np.maximum(s.line_sn_kva, 1.0), -2.0, 2.0)
+
+
+def _site_ids(s: ObsState) -> np.ndarray:
+    return np.arange(s.n_chargers) if s.site_id is None else np.asarray(s.site_id)
+
+
+@register_observation("charger_site_rank", lambda n, p: n)
+def charger_site_rank(s, params):
+    """Urgency rank of each connected vehicle among the connected ones on its bus.
+
+    0 = least laxity (serve first), 1 = most laxity; a vehicle alone on its bus and an empty
+    charger give 0 and 1. Needed to decide who gets the power under a connection limit.
+    """
+    ids = _site_ids(s)
+    lax = s.steps_left * s.dt_h - s.remaining_kwh / s.rated_kw
+    out = np.ones(s.n_chargers)
+    for g in np.unique(ids):
+        on = np.flatnonzero((ids == g) & s.connected)
+        if len(on) == 0:
+            continue
+        rank = np.argsort(np.argsort(lax[on]))
+        out[on] = rank / max(len(on) - 1, 1)
+    return out
+
+
+@register_observation("charger_site_count", lambda n, p: n)
+def charger_site_count(s, params):
+    """Number of connected vehicles on the bus of each charger / chargers on that bus."""
+    ids = _site_ids(s)
+    out = np.zeros(s.n_chargers)
+    for g in np.unique(ids):
+        members = ids == g
+        out[members] = (members & s.connected).sum() / members.sum()
+    return out

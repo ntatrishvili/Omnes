@@ -66,13 +66,20 @@ def _ev_buses(model):
     return {e.id: e.bus for e in evs}
 
 
-def test_chargers_are_nested_round_robin_over_the_sites(csv, data):
+def test_chargers_follow_the_site_rows_and_are_nested(csv, data):
     sites = data.ev_sites["bus"].tolist()
-    m5 = _ev_buses(build_kfki_model(Scenario(0, 0, 5), csv, data=data, **TWO_DAYS))
+    assert len(sites) == 9
+    # today's 3 chargers, then 6 on the most overloaded lines (b4, b6, b26)
+    assert sites[:3] == ["4T_b26", "6T_b29", "T_b17"]
+    assert sites[3:] == ["4T_b4", "4T_b4", "6T_b6", "4T_b4", "6T_b6", "4T_b26"]
+    m9 = _ev_buses(build_kfki_model(Scenario(0, 0, 9), csv, data=data, **TWO_DAYS))
     m3 = _ev_buses(build_kfki_model(Scenario(0, 0, 3), csv, data=data, **TWO_DAYS))
-    assert list(m5.values()) == [sites[0], sites[1], sites[2], sites[3], sites[0]]
+    assert list(m9.values()) == sites
     # the sweep is nested: the first three chargers are the same in both scenarios
-    assert all(m5[k] == v for k, v in m3.items()) and len(m3) == 3
+    assert all(m9[k] == v for k, v in m3.items()) and len(m3) == 3
+    # a tenth charger wraps to the first row
+    m10 = _ev_buses(build_kfki_model(Scenario(0, 0, 10), csv, data=data, **TWO_DAYS))
+    assert list(m10.values())[9] == sites[0]
 
 
 def test_each_charger_has_its_own_profile(csv, data):

@@ -19,7 +19,8 @@ period (278 days of real measurements).
 Source: Á. Weidinger's energy-community report (PowerFactory model, Fig. 9-11)
 and the colleagues' notes. The model reproduces the single-line diagram:
 
-* one 10 kV busbar fed by the Virányos line (the Budaközép reserve line is open),
+* one 10 kV busbar fed by the Virányos line (3x240 mm² Al, 10 km; the Budaközép reserve
+  line is open), each transformer on its own 10 kV cell cable (3x150 mm² Al, 20-710 m),
 * **five** 1 MVA 10/0.4 kV transformers (T, 3/T, 4/T, 6/T, 10/T) feeding 33
   consumers (buildings, the isotope store, two reactors, workshops, ...),
 * four heat pumps (buildings 19, 26, 29, 21/A),
@@ -30,9 +31,10 @@ and the colleagues' notes. The model reproduces the single-line diagram:
 |---|---|---|
 | Transformers | 5 x 1 MVA (report text says 6) | diagram followed |
 | Feeder ratings | Fig. 10 load-flow currents | report |
-| LV cables, transformer impedance | placeholders | **assumed** |
+| 10 kV cables | Virányos 3x240 Al 10 km; cell cables 3x150 Al, lengths from the drawing | drawing (lengths, Virányos size); cell size **assumed** |
+| LV cables (4x240 mm² Al, 0.1 km), transformer impedance | placeholders | **assumed** |
 | EV chargers | 3 today (sweep 3-9), profiles from `simulated_profile_*.csv` | user data |
-| EV charger locations (buildings 26, 29, 17, 3, round-robin), split of added PV | equal split over named sites | **assumed** |
+| EV charger locations (today: buildings 26, 29, 17; then 3 x building 4, 2 x building 6 and 1 x building 26 on the most overloaded feeders), split of added PV | equal split over named sites | **assumed** |
 
 Full provenance: `app/case_studies/kfki_campus/README.md`. Reference check for the
 demand series: annual 6.5-8 GWh, peak 2.055 MW (Dec 2023).
@@ -48,7 +50,8 @@ demand series: annual 6.5-8 GWh, peak 2.055 MW (Dec 2023).
    (Bus, Line, Transformer, Slack, Load/HeatPump/EVCharger, PV, Battery).
 3. **Dispatch (PuLP)**: rolling horizon, 24 h committed + 24 h look-ahead,
    perfect foresight. Objective: minimise grid import + export; battery charge and
-   discharge are mutually exclusive; the battery's transformer (4/T) is limited to
+   discharge only in steps without campus export and charge only in steps without campus
+   import (so surplus cannot be burnt through round-trip losses); the battery's transformer (4/T) is limited to
    1 MVA as a *soft* constraint (strongly penalised), because with several MWp of PV on
    that transformer the base flow alone exceeds it; the overload shows up in the
    power-flow results instead.
@@ -73,6 +76,8 @@ of the measured temperature and a tank holding 3 h of peak demand.
 
 ## 4. Limitations
 
+* The numbers quoted in this report (loading, voltage) were produced with the earlier
+  cable data (no 10 kV cables, LV 4x150 mm²); rerun the sweep before quoting them.
 * Cable lengths/types and transformer impedances are assumptions; voltage and
   line-loading results scale directly with them. Lines of weakly loaded feeders
   (sized to today's current) are overloaded by any sizeable added PV, so the line

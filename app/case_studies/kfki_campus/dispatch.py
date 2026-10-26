@@ -80,9 +80,11 @@ def _solve_window(
 ) -> WindowResult:
     """Solve one window.
 
-    The plain LP is solved first; only if it charges and discharges in the same
-    step (surplus burnt through round-trip losses) is the MILP with exclusive
-    modes solved instead. Most windows have no surplus, so this is much faster.
+    The plain LP is solved first. If it burns PV surplus through the battery's
+    round-trip losses (discharging while the campus exports, charging while it
+    imports, or both in one step), the MILP is solved instead: the battery may only
+    discharge in steps without export and only charge in steps without import.
+    Most windows have no surplus, so this is much faster.
     """
     args = (
         demand,
@@ -98,7 +100,13 @@ def _solve_window(
         tes0_kwh,
     )
     res = _solve_window_once(*args, exclusive=False)
-    if np.minimum(res.ch, res.dis).max() > 1e-6:
+    # + = import, - = export, with the battery and the heat pumps included
+    balance = demand + res.hp_e.sum(axis=1) + res.ch - pv - res.dis
+    if (
+        np.minimum(res.ch, res.dis).max() > 1e-6
+        or ((res.ch > 1e-3) & (balance > 1e-3)).any()
+        or ((res.dis > 1e-3) & (balance < -1e-3)).any()
+    ):
         res = _solve_window_once(*args, exclusive=True)
     return res
 
@@ -154,14 +162,26 @@ def _solve_window_once(
         for t in range(n)
     ) + UNMET_HEAT_PENALTY * pulp.lpSum(u for row in unmet for u in row) * dt_h
     over = []  # transformer-limit slacks (soft constraint, see below)
-    # Charge and discharge are mutually exclusive. Without this the LP burns PV surplus
-    # through round-trip losses (charging and discharging at once), which a
-    # min(import + export) objective rewards but a real battery cannot do.
+    # The battery discharges only while the campus imports and charges only while it
+    # exports. Without this the LP burns PV surplus through round-trip losses (discharging
+    # into an exporting campus and recharging later, or charging and discharging at once),
+    # which a min(import + export) objective rewards but a real operation would not do.
     if exclusive:
-        mode = [pulp.LpVariable(f"mode_{t}", cat=pulp.LpBinary) for t in range(n)]
+        grid_import = [  # 1 = import step (no export), 0 = export step (no import)
+            pulp.LpVariable(f"grid_import_{t}", cat=pulp.LpBinary) for t in range(n)
+        ]
+        big = (
+            3.0 * (float(np.max(demand)) + float(np.max(pv)))
+            + sum(h.p_max_kw for h in heat)
+            + bat.max_charge_kw
+            + bat.max_discharge_kw
+            + 1e3
+        )
         for t in range(n):
-            prob += ch[t] <= bat.max_charge_kw * mode[t]
-            prob += dis[t] <= bat.max_discharge_kw * (1 - mode[t])
+            prob += imp[t] <= big * grid_import[t]
+            prob += exp[t] <= big * (1 - grid_import[t])
+            prob += ch[t] <= bat.max_charge_kw * (1 - grid_import[t])
+            prob += dis[t] <= bat.max_discharge_kw * grid_import[t]
     for t in range(n):
         prev = soc0_kwh if t == 0 else soc[t - 1]
         prob += (
@@ -209,6 +229,17 @@ def _solve_window_once(
     prob += soc[n - 1] >= min(soc0_kwh, bat.soc_init * bat.capacity_kwh)
 
     status = prob.solve(solver)
+    if exclusive and pulp.LpStatus[status] == "Infeasible":
+        # CBC's pre-processing sometimes declares the (feasible) grid-direction MILP
+        # infeasible; the same problem solves with pre-processing off
+        status = prob.solve(
+            pulp.PULP_CBC_CMD(
+                msg=False,
+                timeLimit=getattr(solver, "timeLimit", None) or 5,
+                gapRel=getattr(solver, "gapRel", None),
+                options=["preprocess off"],
+            )
+        )
     # With a time limit CBC may stop on a feasible (near-optimal) integer solution.
     have_solution = all(v.value() is not None for v in ch + dis + soc)
     if pulp.LpStatus[status] != "Optimal" and not (

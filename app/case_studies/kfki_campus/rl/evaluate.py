@@ -2,13 +2,10 @@
 
 Every policy runs the same test days with the same event seeds; each episode is scored with the
 optimisation pipeline's ``compute_kpis`` on the episode's dispatch and power flow, plus the EV
-KPIs and the reward split by term. ``rl_kpis.csv`` (one row per policy and day) and
-``details/<policy>.npz`` (same keys as ``scenarios.run_scenario``, plus the charger powers)
-feed ``plots_rl``.
+KPIs, the line / transformer overload and the reward split by term (one row per policy and day).
 """
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Optional, Sequence
 
 import numpy as np
@@ -16,6 +13,7 @@ import pandas as pd
 
 from app.case_studies.kfki_campus.kpis import compute_ev_kpis, compute_kpis
 from app.case_studies.kfki_campus.rl.env import KfkiChargingEnv
+from app.case_studies.kfki_campus.rl.profiles import PROFILES
 from app.infra.logging_setup import get_logger
 from app.operation.rl.agent import RLAgent
 from app.operation.rl.rollout import EpisodeResult, run_episode
@@ -29,11 +27,84 @@ class Evaluation:
 
     :ivar pd.DataFrame kpis: One row per (policy, day)
     :ivar dict episodes: ``(policy, day)`` -> dict with ``dispatch``, ``ev_power``,
-        ``sessions``, ``vm_pu`` (time x bus) and ``trafo_loading``
+        ``sessions``, ``vm_pu`` (time x bus), ``trafo_loading`` and ``line_loading``
     """
 
     kpis: pd.DataFrame
     episodes: dict = field(default_factory=dict)
+
+
+def line_kpis(env: KfkiChargingEnv, sim) -> dict:
+    """Line overloading of the episode: all lines and the feeders that carry chargers.
+
+    ``line_overload_kvah`` is the apparent energy above the thermal rating (the quantity of
+    the ``line_overload_kvah`` reward term); ``ev_line_*`` only counts the chargers' feeders;
+    ``trafo_overload_kvah`` is measured against the operating limits of
+    ``problem.trafo_limits_kva`` (0 without limits).
+    """
+    load = np.asarray(sim.line_loading_pct, float)
+    over = np.maximum(np.nan_to_num(load) - 100.0, 0.0) / 100.0 * env._line_sn
+    ev_lines = np.unique(env._ev_line[env._ev_line >= 0])
+    # transformers with an operating limit: energy above the limit (0 without limits)
+    tl = np.nan_to_num(np.asarray(sim.trafo_loading_pct, float)) * (
+        env._trafo_sn / env._trafo_eff_sn
+    )
+    t_over = np.maximum(tl - 100.0, 0.0) / 100.0 * env._trafo_eff_sn
+    t_over = t_over[:, env._trafo_limited]
+    return {
+        "trafo_overload_kvah": float(t_over.sum() * env.dt_h),
+        "line_overload_kvah": float(over.sum() * env.dt_h),
+        "ev_line_overload_kvah": float(over[:, ev_lines].sum() * env.dt_h),
+        "ev_line_max_loading_pct": (
+            float(np.nanmax(load[:, ev_lines])) if load.size else np.nan
+        ),
+        "line_overload_hours": float((np.nan_to_num(load) > 100.0).any(axis=1).sum() * env.dt_h),
+    }
+
+
+def add_relative_reward(kpis: pd.DataFrame, ref: str = "uncontrolled") -> pd.DataFrame:
+    """Add ``reward_vs_uncontrolled``: reward minus that of ``ref`` on the same day.
+
+    The reward of a day is dominated by the part no EV policy can change (PV, campus load);
+    the difference to the uncontrolled run is what the policy gained or lost.
+    """
+    if ref not in set(kpis["policy"]):
+        return kpis
+    base = kpis[kpis["policy"] == ref].set_index("day")["reward"]
+    kpis = kpis.copy()
+    kpis["reward_vs_uncontrolled"] = kpis["reward"] - kpis["day"].map(base)
+    return kpis
+
+
+# KPI column that measures each reward metric of a profile
+PROFILE_COLUMNS = dict(
+    import_kwh="import_kwh",
+    export_kwh="export_kwh",
+    unmet_kwh="ev_unmet_kwh",
+    line_overload_kvah="ev_line_overload_kvah",
+    trafo_overload_kvah="trafo_overload_kvah",
+)
+
+
+def add_profile_gains(kpis: pd.DataFrame, ref: str = "uncontrolled") -> pd.DataFrame:
+    """Add ``gain_<profile>``: cost saved against ``ref`` on the same day under each profile.
+
+    Cost = sum of weight x KPI over the profile's terms (kWh / kVAh-equivalents per day), so
+    every policy can be scored with every profile's weights, whichever weights it was
+    trained with. Positive = better than uncontrolled charging.
+    """
+    if ref not in set(kpis["policy"]):
+        return kpis
+    kpis = kpis.copy()
+    for name, w in PROFILES.items():
+        cost = sum(
+            w.get(m, 0.0) * kpis[col]
+            for m, col in PROFILE_COLUMNS.items()
+            if col in kpis
+        )
+        base = cost[kpis["policy"] == ref].groupby(kpis["day"]).first()
+        kpis[f"gain_{name}"] = kpis["day"].map(base) - cost
+    return kpis
 
 
 def episode_kpis(env: KfkiChargingEnv, policy: str, res: EpisodeResult) -> dict:
@@ -43,6 +114,8 @@ def episode_kpis(env: KfkiChargingEnv, policy: str, res: EpisodeResult) -> dict:
     row = {"policy": policy, "day": res.day, "reward": res.reward}
     row.update(compute_kpis(disp, sim, env.dt_h, v_min, v_max, v_strict))
     row.update(compute_ev_kpis(disp, env.ev_power(), env.sessions(), env.dt_h))
+    row["ev_grid_kwh"] = row["ev_energy_kwh"] * (1.0 - np.nan_to_num(row["ev_pv_share"]))
+    row.update(line_kpis(env, sim))
     row.update({f"r_{k}": v for k, v in res.terms.items()})
     return row
 
@@ -71,42 +144,10 @@ def evaluate_policies(
                     connected=env.history("connected").copy(),
                     vm_pu=sim.vm_pu,
                     trafo_loading=sim.trafo_loading_pct,
+                    line_loading=sim.line_loading_pct,
+                    line_names=list(env.net.line.name),
+                    ev_lines=np.unique(env._ev_line[env._ev_line >= 0]),
                 )
         log.info(f"evaluated '{name}' on {len(days)} days")
-    return Evaluation(pd.DataFrame(rows), episodes)
-
-
-def save_details(env: KfkiChargingEnv, path: Path) -> Path:
-    """Per-step arrays of the episode just run (keys of ``scenarios.run_scenario``)."""
-    disp, sim = env.dispatch(), env.sim_result()
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(
-        path,
-        index=env.window_index.values.astype("datetime64[s]").astype(np.int64),
-        vm_max=np.nanmax(sim.vm_pu, axis=1),
-        vm_min=np.nanmin(sim.vm_pu, axis=1),
-        vm_pu=sim.vm_pu,
-        bus_names=np.array(sim.bus_names),
-        trafo_loading=sim.trafo_loading_pct,
-        trafo_names=np.array(sim.trafo_names),
-        demand=disp["demand"].to_numpy(),
-        pv=disp["pv"].to_numpy(),
-        p_charge=disp["p_charge"].to_numpy(),
-        p_discharge=disp["p_discharge"].to_numpy(),
-        soc_kwh=disp["soc_kwh"].to_numpy(),
-        p_import=disp["p_import"].to_numpy(),
-        p_export=disp["p_export"].to_numpy(),
-        ev_power=env.ev_power().to_numpy(),
-        charger_ids=np.array(list(env.chargers)),
-    )
-    return path
-
-
-def full_period_run(
-    env: KfkiChargingEnv, agent: RLAgent, name: str, out_dir: Path, seed: int = 0
-) -> dict:
-    """One continuous run over the whole data period; writes ``details/<name>.npz``."""
-    res = run_episode(env, agent, {"full_period": True}, seed)
-    save_details(env, Path(out_dir) / "details" / f"{name}.npz")
-    return episode_kpis(env, name, res)
+    kpis = add_profile_gains(add_relative_reward(pd.DataFrame(rows)))
+    return Evaluation(kpis, episodes)

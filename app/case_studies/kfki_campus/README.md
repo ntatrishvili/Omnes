@@ -135,9 +135,11 @@ EV chargers: `data/input/simulated_profile_*.csv` (one file per charger, 15-min 
 `total_power_kw`, 10 files = up to 10 chargers) are averaged to hours; the timestamps
 are read as local wall-clock time (`--ev-clock fixed` if they are already UTC+1). If no
 file exists, synthetic placeholders are used and the quality report says so. Charger
-`k` uses profile `k` (files in seed order) and stands at site `k mod 4` of
-`assets.xlsx:ev_sites` (buildings 26, 29, 17, 3 - **assumed**), so the sweep is nested;
-today's 3 chargers are the baseline. Open points: each profile peaks at 66-85 kW
+`k` uses profile `k` (files in seed order) and stands at row `k mod 9` of
+`assets.xlsx:ev_sites` (1-3 today's sites: buildings 26, 29, 17; 4-9 on the feeders whose PV roofs
+overload their line most: buildings 4 (x3, 130 % of the line rating), 6 (x2, 122 %) and 26
+(x1, 118 %) - **assumed**), so the sweep is nested; today's 3 chargers are the
+baseline. Open points: each profile peaks at 66-85 kW
 (22 and 44 kW are the most common steps), i.e. more than one 22 kW outlet per profile.
 Other placeholders: `hp_*` columns are 0 (inside the meters/residual); PV array
 tilt/azimuth (30 deg / south) are assumed.
@@ -175,17 +177,21 @@ feeder currents (Fig. 10, 0.4 kV, converted to kVA), `pdf-text`, `note`
 | Existing PV | bldg 29, 3 x SMA SB 3000HF-30 = 9 kW AC (kWp assumed = 9); 7.41 kW reading not used as profile | note |
 | NaS battery | 250 kW / 1.45 MWh at 4/T bus, 192 V DC (140-230 V); modelled on the AC side, DC band not simulated; round-trip efficiency 0.9 x 0.9 assumed | note + assumed |
 | Heat pumps | bldgs 19, 26, 29, 21/A; the 47.6 kW measurement of bldg 29 is context-free and not used | note / pdf-text |
-| External grid | Virányos feeder in service, ideal source at 10 kV, 1.0 pu; Budaközép reserve feeder open, not modelled | pdf-fig9/10 |
-| **LV cables** | 0.1 km per feeder, parallel NAYY 4x150 sized to 1.25 x Fig. 10 current | **assumed** |
+| External grid | Virányos feeder in service, ideal source (1.0 pu) at the far end of the Virányos cable; Budaközép reserve feeder (3x240 mm² Al, ~9.1 km) open, not modelled | pdf-fig9/10 |
+| 10 kV Virányos cable | 3x240 mm² Al, 10 km; r 0.122, x 0.105 Ω/km, 456 nF/km, 0.416 kA (std type NA2XS2Y 1x240 6/10 kV) | drawing (size, length) |
+| 10 kV cell cables to the transformers | 3x150 mm² Al; r 0.206, x 0.110 Ω/km, 360 nF/km, 0.315 kA; lengths 3/T 530 m (faint), 4/T 710 m, 6/T 550 m, 10/T (reactor cell) 320 m, T 20 m | lengths from the drawing; size and the cell 10 -> T mapping **assumed** |
+| **LV cables** | 0.1 km per feeder, parallel NAYY 4x240 mm² Al (r 0.125, x 0.08 Ω/km, 300 nF/km, 0.34 kA each) sized to 1.25 x Fig. 10 current | size as requested; r, x, c, rating typical values, length **assumed** |
 | **Transformer data** | vk 6 %, vkr 1 %, Pfe 1.5 kW, i0 0.3 %, Dyn5 | **assumed** |
 | Candidate PV roofs | 26, 4, 6, 17, reactor; added PV split equally | sites pdf-text, split assumed |
-| EV chargers | 3 today (sweep 3-9); sites 26, 29, 17, 3 in round-robin order, 22 kW outlets; profiles from `simulated_profile_*.csv` | sites **assumed**, profiles user data |
+| EV chargers | 3 today (sweep 3-9); sites 26, 29, 17 (today), then 3 x bldg 6 (6/T) and 3 x bldg 17 (T), 22 kW outlets; profiles from `simulated_profile_*.csv` | sites **assumed**, profiles user data |
 | Peak demand | 2.055 MW (Dec 2023) - useful to check the demand CSV | pdf-text |
 
 ## Method notes and simplifications
 
 * **Dispatch**: campus copper plate; minimise grid import + export; battery
-  charge/discharge mutually exclusive (MILP); battery transformer limited to 1 MVA;
+  the battery discharges only in steps without campus export and charges only in steps
+  without campus import (MILP, so it cannot burn PV surplus through round-trip losses);
+  battery transformer limited to 1 MVA;
   perfect foresight inside each 48 h window; the battery ends each window no lower
   than min(start state, initial state).
 * **Simulation**: balanced single-phase equivalent; loads are constant-PQ (the
@@ -194,7 +200,7 @@ feeder currents (Fig. 10, 0.4 kV, converted to kVA), `pdf-text`, `note`
 * **SC** = 1 - export/PV energy. **SS** = 1 - import/demand energy (demand
   excludes battery charging). **Voltage violations** = share of (bus, step)
   pairs outside 0.9-1.1 pu (EN 50160 +/-10 %); also reported above 1.05 pu.
-* EV smart charging (V1G) by reinforcement learning: see `rl/README_RL.md` (the sweep above uses the uncontrolled profiles).
+* EV smart charging (V1G) by reinforcement learning: see `rl/README.md` (the sweep above uses the uncontrolled profiles).
 * Not modelled: DC side of the NaS, EV V2G, heat-pump flexibility in the electricity-only runs (see the multi-energy section for `--heat`),
   unbalance, protection, the six-transformer discrepancy.
 

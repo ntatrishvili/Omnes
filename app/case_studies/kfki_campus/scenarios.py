@@ -152,6 +152,8 @@ def run_scenario(
             bus_names=np.array(sim.bus_names),
             trafo_loading=sim.trafo_loading_pct,
             trafo_names=np.array(sim.trafo_names),
+            line_loading=sim.line_loading_pct,
+            line_names=np.array(net.line.name, dtype=str),
             demand=disp["demand"].to_numpy(),
             pv=disp["pv"].to_numpy(),
             p_charge=disp["p_charge"].to_numpy(),

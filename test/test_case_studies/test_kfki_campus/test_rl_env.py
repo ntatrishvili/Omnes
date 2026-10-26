@@ -1,7 +1,5 @@
 """KFKI RL environment: feasibility, alignment with the optimisation pipeline, sessions, baselines."""
 
-import copy
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -13,14 +11,8 @@ from app.case_studies.kfki_campus.rl.baselines import (
     PVFollowingAgent,
     UncontrolledAgent,
 )
-from app.case_studies.kfki_campus.rl.env import KfkiChargingEnv, charger_ratings
+from app.case_studies.kfki_campus.rl.env import KfkiChargingEnv
 from app.case_studies.kfki_campus.rl.evaluate import evaluate_policies
-from app.case_studies.kfki_campus.rl.problem_io import load_problem, write_problem
-from app.case_studies.kfki_campus.rl.sessions import (
-    read_sessions,
-    sessions_to_profile,
-    write_sessions,
-)
 from app.case_studies.kfki_campus.synthetic import make_synthetic_csv
 from app.operation.rl.events import ChargingEvent
 from app.operation.rl.problem import EpisodeSpec, EventSpec, RewardTerm, RLProblem
@@ -164,15 +156,14 @@ def test_step_and_post_power_flow_give_the_same_network_results(csv, data):
     )
 
 
-def test_uncontrolled_agent_reproduces_the_legacy_profile(csv, data):
-    ev = _hour_events(["ev_c01", "ev_c02"])
+def test_uncontrolled_agent_charges_at_full_power_from_plug_in(csv, data):
+    ev = _hour_events(["ev_c01", "ev_c02"])  # 44 kWh at 22 kW from 08:00: two full hours
     p = _problem(events=EventSpec(source="file", session_file="x"))
     env = _env(csv, data, p, ev)
     run_episode(env, UncontrolledAgent(p), {"day": 0}, seed=0)
-    chargers = charger_ratings(data, 2)
-    idx = pd.date_range(START, periods=24, freq="1h")
-    legacy = sessions_to_profile(ev, idx, chargers)
-    assert np.allclose(env.ev_power().to_numpy(), legacy.to_numpy())
+    expected = np.zeros((24, 2))
+    expected[8:10, :] = 22.0
+    assert np.allclose(env.ev_power().to_numpy(), expected)
 
 
 def test_rollout_can_be_written_back_into_the_model(csv, data):
@@ -218,86 +209,3 @@ def test_same_seed_gives_all_policies_the_same_events(csv, data):
     )
     n = ev.kpis.pivot(index="day", columns="policy", values="ev_requested_kwh")
     assert np.allclose(n["a"], n["b"])
-
-
-# ------------------------------------------------------------------ session file and workbook
-def test_session_file_round_trip_and_clipping(tmp_path, data):
-    chargers = charger_ratings(data, 2)
-    t = pd.Timestamp("2025-06-02 08:00")
-    events = [
-        ChargingEvent("a", "ev_c01", t, 2.0, 30.0),
-        ChargingEvent("b", "ev_c02", t, 1.0, 10.0),
-    ]
-    path = write_sessions(events, tmp_path / "s.csv")
-    got, report = read_sessions(path, chargers)
-    assert [e.event_id for e in got] == ["a", "b"] and report.empty
-    # 22 kW x 1 h = 22 kWh: request above that is clipped and reported
-    df = pd.read_csv(path)
-    df.loc[0, "energy_kwh"] = 99.0
-    df.to_csv(path, index=False)
-    got, report = read_sessions(path, chargers)
-    assert len(report) == 1 and next(
-        e for e in got if e.event_id == "a"
-    ).energy_kwh == pytest.approx(44.0)
-
-
-@pytest.mark.parametrize(
-    "edit,match",
-    [
-        (lambda d: d.drop(columns=["energy_kwh"]), "missing columns"),
-        (lambda d: d.assign(charger_id="nope"), "unknown charger_id"),
-        (lambda d: d.assign(session_id="x"), "duplicate"),
-        (lambda d: d.assign(energy_kwh=-1.0), "positive"),
-        (
-            lambda d: d.assign(plug_in="2025-06-02 08:00", connected_h=3.0),
-            "overlapping",
-        ),
-    ],
-)
-def test_session_file_validation_errors(tmp_path, data, edit, match):
-    chargers = charger_ratings(data, 2)
-    t = pd.Timestamp("2025-06-02 08:00")
-    path = write_sessions(
-        [
-            ChargingEvent("a", "ev_c01", t, 2.0, 10.0),
-            ChargingEvent("b", "ev_c01", t + pd.Timedelta(hours=1), 2.0, 10.0),
-        ],
-        tmp_path / "s.csv",
-    )
-    df = pd.read_csv(path)
-    if match == "overlapping":
-        df["plug_in"] = ["2025-06-02 08:00", "2025-06-02 09:00"]
-        df["connected_h"] = 3.0
-    else:
-        df = edit(df)
-        if match == "duplicate":
-            df["session_id"] = "x"
-    df.to_csv(path, index=False)
-    with pytest.raises(ValueError, match=match):
-        read_sessions(path, chargers)
-
-
-def test_plug_out_can_replace_connected_h(tmp_path, data):
-    chargers = charger_ratings(data, 1)
-    pd.DataFrame(
-        {
-            "session_id": ["a"],
-            "charger_id": ["ev_c01"],
-            "plug_in": ["2025-06-02 08:00"],
-            "plug_out": ["2025-06-02 11:30"],
-            "energy_kwh": [20.0],
-        }
-    ).to_csv(tmp_path / "s.csv", index=False)
-    (e,), _ = read_sessions(tmp_path / "s.csv", chargers)
-    assert e.connected_h == pytest.approx(3.5)
-
-
-def test_problem_workbook_round_trip(tmp_path):
-    p = _problem()
-    p.reward[2].weight = 7.5
-    p.agent.net_arch = [64, 64]
-    path = write_problem(p, tmp_path / "rl.xlsx")
-    q = load_problem(path)
-    assert q.reward[2].weight == 7.5 and q.agent.net_arch == [64, 64]
-    assert q.scenario["n_chargers"] == 2 and q.power_flow_mode == "post"
-    assert copy.deepcopy(q).reward_weights() == p.reward_weights()

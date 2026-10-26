@@ -31,3 +31,12 @@ config.ini
 *.tex
 *.docx
 *.xlsx
+*.txt
+*.zip
+results_rl_scenarios_synthetic/
+results_tdk_quick/
+results_rl_gmm/
+results_rl_final/
+results_tdk/
+app/case_studies/kfki_campus/data/
+*.out

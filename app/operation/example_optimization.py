@@ -193,19 +193,34 @@ class EnergySystemOptimizer:
     ) -> WindowSolution:
         """Solve steps ``start .. start+steps`` from the given stored energies (kWh).
 
-        The plain LP is solved first; only if a battery charges and discharges in the same
-        step (surplus burnt through round-trip losses) is the MILP with exclusive modes
-        solved instead. Most windows have no surplus, so this is much faster.
+        The plain LP is solved first. The min(import + export) objective rewards burning PV
+        surplus through the battery's round-trip losses (discharging while the campus
+        exports, charging while it imports, or both at once), which a real operation would
+        not do. If the LP does any of that, the MILP is solved instead, in which the battery
+        may only discharge in steps without export and only charge in steps without import.
+        Most windows have no surplus, so this is much faster.
         """
         steps = self.n - start if steps is None else min(steps, self.n - start)
         soc0 = {**self.initial_state(), **(soc0 or {})}
         sol = self._solve(start, steps, soc0, trafo, solver, exclusive=False)
-        if self.batteries and any(
-            np.minimum(sol.storage_in[b.id], sol.storage_out[b.id]).max() > 1e-6
-            for b in self.batteries
-        ):
+        if self.batteries and self._fights_the_grid(sol):
             sol = self._solve(start, steps, soc0, trafo, solver, exclusive=True)
         return sol
+
+    def _fights_the_grid(self, sol: WindowSolution) -> bool:
+        """True if the battery charges while the campus imports, discharges while it
+        exports, or charges and discharges in the same step."""
+        ch = sum(sol.storage_in[b.id] for b in self.batteries)
+        dis = sum(sol.storage_out[b.id] for b in self.batteries)
+        simultaneous = any(
+            np.minimum(sol.storage_in[b.id], sol.storage_out[b.id]).max() > 1e-6
+            for b in self.batteries
+        )
+        return bool(
+            simultaneous
+            or ((ch > 1e-3) & (sol.grid_import > 1e-3)).any()
+            or ((dis > 1e-3) & (sol.grid_export > 1e-3)).any()
+        )
 
     def _solve(self, start, n, soc0, trafo, solver, exclusive) -> WindowSolution:
         sl = slice(start, start + n)
@@ -258,13 +273,32 @@ class EnergySystemOptimizer:
                     * dt
                 )
                 if exclusive:
-                    mode = [
-                        pulp.LpVariable(f"mode_{s.id}_{t}", cat=pulp.LpBinary)
-                        for t in range(n)
-                    ]
+                    # direction of the campus' grid exchange in each step: 1 = import
+                    # (no export), 0 = export (no import). The battery may discharge only
+                    # while importing and charge only while exporting, so it can neither
+                    # charge and discharge at once nor burn surplus through its losses.
+                    if "grid_mode" not in cache:
+                        cache["grid_mode"] = [
+                            pulp.LpVariable(f"grid_import_{t}", cat=pulp.LpBinary)
+                            for t in range(n)
+                        ]
+                        rates = sum(
+                            float(b.max_charge_rate.value) + float(b.max_discharge_rate.value)
+                            for b in self.batteries
+                        )
+                        # converter (heat pump) input has no fixed cap here; allow up to
+                        # three times the campus demand, which is far above any rating
+                        conv = 3.0 * float(np.max(self.demand[sl])) if self.converters else 0.0
+                        for t in range(n):
+                            # tight per-step big-M (numerically safer than one global M)
+                            m_imp = float(self.demand[start + t]) + conv + rates + 1.0
+                            m_exp = float(self.pv_out[start + t]) + rates + 1.0
+                            prob += imp[t] <= m_imp * cache["grid_mode"][t]
+                            prob += exp[t] <= m_exp * (1 - cache["grid_mode"][t])
+                    g = cache["grid_mode"]
                     for t in range(n):
-                        prob += p_in[t] <= float(rc) * mode[t]
-                        prob += p_out[t] <= float(rd) * (1 - mode[t])
+                        prob += p_in[t] <= float(rc) * (1 - g[t])
+                        prob += p_out[t] <= float(rd) * g[t]
             else:
                 # heat store: end at least at the initial level (soft, so that a store
                 # that starts a window below it is refilled where it is cheapest)
@@ -333,6 +367,17 @@ class EnergySystemOptimizer:
             + HEAT_STORE_PENALTY * pulp.lpSum(short)
         )
         status = prob.solve(solver)
+        if exclusive and pulp.LpStatus[status] == "Infeasible":
+            # CBC's pre-processing sometimes declares the (feasible) grid-direction MILP
+            # infeasible; the same problem solves with pre-processing off
+            status = prob.solve(
+                pulp.PULP_CBC_CMD(
+                    msg=False,
+                    timeLimit=getattr(solver, "timeLimit", None) or 5,
+                    gapRel=getattr(solver, "gapRel", None),
+                    options=["preprocess off"],
+                )
+            )
         # With a time limit CBC may stop on a feasible (near-optimal) integer solution.
         have_solution = all(
             pulp.value(v) is not None for vs in cache.values() for v in vs

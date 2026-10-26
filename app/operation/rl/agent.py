@@ -76,6 +76,38 @@ def _import_sb3():
     return sb3
 
 
+def _is_vec_env(env) -> bool:
+    from stable_baselines3.common.vec_env import VecEnv
+
+    return isinstance(env, VecEnv)
+
+
+def _symmetric_actions(venv):
+    """Vectorised env whose actions are in [-1, 1] and reach the base env as [0, 1]."""
+    from gymnasium import spaces
+    from stable_baselines3.common.vec_env import VecEnvWrapper
+
+    class SymmetricActions(VecEnvWrapper):
+        def __init__(self, env):
+            super().__init__(
+                env,
+                action_space=spaces.Box(
+                    -1.0, 1.0, shape=env.action_space.shape, dtype=np.float32
+                ),
+            )
+
+        def reset(self):
+            return self.venv.reset()
+
+        def step_async(self, actions):
+            self.venv.step_async(np.clip((np.asarray(actions) + 1.0) / 2.0, 0.0, 1.0))
+
+        def step_wait(self):
+            return self.venv.step_wait()
+
+    return SymmetricActions(venv)
+
+
 class BasicPPOAgent(RLAgent):
     """Stable-Baselines3 agent configured by ``AgentSpec`` (PPO by default)."""
 
@@ -90,11 +122,14 @@ class BasicPPOAgent(RLAgent):
         sb3 = _import_sb3()
         s = self.spec
         algo = getattr(sb3, s.algo)
+        policy_kwargs = {"net_arch": list(s.net_arch)}
+        if s.algo == "PPO":
+            policy_kwargs["log_std_init"] = s.log_std_init
         kwargs = dict(
             learning_rate=s.learning_rate,
             gamma=s.gamma,
             seed=s.seed,
-            policy_kwargs={"net_arch": list(s.net_arch)},
+            policy_kwargs=policy_kwargs,
             verbose=0,
         )
         if s.algo == "PPO":
@@ -103,9 +138,63 @@ class BasicPPOAgent(RLAgent):
             )
         return algo(s.policy, env, **kwargs)
 
+    def prepare(self, env) -> None:
+        """Build the model for ``env`` (with symmetric actions if configured)."""
+        if self.spec.rescale_actions and _is_vec_env(env):
+            env = _symmetric_actions(env)
+        self.model = self.build(env)
+
+    def pretrain(
+        self,
+        obs: np.ndarray,
+        actions: np.ndarray,
+        returns: np.ndarray,
+        epochs: int = 30,
+        lr: float = 1e-3,
+        batch_size: int = 256,
+        seed: int = 0,
+    ) -> dict:
+        """Behaviour cloning of the policy mean and regression of the critic on the returns.
+
+        ``actions`` are in the environment's [0, 1]; ``returns`` the discounted return of every
+        observation. Warm start: PPO then refines a policy that already behaves like the rule.
+        Needs ``prepare`` (or ``train``) to have built the model.
+        """
+        import torch
+
+        policy = self.model.policy
+        rescaled = bool(
+            np.all(self.model.action_space.low == -1.0)
+            and np.all(self.model.action_space.high == 1.0)
+        )
+        if rescaled:
+            target = np.clip(actions * 2.0 - 1.0, -0.98, 0.98)
+        else:
+            target = np.clip(actions, 0.02, 0.98)
+        dev = policy.device
+        x = torch.as_tensor(obs, dtype=torch.float32, device=dev)
+        y = torch.as_tensor(target, dtype=torch.float32, device=dev)
+        g = torch.as_tensor(returns, dtype=torch.float32, device=dev)
+        opt = torch.optim.Adam(policy.parameters(), lr=lr)
+        rng = np.random.default_rng(seed)
+        loss_pi = loss_v = float("nan")
+        for _ in range(epochs):
+            order = rng.permutation(len(x))
+            for i in range(0, len(x), batch_size):
+                idx = torch.as_tensor(order[i : i + batch_size], device=dev)
+                mean = policy.get_distribution(x[idx]).distribution.mean
+                value = policy.predict_values(x[idx]).flatten()
+                l_pi = torch.nn.functional.mse_loss(mean, y[idx])
+                l_v = torch.nn.functional.mse_loss(value, g[idx])
+                opt.zero_grad()
+                (l_pi + 0.5 * l_v).backward()
+                opt.step()
+                loss_pi, loss_v = float(l_pi), float(l_v)
+        return dict(policy_mse=loss_pi, value_mse=loss_v, samples=len(x))
+
     def train(self, env, total_timesteps=None, callback=None, **kwargs):
         if self.model is None:
-            self.model = self.build(env)
+            self.prepare(env)
         steps = total_timesteps or self.spec.total_timesteps
         log.info(f"training {self.spec.algo} for {steps} steps")
         self.model.learn(total_timesteps=steps, callback=callback, **kwargs)
@@ -113,6 +202,9 @@ class BasicPPOAgent(RLAgent):
 
     def predict(self, obs, deterministic=True):
         action, _ = self.model.predict(obs, deterministic=deterministic)
+        space = self.model.action_space
+        if np.all(space.low == -1.0) and np.all(space.high == 1.0):
+            action = (action + 1.0) / 2.0  # trained on rescaled actions
         return action
 
     def save(self, path: Path) -> None:

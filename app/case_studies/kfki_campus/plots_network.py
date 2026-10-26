@@ -60,7 +60,11 @@ def build_layout(data: CampusData) -> Layout:
     """Tree layout: feeders evenly spaced, groups separated by a gap."""
     lines = data.lines
     trafos = data.transformers
-    mv_bus = trafos["from_bus"].iloc[0]
+    # the 10 kV busbar: the common parent of the transformers' cell buses (or their own
+    # HV bus when the transformers hang directly on it)
+    mv_parent = dict(zip(lines["to_bus"], lines["from_bus"]))
+    first_hv = trafos["from_bus"].iloc[0]
+    mv_bus = mv_parent.get(first_hv, first_hv)
     x, bars, trafo_x, trafo_lv, terminals, group_of = {}, {}, {}, {}, [], {}
     cursor = 0.0
     hidden = {  # feeders drawn as part of another building (PLOT_MERGE)

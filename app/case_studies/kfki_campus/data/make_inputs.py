@@ -18,9 +18,24 @@ import pandas as pd
 OUT = Path(__file__).parent
 KA_TO_KVA = sqrt(3) * 0.4 * 1000  # balanced 3-phase at 0.4 kV
 
-# Cable placeholder (pandapower std type "NAYY 4x150 SE") - assumed, no data in the PDF
-CABLE = dict(r_ohm_km=0.208, x_ohm_km=0.08, c_nF_km=261.8, max_i_kA=0.27)
+# LV feeder cable: 4x240 mm2 Al (NAYY-type). Not a pandapower std type; r from the Al
+# resistivity at 20 degC (as the std types), x as the std NAYY types, c and the in-ground
+# rating are typical catalogue values - assumed, no data in the PDF
+CABLE = dict(r_ohm_km=0.125, x_ohm_km=0.08, c_nF_km=300.0, max_i_kA=0.34)
+CABLE_NAME = "NAYY 4x240"
 DEFAULT_LENGTH_KM = 0.1  # assumed
+# 10 kV cables (modern XLPE equivalent of the paper cables on the drawing), values of the
+# pandapower std types "NA2XS2Y 1x240 / 1x150 RM/25 6/10 kV"
+MV_CABLE_240 = dict(r_ohm_km=0.122, x_ohm_km=0.105, c_nF_km=456.0, max_i_kA=0.416)
+MV_CABLE_150 = dict(r_ohm_km=0.206, x_ohm_km=0.110, c_nF_km=360.0, max_i_kA=0.315)
+# Virányos infeed, 3x240 mm2 Al, 10 km (drawing "Egyvonalas kapcsolasi rajz, KFKI 10 kV").
+# The Budaközép infeed (3x240 mm2 Al, ~9.1 km) is the open reserve and is not modelled.
+VIRANYOS_LENGTH_KM = 10.0
+# 10 kV cell of the receiving station feeding each transformer / the reactors, 3x150 mm2 Al,
+# length read from the drawing (km). The cells carry the labels III/2 TRF (cell 7),
+# IV/2 TRF (8), VI/1 TRF (9), reactor (4); the 20 m cell 10 ("Kémiai kút / felül. K.") is
+# mapped to T by elimination - ASSUMED. Cell 7 length is faint on the photo (~530 m).
+MV_FEED_KM = {"T": 0.020, "3T": 0.530, "4T": 0.710, "6T": 0.550, "10T": 0.320}
 PF = 0.99  # Q/P ~ 10-15 % with PFC installed (pdf-text p.15)
 
 # (transformer, bus_suffix, [(feeder_id, label, building, current_kA, significant)])
@@ -116,12 +131,22 @@ PV_SITES = [  # feeder, building, share of added PV capacity (assumed equal)
     ("b17", "17", 0.2),
     ("reaktor_1", "reactor", 0.2),
 ]
-# EV charger sites (assumed: the large office/lab buildings), in round-robin order
-EV_SITES = [  # feeder, building, (unused share, kept for readability)
-    ("b26", "26", 0.25),
-    ("b29", "29", 0.25),
-    ("b17", "17", 0.25),
-    ("b3", "3", 0.25),
+# EV charger sites, one row per charger in the order the sweep adds them (charger k stands at
+# row k; a tenth charger would wrap to row 0). 9 chargers: the 3 of today (assumed: large
+# office/lab buildings), then 6 on the feeders whose PV roofs overload their line most
+# (measured on the test days, uncontrolled charging: L_4T_b4 130 %, L_6T_b6 122 %,
+# L_4T_b26 118 %), so that charging can absorb part of the PV export there - ASSUMED, not
+# from the documents.
+EV_SITES = [  # feeder, building, comment
+    ("b26", "26", "today"),
+    ("b29", "29", "today"),
+    ("b17", "17", "today"),
+    ("b4", "4", "4/T circuit, most overloaded line"),
+    ("b4", "4", "4/T circuit, most overloaded line"),
+    ("b6", "6", "6/T circuit, overloaded line"),
+    ("b4", "4", "4/T circuit, most overloaded line"),
+    ("b6", "6", "6/T circuit, overloaded line"),
+    ("b26", "26", "4/T circuit, overloaded line"),
 ]
 N_EV_PROFILES = 10  # simulated_profile_*.csv files = chargers available for the sweep
 
@@ -159,7 +184,7 @@ def _feeder_bus(trafo: str, feeder: str) -> str:
 
 
 def _cable(rated_kva: float) -> dict:
-    """Assumed feeder cable: n parallel NAYY 4x150 so that 1.25 x rated current fits."""
+    """Assumed feeder cable: n parallel NAYY 4x240 so that 1.25 x rated current fits."""
     from math import ceil
 
     n = max(1, ceil(1.25 * rated_kva / KA_TO_KVA / CABLE["max_i_kA"]))
@@ -174,18 +199,52 @@ def _cable(rated_kva: float) -> dict:
 def build_network() -> dict[str, pd.DataFrame]:
     buses = [
         dict(
-            id="MV_10kV",
+            id=bid,
             nominal_voltage_V=10000,
             level="MV",
             building="",
-            x=0.0,
+            x=x,
             y=0.0,
             source="pdf-fig9",
         )
+        for bid, x in (("MV_Viranyos", -10.0), ("MV_10kV", 0.0))
     ]
-    lines, trafos = [], []
+    lines = [
+        dict(
+            id="L_MV_Viranyos",
+            from_bus="MV_Viranyos",
+            to_bus="MV_10kV",
+            length_km=VIRANYOS_LENGTH_KM,
+            **MV_CABLE_240,
+            source="drawing: Virányos infeed 3x240 mm2 Al, 10 km (XLPE std values)",
+        )
+    ]
+    trafos = []
     for ti, (tr, feeders) in enumerate(FEEDERS.items()):
         x0 = ti * 10.0
+        buses.append(
+            dict(
+                id=f"MV_{tr}",
+                nominal_voltage_V=10000,
+                level="MV",
+                building="",
+                x=x0,
+                y=-0.5,
+                source="drawing: 10 kV cell of the receiving station",
+            )
+        )
+        lines.append(
+            dict(
+                id=f"L_MV_{tr}",
+                from_bus="MV_10kV",
+                to_bus=f"MV_{tr}",
+                length_km=MV_FEED_KM[tr],
+                **MV_CABLE_150,
+                source="drawing: cell cable 3x150 mm2 Al (assumed size), length read "
+                "from the drawing"
+                + ("; cell-to-transformer mapping assumed" if tr == "T" else ""),
+            )
+        )
         buses.append(
             dict(
                 id=f"LV_{tr}",
@@ -200,7 +259,7 @@ def build_network() -> dict[str, pd.DataFrame]:
         trafos.append(
             dict(
                 id=f"TR_{tr}",
-                from_bus="MV_10kV",
+                from_bus=f"MV_{tr}",
                 to_bus=f"LV_{tr}",
                 type="kfki_1MVA",
                 sn_kVA=1000,
@@ -226,7 +285,7 @@ def build_network() -> dict[str, pd.DataFrame]:
                     to_bus=_feeder_bus(tr, fid),
                     length_km=DEFAULT_LENGTH_KM,
                     **_cable(ka * KA_TO_KVA),
-                    source="assumed (parallel NAYY 4x150 sized to 1.25 x Fig.10 current)",
+                    source=f"assumed (parallel {CABLE_NAME} sized to 1.25 x Fig.10 current)",
                 )
             )
     # battery feeder on 4/T bus (Line_NaS in Fig. 9)
@@ -248,7 +307,7 @@ def build_network() -> dict[str, pd.DataFrame]:
             to_bus="4T_nas",
             length_km=DEFAULT_LENGTH_KM,
             **_cable(250.0),
-            source="assumed (parallel NAYY 4x150 sized to the 250 kW NaS rating)",
+            source=f"assumed (parallel {CABLE_NAME} sized to the 250 kW NaS rating)",
         )
     )
     trafo_types = [
@@ -274,10 +333,10 @@ def build_network() -> dict[str, pd.DataFrame]:
             [
                 dict(
                     id="grid",
-                    bus="MV_10kV",
+                    bus="MV_Viranyos",
                     vm_pu=1.0,
-                    source="pdf-fig9 (Virányos feeder in service; "
-                    "Budaközép reserve open and not modelled)",
+                    source="pdf-fig9 (Virányos feeder in service, ideal source at its "
+                    "far end; Budaközép reserve open and not modelled)",
                 )
             ]
         ),
@@ -361,19 +420,22 @@ def build_assets() -> dict[str, pd.DataFrame]:
         )
         for f, b, s in PV_SITES
     ]
-    # Sites are in round-robin order: charger k sits at site k mod 4, so the sweep is
-    # nested (an additional charger only adds one at the next site).
-    ev_sites = [
-        dict(
-            id=f"ev_{f}",
-            bus=fbus(f),
-            building=b,
-            charger_kW=22.0,  # outlet rating, inferred from the 22 kW steps in the profiles
-            power_factor=1.0,
-            source="sites assumed; 22 kW from the profile data",
+    # One row per charger in the order of EV_SITES: charger k sits at row k mod 9, so the
+    # sweep is nested (an additional charger only adds one at the next row).
+    seen: dict[str, int] = {}
+    ev_sites = []
+    for f, b, note in EV_SITES:
+        seen[f] = seen.get(f, 0) + 1
+        ev_sites.append(
+            dict(
+                id=f"ev_{f}" if seen[f] == 1 else f"ev_{f}_{seen[f]}",
+                bus=fbus(f),
+                building=b,
+                charger_kW=22.0,  # outlet rating, inferred from the 22 kW steps in the profiles
+                power_factor=1.0,
+                source=f"{note}; sites assumed; 22 kW from the profile data",
+            )
         )
-        for f, b, _ in EV_SITES
-    ]
     # one demand profile (kW) per charger, from data/input/simulated_profile_*.csv
     ev_chargers = [
         dict(
