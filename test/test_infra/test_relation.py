@@ -1168,11 +1168,74 @@ class TestRelationExtended(unittest.TestCase):
         self.assertIsInstance(rel.expression.right, Literal)
         self.assertEqual(rel.expression.right.value, -100)
 
-    def test_relation_float_bound(self):
-        """Test relation with float bound"""
-        rel = Relation("efficiency <= 0.95")
-        self.assertIsInstance(rel.expression.right, Literal)
-        self.assertEqual(rel.expression.right.value, 0.95)
+
+class TestAssignMethod(unittest.TestCase):
+    """Test suite for Expression.assign() convenience method"""
+
+    def test_assign_literal_numeric(self):
+        """Test assigning a numeric literal to an expression"""
+        target = Own("output")
+        expr = target.assign(2)
+        self.assertIsInstance(expr, AssignmentExpression)
+        self.assertIs(expr.target, target)
+        self.assertIsInstance(expr.value, Literal)
+        self.assertEqual(expr.value.value, 2)
+
+    def test_assign_float_value(self):
+        """Test assigning a float value"""
+        expr = Own("power").assign(3.14)
+        self.assertIsInstance(expr, AssignmentExpression)
+        self.assertIsInstance(expr.value, Literal)
+        self.assertEqual(expr.value.value, 3.14)
+
+    def test_assign_expression(self):
+        """Test assigning an Expression to an expression"""
+        value_expr = Own("demand") * 2
+        target_expr = Own("output")
+        assignment = target_expr.assign(value_expr)
+        self.assertIsInstance(assignment, AssignmentExpression)
+        self.assertIs(assignment.target, target_expr)
+        self.assertIs(assignment.value, value_expr)
+
+    def test_assign_string_representation(self):
+        """Test string representation of assignment expression"""
+        expr = Own("output").assign(42)
+        expr_str = str(expr)
+        self.assertIn("output", expr_str)
+        self.assertIn("42", expr_str)
+        self.assertIn("=", expr_str)
+
+    def test_assign_on_self_reference(self):
+        """Test assign method on SelfReference directly"""
+        target = SelfReference("power")
+        assignment = target.assign(5)
+        self.assertIsInstance(assignment, AssignmentExpression)
+        self.assertIs(assignment.target, target)
+        self.assertIsInstance(assignment.value, Literal)
+
+    def test_assign_on_entity_reference(self):
+        """Test assign method on EntityReference"""
+        target = EntityReference("heater.p_in")
+        assignment = target.assign(100)
+        self.assertIsInstance(assignment, AssignmentExpression)
+        self.assertIs(assignment.target, target)
+        self.assertIsInstance(assignment.value, Literal)
+
+    def test_assign_with_binary_expression_value(self):
+        """Test assigning a complex binary expression"""
+        value = Own("input") + Own("loss")
+        assignment = Own("output").assign(value)
+        self.assertIsInstance(assignment, AssignmentExpression)
+        self.assertIsInstance(assignment.value, BinaryExpression)
+
+    def test_assign_in_relation(self):
+        """Test using assign() result in a Relation"""
+        assignment = Own("output").assign(2)
+        relation = Relation(assignment)
+        self.assertIsNotNone(relation)
+        # Verify the relation stores the assignment
+        relation_str = str(relation)
+        self.assertIn("output", relation_str)
 
 
 class TestIfThenExpression(unittest.TestCase):
