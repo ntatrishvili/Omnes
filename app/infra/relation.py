@@ -901,8 +901,87 @@ def Own(property_name: str, t: int = 0) -> SelfReference:
     Use Own("power") instead of the string "$.power" when building
     expressions programmatically. The returned object is a SelfReference
     instance with the given property name and optional time offset.
+
+    Parameters
+    ----------
+    property_name : str
+        The name of the property to reference (e.g., 'power', 'soc')
+    t : int, optional
+        Time offset relative to current time step. Default is 0.
+        Use negative values for past time steps (e.g., -1 for t-1).
+
+    Returns
+    -------
+    SelfReference
+        A self reference expression for use in Relations
     """
     return SelfReference(property_name, t)
+
+
+def If(condition: Expression, *, then: Expression) -> IfThenExpression:
+    """Convenience factory for if-then conditional expressions.
+
+    Use If(condition, then=consequence) instead of parsing string
+    "if condition then consequence" when building expressions programmatically.
+    The condition determines when the consequence applies.
+
+    Example
+    -------
+    # Old string-based syntax
+    Relation("if $.power < 0 then $.output = 2")
+
+    # New programmatic syntax with If factory
+    Relation(If(Own("power") < 0, then=AssignmentExpression(Own("output"), Literal(2))))
+
+    Parameters
+    ----------
+    condition : Expression
+        The condition to evaluate. Use comparison operators like <, <=, ==, !=, >, >=
+        which are defined in the Expression class.
+    then : Expression
+        The consequence that applies when the condition is true.
+        Must be passed as a keyword argument.
+
+    Returns
+    -------
+    IfThenExpression
+        An if-then conditional expression for use in Relations
+
+    Raises
+    ------
+    TypeError
+        If 'then' is not passed as a keyword argument (enforced by * in signature)
+    """
+    return IfThenExpression(condition, then)
+
+
+# --- Convenience factory for time condition expressions ---
+def Enabled(
+    entity_id: str, *, from_time: str, to_time: str, condition: str = "enabled"
+) -> TimeConditionExpression:
+    """Convenience factory for time-based enabled/disabled conditions.
+
+    Use Enabled("heater.power", from_time="09:00", to_time="17:00") instead of
+    the string "heater.power enabled from 09:00 to 17:00" when building
+    expressions programmatically.
+
+    Parameters
+    ----------
+    entity_id : str
+        The entity ID (e.g., 'heater1.p_in')
+    from_time : str
+        Start time in HH:MM format (e.g., '10:00'). Keyword-only argument.
+    to_time : str
+        End time in HH:MM format (e.g., '16:00'). Keyword-only argument.
+    condition : str, default='enabled'
+        The condition type ('enabled', 'disabled', etc.)
+
+    Returns
+    -------
+    TimeConditionExpression
+        A TimeConditionExpression representing the time-based constraint
+    """
+    return TimeConditionExpression(entity_id, condition, from_time, to_time)
 
 
 class Relation:

@@ -6,7 +6,9 @@ import pandas as pd
 from app.infra.relation import (
     AssignmentExpression,
     BinaryExpression,
+    Enabled,
     EntityReference,
+    If,
     IfThenExpression,
     Literal,
     Operator,
@@ -751,6 +753,144 @@ class TestTimeConditionExpressionExtended(unittest.TestCase):
         self.assertEqual(mock_converter.convert_time_condition_expression.call_count, 2)
 
 
+class TestEnabledFactory(unittest.TestCase):
+    """Tests for the Enabled() convenience factory function"""
+
+    def test_enabled_creates_time_condition_expression(self):
+        """Test that Enabled() returns a TimeConditionExpression instance"""
+        enabled_expr = Enabled("heater.power", from_time="09:00", to_time="17:00")
+        self.assertIsInstance(enabled_expr, TimeConditionExpression)
+
+    def test_enabled_sets_entity_id(self):
+        """Test that Enabled() correctly sets the entity_id"""
+        entity_id = "battery.discharge_power"
+        enabled_expr = Enabled(entity_id, from_time="08:00", to_time="18:00")
+        self.assertEqual(enabled_expr.entity, entity_id)
+
+    def test_enabled_sets_default_condition(self):
+        """Test that Enabled() defaults to 'enabled' condition"""
+        enabled_expr = Enabled("pump.power", from_time="10:00", to_time="16:00")
+        self.assertEqual(enabled_expr.condition, "enabled")
+
+    def test_enabled_sets_custom_condition(self):
+        """Test that Enabled() allows custom condition type"""
+        enabled_expr = Enabled(
+            "pump.power", from_time="10:00", to_time="16:00", condition="disabled"
+        )
+        self.assertEqual(enabled_expr.condition, "disabled")
+
+    def test_enabled_sets_start_time(self):
+        """Test that Enabled() correctly sets start time"""
+        start_time = "06:30"
+        enabled_expr = Enabled("device.power", from_time=start_time, to_time="22:00")
+        self.assertEqual(enabled_expr.start_time, start_time)
+
+    def test_enabled_sets_end_time(self):
+        """Test that Enabled() correctly sets end time"""
+        end_time = "14:45"
+        enabled_expr = Enabled("device.power", from_time="08:00", to_time=end_time)
+        self.assertEqual(enabled_expr.end_time, end_time)
+
+    def test_enabled_string_representation(self):
+        """Test string representation of Enabled() expression"""
+        enabled_expr = Enabled("heater.power", from_time="09:00", to_time="17:00")
+        expected_str = "(heater.power enabled from 09:00 to 17:00)"
+        self.assertEqual(str(enabled_expr), expected_str)
+
+    def test_enabled_string_representation_custom_condition(self):
+        """Test string representation with custom condition"""
+        enabled_expr = Enabled(
+            "device.p_in",
+            from_time="10:00",
+            to_time="14:00",
+            condition="inactive",
+        )
+        expected_str = "(device.p_in inactive from 10:00 to 14:00)"
+        self.assertEqual(str(enabled_expr), expected_str)
+
+    def test_enabled_get_ids(self):
+        """Test get_ids() returns entity ID"""
+        entity_id = "furnace.thermal_power"
+        enabled_expr = Enabled(entity_id, from_time="08:00", to_time="20:00")
+        ids = enabled_expr.get_ids()
+        self.assertEqual(ids, [entity_id])
+
+    def test_enabled_requires_from_time_keyword(self):
+        """Test that from_time must be passed as keyword argument"""
+        with self.assertRaises(TypeError):
+            # Trying to pass from_time as positional argument should fail
+            Enabled("device.power", "10:00", to_time="16:00")  # type: ignore
+
+    def test_enabled_requires_time_arguments_keyword(self):
+        """Test that from_time and to_time must be passed as keyword arguments"""
+        with self.assertRaises(TypeError):
+            # Trying to pass to_time as positional argument should fail
+            Enabled("device.power", "10:00", "16:00")  # type: ignore
+
+    def test_enabled_with_various_time_formats(self):
+        """Test Enabled() with various HH:MM time formats"""
+        test_cases = [
+            ("00:00", "23:59"),  # Midnight to just before midnight
+            ("06:00", "18:00"),  # Morning to evening
+            ("12:00", "13:00"),  # Single hour window
+            ("01:30", "22:45"),  # Non-standard minutes
+        ]
+
+        for start, end in test_cases:
+            with self.subTest(start=start, end=end):
+                enabled_expr = Enabled("device.power", from_time=start, to_time=end)
+                self.assertEqual(enabled_expr.start_time, start)
+                self.assertEqual(enabled_expr.end_time, end)
+
+    def test_enabled_with_complex_entity_ids(self):
+        """Test Enabled() with complex entity IDs"""
+        entity_ids = [
+            "battery1.p_out",
+            "pv_array.generation",
+            "grid_connection.p_import_max",
+            "heater_zone_a.p_in",
+        ]
+
+        for entity_id in entity_ids:
+            with self.subTest(entity_id=entity_id):
+                enabled_expr = Enabled(entity_id, from_time="10:00", to_time="14:00")
+                self.assertEqual(enabled_expr.entity, entity_id)
+
+    def test_enabled_programmatic_usage_in_relation(self):
+        """Test that Enabled() expression can be used in Relation"""
+        enabled_expr = Enabled("pump.power", from_time="08:00", to_time="20:00")
+        relation = Relation(enabled_expr)
+
+        # Relation should accept the expression and extract entity ID
+        self.assertIn("pump.power", relation.get_ids())
+
+    def test_enabled_disabled_condition(self):
+        """Test Enabled() with 'disabled' condition"""
+        disabled_expr = Enabled(
+            "device.power", from_time="22:00", to_time="06:00", condition="disabled"
+        )
+        self.assertEqual(disabled_expr.condition, "disabled")
+        self.assertIn("disabled", str(disabled_expr))
+
+    def test_enabled_convert_integration(self):
+        """Test that Enabled() expression can be converted with a mock converter"""
+        enabled_expr = Enabled("heater.power", from_time="09:00", to_time="17:00")
+
+        mock_converter = Mock()
+        mock_converter.convert_time_condition_expression.return_value = (
+            "converted_constraint"
+        )
+
+        mock_time_set = Mock()
+        mock_time_set.hex_id = "test_id"
+        mock_time_set.number_of_time_steps = 24
+        mock_time_set.time_points = pd.date_range("2024-01-01", periods=24, freq="h")
+
+        result = enabled_expr.convert(mock_converter, t=5, time_set=mock_time_set)
+        self.assertEqual(result, "converted_constraint")
+        mock_converter.convert_time_condition_expression.assert_called_once()
+
+
 class TestAssignmentExpressionExtended(unittest.TestCase):
     """Extended tests for AssignmentExpression"""
 
@@ -1096,6 +1236,409 @@ class TestAssignMethod(unittest.TestCase):
         # Verify the relation stores the assignment
         relation_str = str(relation)
         self.assertIn("output", relation_str)
+class TestIfThenExpression(unittest.TestCase):
+    """Tests for IfThenExpression"""
+
+    def test_if_then_str(self):
+        """Test string representation"""
+        condition = BinaryExpression(
+            EntityReference("a"), Operator.LESS_THAN, Literal(5)
+        )
+        consequence = BinaryExpression(
+            EntityReference("b"), Operator.GREATER_THAN, Literal(3)
+        )
+        expr = IfThenExpression(condition, consequence)
+        self.assertIn("if", str(expr))
+        self.assertIn("then", str(expr))
+
+    def test_if_then_get_ids(self):
+        """Test get_ids returns IDs from both condition and consequence"""
+        condition = EntityReference("sensor.temp")
+        consequence = EntityReference("heater.power")
+        expr = IfThenExpression(condition, consequence)
+        ids = expr.get_ids()
+        self.assertIn("sensor.temp", ids)
+        self.assertIn("heater.power", ids)
+
+    def test_if_then_convert_raises_not_implemented(self):
+        """Test that convert raises NotImplementedError"""
+        condition = Literal(1)
+        consequence = Literal(2)
+        expr = IfThenExpression(condition, consequence)
+        with self.assertRaises(NotImplementedError):
+            expr.convert(Mock(), t=0)
+
+
+class TestOwnFactory(unittest.TestCase):
+    """Test the Own() convenience factory for self references."""
+
+    def test_own_creates_self_reference(self):
+        """Test that Own() returns a SelfReference instance"""
+        ref = Own("power")
+        self.assertIsInstance(ref, SelfReference)
+
+    def test_own_sets_property_name(self):
+        """Test that Own() correctly sets the property name"""
+        ref = Own("soc")
+        self.assertEqual(ref.property_name, "soc")
+
+    def test_own_default_time_offset_zero(self):
+        """Test that Own() defaults to time offset of 0"""
+        ref = Own("power")
+        self.assertEqual(ref.time_offset, 0)
+
+    def test_own_custom_time_offset(self):
+        """Test that Own() accepts custom time offset"""
+        ref = Own("power", t=-1)
+        self.assertEqual(ref.time_offset, -1)
+
+    def test_own_positive_time_offset(self):
+        """Test that Own() accepts positive time offset"""
+        ref = Own("output", t=2)
+        self.assertEqual(ref.time_offset, 2)
+
+    def test_own_string_representation(self):
+        """Test Own() expression string representation"""
+        ref = Own("power")
+        self.assertIn("power", str(ref))
+        self.assertIn("$.", str(ref))
+
+    def test_own_string_with_time_offset(self):
+        """Test Own() string representation with time offset"""
+        ref = Own("power", t=-1)
+        self.assertIn("power", str(ref))
+        self.assertIn("t-1", str(ref))
+
+    def test_own_get_ids_self_reference(self):
+        """Test Own() get_ids returns self reference marker"""
+        ref = Own("power")
+        ids = ref.get_ids()
+        self.assertEqual(ids, ["$"])
+
+    def test_own_in_relation(self):
+        """Test Own() expression used in Relation"""
+        ref = Own("power")
+        rel = Relation(ref < 10)
+        self.assertIsInstance(rel.expression, BinaryExpression)
+
+    def test_own_in_binary_expression(self):
+        """Test Own() in binary expression operations"""
+        ref = Own("power")
+        expr = ref + 5
+        self.assertIsInstance(expr, BinaryExpression)
+        self.assertEqual(expr.operator, Operator.ADD)
+
+    def test_own_in_comparison(self):
+        """Test Own() in comparison operations"""
+        ref = Own("power")
+        expr = ref >= 10
+        self.assertIsInstance(expr, BinaryExpression)
+        self.assertEqual(expr.operator, Operator.GREATER_THAN_OR_EQUAL)
+
+    def test_own_multiple_instances_independent(self):
+        """Test that multiple Own() instances are independent"""
+        ref1 = Own("power")
+        ref2 = Own("soc")
+        self.assertNotEqual(ref1.property_name, ref2.property_name)
+
+    def test_own_various_property_names(self):
+        """Test Own() with various property names"""
+        properties = ["power", "soc", "efficiency", "max_power", "min_output"]
+        for prop in properties:
+            ref = Own(prop)
+            self.assertEqual(ref.property_name, prop)
+
+
+class TestIfFactory(unittest.TestCase):
+    """Test the If() convenience factory for if-then conditional expressions."""
+
+    def test_if_creates_if_then_expression(self):
+        """Test that If() returns an IfThenExpression instance"""
+        condition = Own("power") < 10
+        consequence = Literal(2)
+        expr = If(condition, then=consequence)
+        self.assertIsInstance(expr, IfThenExpression)
+
+    def test_if_stores_condition(self):
+        """Test that If() correctly stores the condition"""
+        condition = Own("power") < 10
+        consequence = Literal(2)
+        expr = If(condition, then=consequence)
+        self.assertIs(expr.condition, condition)
+
+    def test_if_stores_consequence(self):
+        """Test that If() correctly stores the consequence"""
+        condition = Own("power") < 10
+        consequence = Literal(2)
+        expr = If(condition, then=consequence)
+        self.assertIs(expr.consequence, consequence)
+
+    def test_if_consequence_as_positional_raises(self):
+        """Test that If() enforces then= as keyword argument"""
+        condition = Own("power") < 10
+        consequence = Literal(2)
+        # Attempting to pass consequence as positional should fail
+        with self.assertRaises(TypeError):
+            If(condition, consequence)
+
+    def test_if_string_representation(self):
+        """Test If() expression string representation"""
+        condition = Own("power") < 10
+        consequence = Literal(2)
+        expr = If(condition, then=consequence)
+        expr_str = str(expr)
+        self.assertIn("if", expr_str)
+        self.assertIn("then", expr_str)
+        self.assertIn("<", expr_str)
+
+    def test_if_with_self_reference_condition(self):
+        """Test If() with self reference in condition"""
+        condition = Own("power") < 0
+        consequence = Own("output")
+        expr = If(condition, then=consequence)
+        self.assertIsInstance(expr, IfThenExpression)
+        ids = expr.get_ids()
+        self.assertEqual(ids, ["$"])
+
+    def test_if_with_entity_reference_condition(self):
+        """Test If() with entity reference in condition"""
+        condition = EntityReference("sensor.temp") > 25
+        consequence = EntityReference("heater.power")
+        expr = If(condition, then=consequence)
+        ids = expr.get_ids()
+        self.assertIn("sensor.temp", ids)
+        self.assertIn("heater.power", ids)
+
+    def test_if_with_comparison_operators(self):
+        """Test If() with various comparison operators"""
+        operators_to_test = [
+            (Own("power") < 10, "less than"),
+            (Own("power") <= 10, "less than or equal"),
+            (Own("power") > 10, "greater than"),
+            (Own("power") >= 10, "greater than or equal"),
+            (Own("power") == 10, "equal"),
+            (Own("power") != 10, "not equal"),
+        ]
+        for condition, desc in operators_to_test:
+            expr = If(condition, then=Literal(0))
+            self.assertIsInstance(expr, IfThenExpression)
+
+    def test_if_with_arithmetic_condition(self):
+        """Test If() with arithmetic in condition"""
+        condition = (Own("power") + 5) > 10
+        consequence = Literal(1)
+        expr = If(condition, then=consequence)
+        self.assertIsInstance(expr, IfThenExpression)
+
+    def test_if_with_complex_consequence(self):
+        """Test If() with complex consequence expression"""
+        condition = Own("power") < 0
+        consequence = Own("output") + 10
+        expr = If(condition, then=consequence)
+        self.assertIsInstance(expr, IfThenExpression)
+
+    def test_if_with_time_offset_condition(self):
+        """Test If() with time offset in condition"""
+        condition = Own("soc", t=-1) < 0.5
+        consequence = Literal(100)
+        expr = If(condition, then=consequence)
+        ids = expr.get_ids()
+        self.assertEqual(ids, ["$"])
+
+    def test_if_get_ids_from_condition_and_consequence(self):
+        """Test If() get_ids combines IDs from both condition and consequence"""
+        condition = EntityReference("device1.power") < 10
+        consequence = EntityReference("device2.output")
+        expr = If(condition, then=consequence)
+        ids = expr.get_ids()
+        self.assertIn("device1.power", ids)
+        self.assertIn("device2.output", ids)
+
+    def test_if_in_relation(self):
+        """Test If() expression used in Relation constructor"""
+        condition = Own("power") < 0
+        consequence = Literal(2)
+        if_expr = If(condition, then=consequence)
+        rel = Relation(if_expr)
+        self.assertIsInstance(rel.expression, IfThenExpression)
+
+    def test_if_relation_string_representation(self):
+        """Test If() expression in Relation gets proper string representation"""
+        condition = Own("power") < 0
+        consequence = Literal(2)
+        if_expr = If(condition, then=consequence)
+        rel = Relation(if_expr)
+        rel_str = str(rel)
+        self.assertIn("if", rel_str)
+        self.assertIn("then", rel_str)
+
+    def test_if_multiple_levels(self):
+        """Test If() with nested conditions (if-then in consequence)"""
+        inner_condition = Own("power") > 10
+        inner_consequence = Literal(2)
+        inner_if = If(inner_condition, then=inner_consequence)
+        outer_condition = Own("soc") < 0.5
+        outer_expr = If(outer_condition, then=inner_if)
+        self.assertIsInstance(outer_expr, IfThenExpression)
+
+    def test_if_with_literal_condition(self):
+        """Test If() with Literal condition (edge case)"""
+        condition = Literal(1)
+        consequence = Literal(2)
+        expr = If(condition, then=consequence)
+        self.assertIsInstance(expr, IfThenExpression)
+
+    def test_if_convert_not_implemented(self):
+        """Test that If() expression convert raises NotImplementedError"""
+        condition = Own("power") < 0
+        consequence = Literal(2)
+        expr = If(condition, then=consequence)
+        with self.assertRaises(NotImplementedError):
+            expr.convert(Mock(), t=0)
+
+    def test_if_consequence_without_then_keyword_raises(self):
+        """Test that If() specifically requires 'then' keyword"""
+        condition = Own("power") < 10
+        consequence = Literal(2)
+        # Using wrong keyword should fail
+        with self.assertRaises(TypeError):
+            If(condition, consequence=consequence)
+
+    def test_if_complex_real_world_example(self):
+        """Test If() with a realistic use case"""
+        # If heater power is negative, output should be 2
+        condition = Own("power") < 0
+        consequence = AssignmentExpression(Own("output"), Literal(2))
+        expr = If(condition, then=consequence)
+        rel = Relation(expr, name="heater_logic")
+        self.assertEqual(rel.name, "heater_logic")
+        self.assertIsInstance(rel.expression, IfThenExpression)
+
+
+class TestExpressionBooleanPrevention(unittest.TestCase):
+    """Test that Expression.__bool__ and __len__ prevent truthiness evaluation."""
+
+    def test_entity_reference_bool_raises_typeerror(self):
+        """Test that bool(EntityReference(...)) raises TypeError"""
+        expr = EntityReference("battery.power")
+        with self.assertRaises(TypeError) as context:
+            bool(expr)
+
+        self.assertIn("cannot be used as booleans", str(context.exception))
+
+    def test_self_reference_bool_raises_typeerror(self):
+        """Test that bool(SelfReference(...)) raises TypeError"""
+        expr = SelfReference("power")
+        with self.assertRaises(TypeError) as context:
+            bool(expr)
+
+        self.assertIn("cannot be used as booleans", str(context.exception))
+
+    def test_literal_bool_raises_typeerror(self):
+        """Test that bool(Literal(...)) raises TypeError"""
+        expr = Literal(42)
+        with self.assertRaises(TypeError) as context:
+            bool(expr)
+
+        self.assertIn("cannot be used as booleans", str(context.exception))
+
+    def test_binary_expression_bool_raises_typeerror(self):
+        """Test that bool(BinaryExpression(...)) raises TypeError"""
+        expr = EntityReference("x") + 5
+        with self.assertRaises(TypeError) as context:
+            bool(expr)
+
+        self.assertIn("cannot be used as booleans", str(context.exception))
+
+    def test_if_conditional_with_expression_raises_typeerror(self):
+        """Test that using expression in if statement raises TypeError"""
+        expr = EntityReference("x") > 5
+        with self.assertRaises(TypeError):
+            if expr:
+                pass
+
+    def test_entity_reference_len_raises_typeerror(self):
+        """Test that len(EntityReference(...)) raises TypeError"""
+        expr = EntityReference("battery.power")
+        with self.assertRaises(TypeError) as context:
+            len(expr)
+
+        self.assertIn("truth value", str(context.exception).lower())
+
+    def test_while_loop_with_expression_raises_typeerror(self):
+        """Test that using expression in while loop raises TypeError"""
+        expr = EntityReference("sensor.value")
+        with self.assertRaises(TypeError):
+            while expr:
+                break
+
+    def test_not_operator_with_expression_raises_typeerror(self):
+        """Test that 'not expression' raises TypeError"""
+        expr = EntityReference("flag")
+        with self.assertRaises(TypeError):
+            not expr
+
+    def test_and_operator_with_expression_raises_typeerror(self):
+        """Test that 'expression and ...' raises TypeError"""
+        expr = EntityReference("x")
+        with self.assertRaises(TypeError):
+            expr and True
+
+    def test_or_operator_with_expression_raises_typeerror(self):
+        """Test that 'expression or ...' raises TypeError"""
+        expr = EntityReference("x")
+        with self.assertRaises(TypeError):
+            expr or False
+
+    def test_comparison_result_also_raises_typeerror(self):
+        """Test that results of comparison operations also raise TypeError in boolean context"""
+        comparison_expr = EntityReference("x") < 10
+        with self.assertRaises(TypeError):
+            bool(comparison_expr)
+
+    def test_arithmetic_result_also_raises_typeerror(self):
+        """Test that results of arithmetic operations also raise TypeError in boolean context"""
+        arithmetic_expr = EntityReference("x") * 2 + 5
+        with self.assertRaises(TypeError):
+            bool(arithmetic_expr)
+
+    def test_assignment_expression_bool_raises_typeerror(self):
+        """Test that bool(AssignmentExpression(...)) raises TypeError"""
+        # AssignmentExpression is created via string parsing or direct instantiation
+        expr = AssignmentExpression(EntityReference("output"), Literal(2))
+        with self.assertRaises(TypeError):
+            bool(expr)
+
+    def test_if_then_expression_bool_raises_typeerror(self):
+        """Test that bool(IfThenExpression(...)) raises TypeError"""
+        condition = EntityReference("x") > 0
+        consequence = Literal(1)
+        expr = IfThenExpression(condition, consequence)
+        with self.assertRaises(TypeError):
+            bool(expr)
+
+    def test_bool_error_message_explains_issue(self):
+        """Test that __bool__ error message explains the issue and suggests solution"""
+        expr = EntityReference("power")
+        try:
+            bool(expr)
+            self.fail("Expected TypeError")
+        except TypeError as e:
+            error_msg = str(e)
+            # Verify the error message is informative
+            self.assertIn("Expression", error_msg)
+            self.assertIn("cannot be used as booleans", error_msg)
+
+    def test_len_error_message_explains_issue(self):
+        """Test that __len__ error message explains the issue"""
+        expr = EntityReference("power")
+        try:
+            len(expr)
+            self.fail("Expected TypeError")
+        except TypeError as e:
+            error_msg = str(e)
+            # Verify the error message is informative
+            self.assertIn("truth value", error_msg.lower())
 
 
 if __name__ == "__main__":
