@@ -1236,6 +1236,8 @@ class TestAssignMethod(unittest.TestCase):
         # Verify the relation stores the assignment
         relation_str = str(relation)
         self.assertIn("output", relation_str)
+
+
 class TestIfThenExpression(unittest.TestCase):
     """Tests for IfThenExpression"""
 
